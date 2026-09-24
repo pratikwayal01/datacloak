@@ -1,0 +1,9 @@
+{
+  "name": "@pratikw/datacloak",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "datacloak": "dist/cli.js" },
+  "scripts": { "build": "tsc", "test": "vitest run" },
+  "dependencies": { "@pratikw/detect": "*" },
+  "devDependencies": { "typescript": "~5.6.3", "vitest": "^3.0.0" }
+}
