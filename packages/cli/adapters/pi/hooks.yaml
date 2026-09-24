@@ -10,3 +10,8 @@ hooks:
     actions:
       - bash: ~/.pi/agent/hook/guard.sh
         action: modify
+  - id: datacloak-tool-observe
+    event: tool.after.*
+    # observe-only: stdout becomes context; cannot block the call here
+    actions:
+      - bash: ~/.pi/agent/hook/observe.sh
