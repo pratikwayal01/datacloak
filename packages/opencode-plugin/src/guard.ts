@@ -3,7 +3,7 @@ import type { ResolvedConfig } from './config.js';
 const BASH_PATTERNS: { re: RegExp; reason: string }[] = [
   { re: /cat\s+[^\n]*\.env\b/, reason: 'reads .env file' },
   { re: /(^|[;&|]\s*)printenv\b/, reason: 'dumps environment' },
-  { re: /(^|[;&|]\s*)env\s*\|/, reason: 'pipes environment' },
+  { re: /(^|[;&|]\s*)env\b/, reason: 'dumps environment' },
   { re: /echo\s+\$[A-Za-z_][A-Za-z0-9_]*/, reason: 'echoes secret variable' },
   { re: /~\/\.ssh\//, reason: 'reads ssh directory' },
   { re: /~\/\.aws\/credentials/, reason: 'reads aws credentials' },

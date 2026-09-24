@@ -11,6 +11,7 @@ describe('shouldBlock', () => {
   it('denies printenv and env pipes', () => {
     expect(shouldBlock('bash', { command: 'printenv | grep KEY' }, cfg)).toBeTruthy();
     expect(shouldBlock('bash', { command: 'env | grep SECRET' }, cfg)).toBeTruthy();
+    expect(shouldBlock('bash', { command: 'env' }, cfg)).toBeTruthy();
   });
   it('denies echo of $VAR and ssh reads', () => {
     expect(shouldBlock('bash', { command: 'echo $AWS_SECRET' }, cfg)).toBeTruthy();
