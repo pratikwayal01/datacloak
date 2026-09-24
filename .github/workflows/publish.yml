@@ -1,0 +1,31 @@
+name: publish-detect
+
+on:
+  push:
+    tags:
+      - 'detect-v*'
+
+permissions:
+  contents: read
+  id-token: write   # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/detect
+      - run: npm test --workspace packages/detect
+      - name: tag must match package version
+        run: |
+          PKG="v$(node -p "require('./packages/detect/package.json').version")"
+          test "${GITHUB_REF_NAME#detect-}" = "$PKG" || { echo "tag ${GITHUB_REF_NAME} != package $PKG"; exit 1; }
+      - run: npm publish --workspace packages/detect --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

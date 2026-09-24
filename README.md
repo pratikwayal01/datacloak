@@ -54,9 +54,35 @@ No account, no server, no network calls. Everything runs in-process.
 ## Installation
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/pratikwayal01/datacloak/master/install.sh | bash
+```
+
+Or with npm directly:
+
+```bash
+npm install -g @datacloak/detect   # needs node >= 18
+```
+
+From source:
+
+```bash
+git clone https://github.com/pratikwayal01/datacloak.git && cd datacloak
 npm install              # workspaces: packages/*
 npm run build --workspace packages/detect   # tsc → packages/detect/dist/
 npm test --workspace packages/detect        # 28 tests
+```
+
+## Publishing
+
+Releases go out via the [`publish-detect`](.github/workflows/publish.yml)
+workflow. One-time setup: add an npm classic token as the repo secret
+`NPM_TOKEN`, and make sure you own the `@datacloak` npm scope
+(or rename the package). Then:
+
+```bash
+# bump version in packages/detect/package.json, then:
+git tag detect-v0.1.0 && git push origin detect-v0.1.0
+# CI builds, tests, checks tag == package version, publishes with provenance
 ```
 
 ## Quick start

@@ -4,7 +4,14 @@
   "type": "module",
   "main": "dist/engine.js",
   "types": "dist/engine.d.ts",
-  "scripts": { "build": "tsc", "test": "vitest run" },
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratikwayal01/datacloak.git",
+    "directory": "packages/detect"
+  },
+  "scripts": { "build": "tsc", "test": "vitest run", "prepublishOnly": "npm run build && npm test" },
   "dependencies": { "@faker-js/faker": "^10.6.0" },
   "devDependencies": { "typescript": "~5.6.3", "vitest": "^3.0.0" }
 }
