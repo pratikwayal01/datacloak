@@ -4,6 +4,6 @@
   "type": "module",
   "bin": { "datacloak": "dist/cli.js" },
   "scripts": { "build": "tsc", "test": "vitest run" },
-  "dependencies": { "@pratikw/detect": "*" },
+  "dependencies": { "@pratikw/detect": "*", "@pratikw/opencode-plugin": "*" },
   "devDependencies": { "typescript": "~5.6.3", "vitest": "^3.0.0" }
 }

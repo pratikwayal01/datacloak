@@ -1,0 +1,12 @@
+hooks:
+  - id: datacloak-prompt-scan
+    event: user.prompt.submit
+    actions:
+      # scan only: stdout becomes same-turn system context; cannot block here
+      - bash: echo "[datacloak] prompt scanned via 'datacloak scan'; secrets must not be repeated"
+  - id: datacloak-tool-guard
+    event: tool.before.*
+    # guard.sh: exit 2 blocks the call; stdout {"tool_args": {...}} rewrites it (action: modify)
+    actions:
+      - bash: ~/.pi/agent/hook/guard.sh
+        action: modify

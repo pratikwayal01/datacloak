@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# datacloak aider pre-commit hook: scans staged content via `datacloak scan` from PATH.
+# Install: cp adapters/aider/pre-commit .git/hooks/pre-commit (or enable via pre-commit config).
+# Exit 2 blocks the commit when a possible secret is staged. Fails open on scan errors.
+set -euo pipefail
+if git diff --cached --name-only -z | xargs -0 -r -I{} git show :{} 2>/dev/null | datacloak scan --quiet; then
+  exit 0
+else
+  code=$?
+  if [ "$code" -eq 2 ]; then
+    echo "datacloak: possible secret in staged changes — commit blocked" >&2
+    echo "  cloak it first ('datacloak cloak') or unstage the file" >&2
+    exit 2
+  fi
+fi
+exit 0
