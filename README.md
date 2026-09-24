@@ -1,5 +1,6 @@
 # DataCloak — swap real secrets for fakes before AI ever sees them
 
+![npm](https://img.shields.io/npm/v/@pratikw/detect)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
 ![Stage](https://img.shields.io/badge/stage-detect_MVP-green)
 ![Tests](https://img.shields.io/badge/tests-28_passing-brightgreen)
@@ -25,25 +26,30 @@ restore(/* model reply with synthetics */)
 
 ## Contents
 
-- [Status](#status) · [Requirements](#requirements) · [Installation](#installation)
-- [Quick start](#quick-start) · [Testing](#testing) · [Honest gaps](#honest-gaps)
-- [Architecture](#architecture) · [Contributing](#contributing) · [License](#license)
+- [Status](#status) · [What it detects](#what-it-detects) · [Requirements](#requirements)
+- [Installation](#installation) · [Quick start](#quick-start) · [Guarantees](#guarantees)
+- [Testing](#testing) · [Honest gaps](#honest-gaps) · [Architecture](#architecture)
+- [Publishing](#publishing) · [Contributing](#contributing) · [License](#license)
 - [Further reading](#further-reading)
 
 ## Status
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | `@pratikw/detect` — secrets + credentials + PII detection, Faker synthesis, vault, `detect/cloak/restore` | ✅ Done |
+| 1 | `@pratikw/detect` — detection engine, Faker synthesis, vault, `detect/cloak/restore` | ✅ Done |
 | 2 | OpenCode plugin — 5 hooks, `/datacloak` command, JSON config | ⬜ Next |
 | 3 | Browser extension — Chrome/Edge MV3, auto-cloak, session vault, response restore | ⬜ Planned |
 | 4 | NER (`detect-ner`, ONNX) — names, addresses, DOB | ⬜ Planned |
 | 5 | Teams + CI (`datacloak scan`, shared config, VS Code) | ⬜ Planned |
 
-Detection MVP covers: OpenAI / Anthropic / AWS / GitHub / Stripe keys, JWT,
-PEM blocks, env `KEY=value` (50+ key names), DSNs (postgres, mongo, redis,
-mysql, amqp), inline JSON/YAML secrets, email, US + E.164 phones, IPv4,
-high-entropy strings.
+## What it detects
+
+| Category | Coverage |
+|----------|----------|
+| API keys | OpenAI, Anthropic, AWS, GitHub PAT, Stripe |
+| Tokens | JWT, PEM private keys, high-entropy strings (Shannon ≥ 4.5) |
+| Credentials | Env `KEY=value` (50+ key names), DSNs (postgres, mongo, redis, mysql, amqp), inline JSON/YAML secrets |
+| PII | Email, US + E.164 phones, IPv4 |
 
 ## Requirements
 
@@ -53,6 +59,8 @@ No account, no server, no network calls. Everything runs in-process.
 
 ## Installation
 
+One-liner:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pratikwayal01/datacloak/master/install.sh | bash
 ```
@@ -60,34 +68,22 @@ curl -fsSL https://raw.githubusercontent.com/pratikwayal01/datacloak/master/inst
 Or with npm directly:
 
 ```bash
-npm install -g @pratikw/detect   # needs node >= 18
+npm install -g @pratikw/detect
 ```
 
 From source:
 
 ```bash
 git clone https://github.com/pratikwayal01/datacloak.git && cd datacloak
-npm install              # workspaces: packages/*
+npm install
 npm run build --workspace packages/detect   # tsc → packages/detect/dist/
 npm test --workspace packages/detect        # 28 tests
-```
-
-## Publishing
-
-Releases go out via the [`publish-detect`](.github/workflows/publish.yml)
-workflow. One-time setup: add an npm classic token as the repo secret
-`NPM_TOKEN` with publish rights on the `@pratikw` scope. Then:
-
-```bash
-# bump version in packages/detect/package.json, then:
-git tag detect-v0.1.1 && git push origin detect-v0.1.1
-# CI builds, tests, checks tag == package version, publishes with provenance
 ```
 
 ## Quick start
 
 ```js
-import { DataCloakEngine } from './packages/detect/dist/engine.js';
+import { DataCloakEngine } from '@pratikw/detect';
 
 const cloak = new DataCloakEngine();
 
@@ -103,18 +99,26 @@ const back = cloak.restore(modelReply);
 // → { text: '...db.prod.acme.com...', restored: 2 }
 ```
 
-Rules that hold every call: same original → same synthetic within a session
-(consistent identity); synthetic secrets carry a `SYNTH` infix (visually
-identifiable, service-invalid); unknown formats fall back to opaque
-`[CATEGORY_XXXXXX]` tokens; custom regex patterns supported with loud
-load-time validation.
+(From source, import from `'./packages/detect/dist/engine.js'` instead.)
+
+## Guarantees
+
+Rules that hold on every call:
+
+- **Consistent identity** — same original → same synthetic within a session.
+- **Service-invalid fakes** — synthetic secrets carry a `SYNTH` infix:
+  structurally valid, visually identifiable, fail authentication.
+- **Key names preserved** — env vars and DSNs keep protocol, port, path
+  and key names; only secret values are faked.
+- **Safe fallback** — unknown formats become opaque `[CATEGORY_XXXXXX]` tokens.
+- **Extensible** — custom regex patterns with loud load-time validation.
+- **Local only** — the vault is in-memory, never written to disk.
 
 ## Testing
 
 ```bash
 npm test --workspace packages/detect
-# test/vault.test.ts, patterns.test.ts, entropy.test.ts,
-# test/synthesizers.test.ts, test/engine.test.ts — 28/28 green
+# vault, patterns, entropy, synthesizers, engine — 5 suites, 28/28 green
 ```
 
 - Corpus recall: 39/39 labeled samples (100%, gate ≥ 95%) — `test/corpus.jsonl`
@@ -153,18 +157,29 @@ longest-match de-overlap, then an entropy sweep for anything the patterns
 missed. Synthesis is per-category Faker calls; the vault maps
 `synthetic ↔ original` in memory only — never written to disk.
 
+## Publishing
+
+Maintainer-only. Releases go out via the
+[`publish-detect`](.github/workflows/publish.yml) workflow
+(repo secret `NPM_TOKEN` needs publish rights on the `@pratikw` scope):
+
+```bash
+# bump version in packages/detect/package.json, then:
+git tag detect-v0.1.1 && git push origin detect-v0.1.1
+# CI builds, tests, checks tag == package version, publishes with provenance
+```
+
 ## Contributing
 
 Design-then-plan-then-build: spec docs live in `docs/superpowers/specs/`,
 implementation plans in `docs/superpowers/plans/` — one written plan per
-slice before code. Per-task review (spec + quality) gates every change;
-the ledger for this slice is in git history (`feat/detect-engine-mvp`).
+slice before code. Per-task review (spec + quality) gates every change.
 Threat model → `.opencode/datacloak-prd.md` §11 (read it before touching
 detection semantics).
 
 ## License
 
-MIT — see [LICENSE](LICENSE) (planned; no file yet — all rights reserved by default until added).
+MIT — see [LICENSE](LICENSE).
 
 ## Further reading
 
