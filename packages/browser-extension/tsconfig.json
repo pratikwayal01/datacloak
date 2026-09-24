@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "nodenext", "moduleResolution": "nodenext",
+    "strict": true, "outDir": "dist", "rootDir": "src", "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"], "types": ["vitest/globals"]
+  },
+  "include": ["src"]
+}
