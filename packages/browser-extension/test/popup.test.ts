@@ -4,6 +4,7 @@ import {
   countsFromResponse,
   renderPopup,
   summarize,
+  vaultEntriesFromSession,
   type Mode,
   type PopupStorage,
   type VaultEntry,
@@ -71,6 +72,20 @@ describe('popup vault rendering', () => {
     await renderPopup(document, { storage: fakeStorage('auto', []), onExport: () => {} });
     expect(document.getElementById('dc-counts')?.textContent).toContain('0');
     expect(document.getElementById('dc-vault')?.textContent).toMatch(/nothing cloaked/i);
+  });
+  it('skips malformed vault:* keys, renders good rows, no throw', async () => {
+    const got = vaultEntriesFromSession({
+      'vault:1': { vault: [['s1@x.net', 'o1@acme.com', 'EMAIL'], ['bad'], [1, 2, 3], 'nope', null] },
+      'vault:2': 'garbage-string',
+      'vault:3': null,
+      'vault:4': { novault: [] },
+      other: { vault: [['s2@x.net', 'o2@acme.com', 'EMAIL']] },
+    });
+    expect(got).toEqual([{ synthetic: 's1@x.net', original: 'o1@acme.com', category: 'EMAIL' }]);
+    skeleton();
+    await renderPopup(document, { storage: fakeStorage('auto', got), onExport: () => {} });
+    expect(document.querySelectorAll('#dc-vault .dc-row')).toHaveLength(1);
+    expect(document.getElementById('dc-counts')?.textContent).toContain('1');
   });
 });
 

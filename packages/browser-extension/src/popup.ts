@@ -88,6 +88,22 @@ export async function renderPopup(doc: Document, deps: RenderDeps): Promise<void
   });
 }
 
+// Shape-guarded: one malformed vault:* key must not throw the whole popup.
+export function vaultEntriesFromSession(all: Record<string, unknown>): VaultEntry[] {
+  const out: VaultEntry[] = [];
+  for (const [k, v] of Object.entries(all)) {
+    if (!k.startsWith('vault:')) continue;
+    if (typeof v !== 'object' || v === null) continue;
+    const rows = (v as { vault?: unknown }).vault;
+    if (!Array.isArray(rows)) continue;
+    for (const r of rows) {
+      if (!Array.isArray(r) || r.length !== 3 || !r.every((s) => typeof s === 'string')) continue;
+      const [synthetic, original, category] = r as [string, string, string];
+      out.push({ synthetic, original, category });
+    }
+  }
+  return out;
+}
 // Production wiring (no-op under test — chrome undefined there)
 declare const chrome: {
   storage: {
@@ -109,13 +125,7 @@ if (typeof chrome !== 'undefined' && chrome?.storage) {
   const storage: PopupStorage = {
     getMode: async () => ((await chrome.storage.sync.get('dc-mode'))['dc-mode'] as Mode) ?? 'auto',
     setMode: async (m) => { await chrome.storage.sync.set({ 'dc-mode': m }); },
-    getVault: async () => {
-      const all = await chrome.storage.session.get(null);
-      return Object.entries(all)
-        .filter(([k]) => k.startsWith('vault:'))
-        .flatMap(([, v]) => (v as { vault: [string, string, string][] }).vault
-          .map(([synthetic, original, category]) => ({ synthetic, original, category })));
-    },
+    getVault: async () => vaultEntriesFromSession(await chrome.storage.session.get(null)),
   };
   document.addEventListener('DOMContentLoaded', () => {
     void renderPopup(document, { storage, onExport: download });
