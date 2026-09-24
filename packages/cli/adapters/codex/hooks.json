@@ -1,0 +1,1 @@
+{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"./.codex/guard.sh"}],"matcher":"Bash"}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"./.codex/guard.sh"}]}]}}
