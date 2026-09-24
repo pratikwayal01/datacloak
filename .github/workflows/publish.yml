@@ -1,9 +1,8 @@
 name: publish-detect
 
 on:
-  push:
-    tags:
-      - 'detect-v*'
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -11,6 +10,7 @@ permissions:
 
 jobs:
   publish:
+    if: startsWith(github.event.release.tag_name, 'detect-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,10 +22,10 @@ jobs:
       - run: npm ci
       - run: npm run build --workspace packages/detect
       - run: npm test --workspace packages/detect
-      - name: tag must match package version
+      - name: release tag must match package version
         run: |
-          PKG="v$(node -p "require('./packages/detect/package.json').version")"
-          test "${GITHUB_REF_NAME#detect-}" = "$PKG" || { echo "tag ${GITHUB_REF_NAME} != package $PKG"; exit 1; }
+          PKG="detect-v$(node -p "require('./packages/detect/package.json').version")"
+          test "${{ github.event.release.tag_name }}" = "$PKG" || { echo "release tag ${{ github.event.release.tag_name }} != package $PKG"; exit 1; }
       - run: npm publish --workspace packages/detect --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

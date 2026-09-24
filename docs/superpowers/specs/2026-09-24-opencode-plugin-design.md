@@ -34,21 +34,23 @@ ctx.tool.hook("execute.after")    # mutate event.result/output (redact)
   Medium-confidence hits append `[DataCloak: N possible secrets redacted]`.
   Fail-CLOSED: on exception replace output with safe error message.
 
-## 4. Response restore (known limitation)
+## 4. Response restore (automatic, write-path)
 
-v2 exposes no response-mutation hook, so TUI auto-restore is impossible.
-Restore path: `/datacloak restore <text>` command + `vault` / `reveal`
-viewers. Mitigation: request hook re-cloaks any originals that leak into
-later-turn history, so the model never sees them twice.
+No slash commands, no manual step: everything auto-invokes. Cloaking fires
+on the first entry point (session.request) with zero user action.
+Restore fires on the last exit point: `execute.before` on file-writing tools
+(`write`, `edit`, `create`) replaces known synthetics with originals in file
+content args, so files on disk always carry real values while the model only
+ever saw fakes. TUI display of model replies may still show synthetic values
+(no response-mutation hook exists in v2) — documented limitation, data-safe
+by default.
 
-## 5. Commands (`/datacloak <sub>`)
+## 5. No command surface
 
-status (rules, vault size, session counts), vault (synthetics + blurred
-originals + categories), reveal <synthetic> (confirm-gated), restore <text>,
-clear, test <text> (dry-run), config (resolved config). Via v2 command API —
-implementer verifies exact registration signature against installed .d.ts
-before coding; if commands API differs, fall back to a single `datacloak`
-tool with subcommand arg.
+Deliberately no `/datacloak` command: the plugin is invisible when nothing
+sensitive is present. Only signals: startup log line (active rules, vault
+capacity) and a session summary in the returned message metadata where the
+SDK allows. Vault inspection happens via unit-testable pure functions, not UI.
 
 ## 6. Config (priority order)
 
@@ -63,12 +65,13 @@ vault.maxEntries, notifications).
 packages/opencode-plugin/
   package.json   # @pratikw/opencode-plugin, workspace dep @pratikw/detect + @opencode-ai/plugin
   tsconfig.json
-  src/{index.ts,hooks.ts,guard.ts,config.ts,commands.ts}
-  test/{hooks.test.ts,guard.test.ts,config.test.ts,commands.test.ts}
+  src/{index.ts,hooks.ts,guard.ts,config.ts}
+  test/{hooks.test.ts,guard.test.ts,config.test.ts}
 ```
 
 `guard.ts`: pure blocklist matchers (testable without SDK). `hooks.ts`:
-thin ctx adapters. `commands.ts`: subcommand implementations over engine.
+thin ctx adapters (cloak on request, block + write-path restore on before,
+redact on after). No commands module.
 
 ## 8. Testing
 
@@ -77,7 +80,8 @@ recording callbacks; invoke callbacks with fake events). No live OpenCode.
 Cases: cloak rewrites system+messages; originals re-cloaked in history;
 bash `cat ~/.env` denied in block mode, passed in allow; `.env.example`
 allowed via allowPaths; tool output secrets redacted; exception in after →
-suppressed output; invalid custom regex throws at load.
+suppressed output; invalid custom regex throws at load; write-tool content
+with synthetics restored to originals before dispatch.
 
 ## Self-review
 
