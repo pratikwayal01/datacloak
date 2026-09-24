@@ -31,7 +31,7 @@ const setBadge = (doc: Document, count: number): void => {
 };
 
 // ponytail: review MVP = one Cloak-all button over categories list; per-item Accept/Skip when Task 4 needs it.
-const renderReviewPanel = (doc: Document, field: HTMLElement, res: CloakResponse, onConfirm: () => void): void => {
+const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: () => void): void => {
   doc.querySelector('.dc-review-panel')?.remove();
   const panel = doc.createElement('div');
   panel.className = 'dc-review-panel';
@@ -73,7 +73,7 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
       proceed(field);
       return;
     }
-    renderReviewPanel(doc, field, cloak, () => {
+    renderReviewPanel(doc, cloak, () => {
       setFieldText(field, cloak.text);
       setBadge(doc, cloak.count);
       proceed(field);
@@ -94,8 +94,9 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   const onClick = (e: Event): void => {
     if (proceeding) return;
     const t = e.target as Element | null;
-    const btn = t?.closest?.('button[type="submit"], button[data-testid*="send" i], button[aria-label*="send" i]') ?? null;
-    if (!btn) return;
+    const cand = t?.closest?.('button') ?? null;
+    if (!cand) return;
+    if (findSendButton(cand.closest('form') ?? doc) !== cand) return;
     const field = fieldFromEvent(doc, e) ?? findComposer(doc);
     if (!field) return;
     e.preventDefault();
@@ -155,5 +156,7 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
     timer = setTimeout(() => { void scan(); }, 800);
   });
   obs.observe(logRoot, { childList: true, characterData: true, subtree: true });
+  const origDisconnect = obs.disconnect.bind(obs);
+  obs.disconnect = () => { if (timer) clearTimeout(timer); origDisconnect(); };
   return obs;
 }

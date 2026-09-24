@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+body { width: 320px; font: 12px sans-serif; margin: 0; padding: 10px 12px; color: #111; }
+h1 { font-size: 14px; margin: 0 0 8px; }
+#dc-mode-toggle { margin-bottom: 8px; }
+#dc-counts { margin-bottom: 8px; color: #333; }
+.dc-row { display: flex; gap: 6px; align-items: baseline; padding: 4px 0; border-top: 1px solid #eee; }
+.dc-synth { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-cat { color: #666; font-size: 11px; }
+.dc-original { cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-blurred { filter: blur(4px); user-select: none; }
+#dc-export { margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>DataCloak</h1>
+<button id="dc-mode-toggle" type="button">Mode: auto</button>
+<div id="dc-counts"></div>
+<div id="dc-vault"></div>
+<button id="dc-export" type="button">Export audit JSON</button>
+<script src="dist/popup.js"></script>
+</body>
+</html>

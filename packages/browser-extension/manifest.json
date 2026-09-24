@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "DataCloak",
+  "version": "0.1.0",
+  "description": "Swap secrets/PII for realistic fakes before AI chat sees them.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*",
+    "https://x.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://cowork.ai/*",
+    "https://chat.deepseek.com/*"
+  ],
+  "background": { "service_worker": "dist/background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://x.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://cowork.ai/*",
+        "https://chat.deepseek.com/*"
+      ],
+      "js": ["dist/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "DataCloak" }
+}
