@@ -1,0 +1,5 @@
+.opencode/*
+node_modules/*
+node_modules/
+dist/
+packages/detect/dist/
