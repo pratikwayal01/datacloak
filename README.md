@@ -34,13 +34,14 @@ restore(/* model reply with synthetics */)
 
 ## Status
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | `@pratikw/detect` — detection engine, Faker synthesis, vault, `detect/cloak/restore` | ✅ Done |
-| 2 | OpenCode plugin — 5 hooks, `/datacloak` command, JSON config | ⬜ Next |
-| 3 | Browser extension — Chrome/Edge MV3, auto-cloak, session vault, response restore | ⬜ Planned |
-| 4 | NER (`detect-ner`, ONNX) — names, addresses, DOB | ⬜ Planned |
-| 5 | Teams + CI (`datacloak scan`, shared config, VS Code) | ⬜ Planned |
+| Package | What it does | Status |
+|---------|--------------|--------|
+| `@pratikw/detect` ([npm](https://www.npmjs.com/package/@pratikw/detect)) | Detection engine, Faker synthesis, vault, `detect/cloak/restore` | ✅ v0.1.2 published |
+| `@pratikw/opencode-plugin` | Auto cloak/block/redact/restore inside OpenCode, no commands | ✅ Built, unpublished |
+| Browser extension | Auto-cloak on 8 AI chat sites, per-tab vault, popup viewer | ✅ Built, unreleased |
+| `@pratikw/datacloak` CLI + adapters | `cloak/restore/scan/guard` + hooks for Claude Code, Codex, Gemini, Qwen, Kilo, OpenClaw, Hermes, Pi, DeepSeek, Aider | ✅ Built, unpublished |
+| NER (`detect-ner`) | Person names, street addresses, DOB | ⬜ Next |
+| Teams + CI | Shared config, `scan` in pre-commit, VS Code | ⬜ Planned |
 
 ## What it detects
 
