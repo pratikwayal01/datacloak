@@ -1,8 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = new URL('../adapters/', import.meta.url).pathname;
+const CLI = new URL('../dist/cli.js', import.meta.url).pathname;
 const read = (p: string) => readFileSync(ROOT + p, 'utf8');
 
 // collect every hook command string from a parsed hooks/settings JSON
@@ -53,5 +56,19 @@ describe('adapters-a', () => {
   it('guard.sh shims are identical across harnesses', () => {
     const shims = ['claude', 'codex', 'gemini', 'qwen'].map((h) => read(`${h}/guard.sh`));
     for (const s of shims) expect(s).toBe(shims[0]);
+  });
+  // ponytail: spawnSync with input avoids async execFile piped-stdin hang in this sandbox
+  it('claude guard.sh pipes quoted prompt through datacloak guard (exit 2, decision JSON)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-shim-'));
+    const bin = join(dir, 'datacloak');
+    writeFileSync(bin, `#!/usr/bin/env bash\nexec node "${CLI}" "$@"\n`, { mode: 0o755 });
+    const input = JSON.stringify({ prompt: 'say "hi" key sk-abcdefghij1234567890' });
+    const r = spawnSync('bash', [ROOT + 'claude/guard.sh'], {
+      input,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ''}` },
+    });
+    expect(r.status).toBe(2);
+    expect(JSON.parse(r.stdout as string).decision).toBe('deny');
   });
 });
