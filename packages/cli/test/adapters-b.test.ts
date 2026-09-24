@@ -108,6 +108,18 @@ print(calls['transform_tool_result']('bash', {}, 'key sk-abcdefghij1234567890 do
     expect(r.stdout).toContain('block');
     expect(r.stdout).not.toContain('sk-abcdefghij1234567890');
   });
+  it('hermes _cloak passes dict/None through unchanged (fail-open)', () => {
+    const r = spawnSync('python3', ['-c', `
+import sys; sys.path.insert(0, ${JSON.stringify(ROOT + 'hermes')});
+from plugin import _cloak;
+d = {'secret': 'sk-abcdefghij1234567890'};
+assert _cloak(d) is d, 'dict must pass through unchanged';
+assert _cloak(None) is None, 'None must pass through unchanged';
+print('passthrough-ok');
+`], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('passthrough-ok');
+  });
   it('deepseek post-execute + openclaw after_tool_call redact via temp vault', () => {
     const shim = mkdtempSync(join(tmpdir(), 'dc-shim-'));
     writeFileSync(join(shim, 'datacloak'), `#!/usr/bin/env bash\nexec node "${CLI}" "$@"\n`, { mode: 0o755 });

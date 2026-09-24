@@ -13,13 +13,18 @@ def _guard(payload):
 
 
 def _cloak(text, vault=None):
-    import os
-    env = dict(os.environ)
-    if vault:
-        env['DATACLOAK_VAULT'] = vault
-    r = subprocess.run(['datacloak', 'cloak'], input=text,
-                       capture_output=True, text=True, timeout=10, env=env)
-    return r.stdout if r.returncode == 0 else text
+    if not isinstance(text, str):
+        return text  # ponytail: non-string results pass through unchanged
+    try:
+        import os
+        env = dict(os.environ)
+        if vault:
+            env['DATACLOAK_VAULT'] = vault
+        r = subprocess.run(['datacloak', 'cloak'], input=text,
+                           capture_output=True, text=True, timeout=10, env=env)
+        return r.stdout if r.returncode == 0 else text
+    except Exception:
+        return text  # ponytail: fail-open, never break the agent
 
 
 def register(ctx):
