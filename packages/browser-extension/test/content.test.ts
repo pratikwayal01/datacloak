@@ -30,4 +30,20 @@ describe('content', () => {
     expect(submitted).toBe(1);
     disarm();
   });
+  it('bootstrap arms composer when chrome is present', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi</textarea><button type="submit" id="s">send</button></form>`;
+    const g = globalThis as unknown as { chrome?: unknown };
+    g.chrome = {
+      runtime: { sendMessage: async (req: BgRequest): Promise<BgResponse> => ({ text: req.text, restored: 0 }) },
+      storage: { sync: { get: async (_keys: string[]) => ({}) } },
+    };
+    try {
+      vi.resetModules();
+      await import('../src/content.js');
+      await new Promise((r) => setTimeout(r, 10));
+      expect(document.querySelector('.dc-badge')).not.toBeNull();
+    } finally {
+      delete g.chrome;
+    }
+  });
 });

@@ -160,3 +160,19 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
   obs.disconnect = () => { if (timer) clearTimeout(timer); origDisconnect(); };
   return obs;
 }
+
+// Production bootstrap (no-op under test — chrome undefined there)
+// ponytail: chat-log root narrowing is a later optimization; body works with the TreeWalker skips.
+declare const chrome: {
+  runtime: { sendMessage(req: BgRequest): Promise<BgResponse> };
+  storage: { sync: { get(keys: string[]): Promise<Record<string, unknown>> } };
+} | undefined;
+
+if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.storage?.sync) {
+  const send: SendFn = (req) => chrome.runtime.sendMessage(req);
+  void chrome.storage.sync.get(['dc-mode']).then((vals) => {
+    const mode = vals['dc-mode'] === 'review' ? 'review' : 'auto';
+    armComposer(document, send, { mode });
+    if (document.body) observeResponses(document.body, send);
+  });
+}
