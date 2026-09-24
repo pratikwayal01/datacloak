@@ -8,7 +8,7 @@ export const isCredentialKey = (key: string): boolean => {
 export const credentialPatterns: PatternEntry[] = [
   // Contextual matches first: on identical spans de-overlap keeps the earliest,
   // so ENV_VAR wins over the bare DSN inside its value (test: env value span).
-  { name: 'env-var', category: 'ENV_VAR', type: 'credential', regex: /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("[^"\n]*"|'[^'\n]*'|[^\s"'`#;]+)/gm, confidence: 'high', valueGroup: 2 },
+  { name: 'env-var', category: 'ENV_VAR', type: 'credential', regex: /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("[^"\n]*"|'[^'\n]*'|[^\s"'`#;]+)/gm, confidence: 'high', valueGroup: 2 },
   { name: 'inline-config', category: 'INLINE_CONFIG', type: 'credential', regex: /["']?(?:api[_-]?key|secret|password|token|access[_-]?key)["']?\s*[:=]\s*["']([^"'`\s]+)["']?/gi, confidence: 'high', valueGroup: 1 },
   { name: 'dsn-postgres', category: 'DSN_POSTGRES', type: 'credential', regex: /postgres(?:ql)?:\/\/[^\s"'`]+/g, confidence: 'high' },
   { name: 'dsn-mongo', category: 'DSN_MONGO', type: 'credential', regex: /mongodb(?:\+srv)?:\/\/[^\s"'`]+/g, confidence: 'high' },

@@ -1,0 +1,39 @@
+{"text": "contact john.doe@acme.com for access", "expect": ["EMAIL"]}
+{"text": "cc jane_smith99@example.org ASAP", "expect": ["EMAIL"]}
+{"text": "call me at (415) 555-0192 tomorrow", "expect": ["PHONE_US"]}
+{"text": "office 212-555-0147 ext 3", "expect": ["PHONE_US"]}
+{"text": "uk line +447700900123 after 6pm", "expect": ["PHONE_E164"]}
+{"text": "backup +14155552671 rings twice", "expect": ["PHONE_E164"]}
+{"text": "server at 192.168.1.104 is down", "expect": ["IPV4"]}
+{"text": "ping 10.0.4.25 three times", "expect": ["IPV4"]}
+{"text": "key is sk-abcdefghij1234567890 done", "expect": ["API_KEY_OPENAI"]}
+{"text": "export OPENAI_API_KEY=sk-Zx9mQ2vL7pT4wK8nR1yU5aB3dEfGhJk", "expect": ["ENV_VAR"]}
+{"text": "anthropic sk-ant-api03-abcDEF1234567890xyz-456", "expect": ["API_KEY_ANTHROPIC"]}
+{"text": "claude key sk-ant-api03-XyZ9876543210abcdEFGH-123 ok", "expect": ["API_KEY_ANTHROPIC"]}
+{"text": "aws AKIAIOSFODNN7EXAMPLE in us-east-1", "expect": ["AWS_ACCESS_KEY"]}
+{"text": "deploy with AKIAZZZZYYYYXXXX1234 role", "expect": ["AWS_ACCESS_KEY"]}
+{"text": "token ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890 ok", "expect": ["GITHUB_PAT"]}
+{"text": "pat github_pat_abcDEF1234567890XYZ_1234 here", "expect": ["GITHUB_PAT"]}
+{"text": "stripe sk_live_abcdefghij1234567890 charged", "expect": ["STRIPE_KEY"]}
+{"text": "rk_live_abcdefghij1234567890 for restricted", "expect": ["STRIPE_KEY"]}
+{"text": "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_5NTkZBfQfRXNVIo ok", "expect": ["JWT"]}
+{"text": "bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSJ9.c2lnbmF0dXJlMTIzNDU2Nzg5MA expired", "expect": ["JWT"]}
+{"text": "key -----BEGIN RSA PRIVATE KEY-----\nMIIB fake body\n-----END RSA PRIVATE KEY----- done", "expect": ["PEM_KEY"]}
+{"text": "ssh -----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaAo=\n-----END OPENSSH PRIVATE KEY----- ok", "expect": ["PEM_KEY"]}
+{"text": "DATABASE_URL=postgres://alice:s3cr3t@db.prod.acme.com:5432/users", "expect": ["ENV_VAR"]}
+{"text": "export STRIPE_SECRET_KEY=sk_live_abcdefghij1234567890", "expect": ["ENV_VAR"]}
+{"text": "connect postgres://alice:s3cr3t@db.prod.acme.com:5432/users now", "expect": ["DSN_POSTGRES"]}
+{"text": "replica postgres://bob:pw2@db2.internal:5433/appdb?sslmode=require", "expect": ["DSN_POSTGRES"]}
+{"text": "mongo mongodb+srv://admin:pass@cluster0.abcd1.mongodb.net/mydb", "expect": ["DSN_MONGO"]}
+{"text": "alt mongodb://root:r00t@mongo.internal:27017/shop", "expect": ["DSN_MONGO"]}
+{"text": "cache redis://:secretpassword@redis.acme.com:6379/0", "expect": ["DSN_REDIS"]}
+{"text": "local redis://localhost:6379/0 no auth here", "expect": ["DSN_REDIS"]}
+{"text": "db mysql://app:apPPa55@mysql.internal:3306/billing", "expect": ["DSN_MYSQL"]}
+{"text": "legacy mysql://ro:readonly@10.1.2.3:3306/legacy", "expect": ["DSN_MYSQL"]}
+{"text": "queue amqp://svc:msgpw@rabbit.internal:5672/vhost", "expect": ["DSN_AMQP"]}
+{"text": "alt amqp://guest:guest@mq.local:5672/", "expect": ["DSN_AMQP"]}
+{"text": "{\"api_key\": \"sk-abcdefghij1234567890\"}", "expect": ["INLINE_CONFIG"]}
+{"text": "secret: 'xK9mQ2vL7pT4wK8nR1yU5aB3dEfG' in yaml", "expect": ["INLINE_CONFIG"]}
+{"text": "deploy token xK9mQ2vL7pT4wK8nR1yU5aB3dEfG7hJkL expires", "expect": ["HIGH_ENTROPY_STRING"]}
+{"text": "nothing sensitive here just hello world", "expect": []}
+{"text": "version 1.2.3 released on monday morning", "expect": []}

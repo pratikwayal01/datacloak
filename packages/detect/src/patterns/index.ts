@@ -7,8 +7,10 @@ export interface Pass1Opts { secrets: boolean; envVars: boolean; pii: boolean; }
 
 export function detectPass1(text: string, opts: Pass1Opts, custom: CustomPattern[] = []): Detection[] {
   const entries: PatternEntry[] = [];
-  if (opts.secrets) entries.push(...secretPatterns);
+  // Contextual credential patterns first: exact-tie de-overlap keeps the
+  // earliest, so ENV_VAR/INLINE_CONFIG win over the bare secret in their value.
   if (opts.envVars) entries.push(...credentialPatterns);
+  if (opts.secrets) entries.push(...secretPatterns);
   if (opts.pii) entries.push(...piiPatterns);
   for (const c of custom) {
     let regex: RegExp;
