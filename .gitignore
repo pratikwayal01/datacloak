@@ -3,4 +3,6 @@ node_modules/*
 node_modules/
 dist/
 packages/detect/dist/
+packages/detect/README.md
+packages/detect/LICENSE
 brag-output/
