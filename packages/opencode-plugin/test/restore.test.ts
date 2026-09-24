@@ -17,6 +17,11 @@ describe('write-path restore', () => {
     expect(applyWriteRestore(e, 'write', args)).toBe(0);
     expect(args.content).toBe('hello world');
   });
+  it('returns 0 without throwing on missing/non-object args', () => {
+    const e = new DataCloakEngine();
+    expect(applyWriteRestore(e, 'write', undefined as unknown as Record<string, unknown>)).toBe(0);
+    expect(applyWriteRestore(e, 'write', null as unknown as Record<string, unknown>)).toBe(0);
+  });
   it('ignores non-write tools', () => {
     const e = new DataCloakEngine();
     const c = e.cloak('john.doe@acme.com');

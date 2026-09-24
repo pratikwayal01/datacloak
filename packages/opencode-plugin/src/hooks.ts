@@ -43,6 +43,7 @@ const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file
 const RESTORABLE_KEYS = new Set(['content', 'text', 'old_string', 'new_string', 'prefix', 'suffix']);
 
 export function applyWriteRestore(engine: DataCloakEngine, tool: string, args: Record<string, unknown>): number {
+  if (!args || typeof args !== 'object') return 0;
   if (!WRITE_TOOLS.has(tool)) return 0;
   let total = 0;
   for (const key of RESTORABLE_KEYS) {
