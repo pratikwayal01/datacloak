@@ -34,7 +34,7 @@ restore(/* model reply with synthetics */)
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | `@datacloak/detect` — secrets + credentials + PII detection, Faker synthesis, vault, `detect/cloak/restore` | ✅ Done |
+| 1 | `@pratikw/detect` — secrets + credentials + PII detection, Faker synthesis, vault, `detect/cloak/restore` | ✅ Done |
 | 2 | OpenCode plugin — 5 hooks, `/datacloak` command, JSON config | ⬜ Next |
 | 3 | Browser extension — Chrome/Edge MV3, auto-cloak, session vault, response restore | ⬜ Planned |
 | 4 | NER (`detect-ner`, ONNX) — names, addresses, DOB | ⬜ Planned |
@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/pratikwayal01/datacloak/master/inst
 Or with npm directly:
 
 ```bash
-npm install -g @datacloak/detect   # needs node >= 18
+npm install -g @pratikw/detect   # needs node >= 18
 ```
 
 From source:
@@ -76,12 +76,11 @@ npm test --workspace packages/detect        # 28 tests
 
 Releases go out via the [`publish-detect`](.github/workflows/publish.yml)
 workflow. One-time setup: add an npm classic token as the repo secret
-`NPM_TOKEN`, and make sure you own the `@datacloak` npm scope
-(or rename the package). Then:
+`NPM_TOKEN` with publish rights on the `@pratikw` scope. Then:
 
 ```bash
 # bump version in packages/detect/package.json, then:
-git tag detect-v0.1.0 && git push origin detect-v0.1.0
+git tag detect-v0.1.1 && git push origin detect-v0.1.1
 # CI builds, tests, checks tag == package version, publishes with provenance
 ```
 

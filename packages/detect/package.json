@@ -1,6 +1,6 @@
 {
-  "name": "@datacloak/detect",
-  "version": "0.1.0",
+  "name": "@pratikw/detect",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist/engine.js",
   "types": "dist/engine.d.ts",
