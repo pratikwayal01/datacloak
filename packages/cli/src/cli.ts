@@ -38,6 +38,28 @@ const main = async (): Promise<number> => {
     }
     return 2;
   }
+  if (cmd === 'guard') {
+    const { guard, loadGuardEngine } = await import('./guard-cmd.js');
+    const raw = await readStdin();
+    let incoming: { event: string };
+    try {
+      incoming = JSON.parse(raw) as { event: string };
+    } catch {
+      process.stdout.write(JSON.stringify({ decision: 'allow' }));
+      return 0;
+    }
+    const { out, code } = guard(incoming as never, loadGuardEngine());
+    process.stdout.write(JSON.stringify(out));
+    return code;
+  }
+  if (cmd === 'install-shell') {
+    const shell = rest[rest.indexOf('--shell') + 1] ?? 'bash';
+    const names: Record<string, string> = { bash: 'preexec.sh', zsh: 'preexec.zsh', fish: 'preexec.fish' };
+    const { readFileSync } = await import('node:fs');
+    const file = new URL(`../shell/${names[shell] ?? 'preexec.sh'}`, import.meta.url);
+    process.stdout.write(readFileSync(file, 'utf8'));
+    return 0;
+  }
   process.stderr.write('usage: datacloak <cloak|restore|scan|guard|install-shell> [--vault PATH]\n');
   return 1;
 };

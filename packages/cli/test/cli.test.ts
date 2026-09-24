@@ -1,18 +1,16 @@
-import { execFile } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
-const run = promisify(execFile);
 const CLI = new URL('../dist/cli.js', import.meta.url).pathname;
 
-const cli = (args: string[], input: string, env: Record<string, string> = {}) =>
-  run('node', [CLI, ...args], { input, env: { ...process.env, ...env } }).then(
-    (r) => ({ code: 0, stdout: r.stdout as string, stderr: r.stderr as string }),
-    (e: { code: number; stdout: string; stderr: string }) => ({ code: e.code ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' }),
-  );
+// ponytail: spawnSync with input avoids async execFile piped-stdin hang in this sandbox
+const cli = (args: string[], input: string, env: Record<string, string> = {}) => {
+  const r = spawnSync('node', [CLI, ...args], { input, env: { ...process.env, ...env }, encoding: 'utf8' });
+  return Promise.resolve({ code: r.status ?? 1, stdout: r.stdout as string, stderr: r.stderr as string });
+};
 
 describe('cli', () => {
   it('cloak round-trips through a vault file', async () => {
@@ -29,5 +27,29 @@ describe('cli', () => {
   it('scan exits 2 on detection, 0 when clean', async () => {
     expect((await cli(['scan'], 'key sk-abcdefghij1234567890')).code).toBe(2);
     expect((await cli(['scan'], 'hello world')).code).toBe(0);
+  });
+});
+
+describe('guard', () => {
+  it('denies prompts with secrets, allows clean', async () => {
+    const deny = await cli(['guard'], JSON.stringify({ event: 'prompt', text: 'key sk-abcdefghij1234567890' }));
+    expect(deny.code).toBe(2);
+    expect(JSON.parse(deny.stdout).decision).toBe('deny');
+    expect(JSON.parse(deny.stdout).reason).not.toContain('sk-abcdefghij1234567890');
+    const ok = await cli(['guard'], JSON.stringify({ event: 'prompt', text: 'hello world' }));
+    expect(ok.code).toBe(0);
+    expect(JSON.parse(ok.stdout).decision).toBe('allow');
+  });
+  it('denies env dumps, rewrites writes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-'));
+    const vault = join(dir, 'v.json');
+    await cli(['cloak', '--vault', vault], 'sk-abcdefghij1234567890', { DATACLOAK_VAULT: vault });
+    const deny = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'bash', args: { command: 'cat .env' } }), { DATACLOAK_VAULT: vault });
+    expect(deny.code).toBe(2);
+    const c = await cli(['cloak', '--vault', vault], 'sk-abcdefghij1234567890');
+    const rw = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'write', args: { filePath: 'a.txt', content: c.stdout } }), { DATACLOAK_VAULT: vault });
+    expect(rw.code).toBe(0);
+    expect(JSON.parse(rw.stdout).decision).toBe('rewrite');
+    expect(JSON.parse(rw.stdout).args.content).toContain('sk-abcdefghij1234567890');
   });
 });
