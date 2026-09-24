@@ -39,6 +39,29 @@ const cloakDeep = (engine: DataCloakEngine, value: unknown, seen: Set<object>): 
   return value;
 };
 
+const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file']);
+const RESTORABLE_KEYS = new Set(['content', 'text', 'old_string', 'new_string', 'prefix', 'suffix']);
+
+export function applyWriteRestore(engine: DataCloakEngine, tool: string, args: Record<string, unknown>): number {
+  if (!WRITE_TOOLS.has(tool)) return 0;
+  let total = 0;
+  for (const key of RESTORABLE_KEYS) {
+    const value = args[key];
+    if (typeof value !== 'string' || value.length === 0) continue;
+    try {
+      const r = engine.restore(value);
+      if (r.restored > 0) {
+        args[key] = r.text;
+        total += r.restored;
+      }
+    } catch (err) {
+      console.error(`[datacloak] write restore failed open: ${(err as Error).message}`);
+    }
+  }
+  sessionStats.restored += total;
+  return total;
+}
+
 export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngine {
   const engine = new DataCloakEngine({
     detection: config.detection,
@@ -71,16 +94,15 @@ export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngi
   });
 
   ctx.tool.hook('execute.before', (event) => {
-    if (!config.enabled || config.mode === 'allow') return;
-    try {
-      // TASK-4 EXTENSION POINT: applyWriteRestore(event.input, engine) goes here, before shouldBlock.
+    if (config.enabled && config.mode !== 'allow') {
       const reason = shouldBlock(String(event.tool ?? ''), event.input, config);
       if (reason !== null) {
         sessionStats.blocked += 1;
         throw new Error(reason);
       }
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('DataCloak: blocked tool call');
+    }
+    if (config.enabled) {
+      applyWriteRestore(engine, String(event.tool ?? ''), event.input as Record<string, unknown>);
     }
   });
 
