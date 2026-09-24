@@ -20,4 +20,19 @@ describe('heuristic names', () => {
       expect(s.value.trim().split(/\s+/).length).toBeGreaterThanOrEqual(2);
     }
   });
+  it('re-anchors stripped honorific spans exactly', () => {
+    const t = 'Dr. Alice Johnson will join';
+    const hits = p.detectNames(t).filter((s) => s.value === 'Alice Johnson');
+    expect(hits).toHaveLength(1);
+    expect(t.slice(hits[0].start, hits[0].end)).toBe('Alice Johnson');
+  });
+  it('flags generational suffix as high confidence', () => {
+    const hits = p.detectNames('John Smith Jr. arrives');
+    expect(hits.map((s) => s.value)).toContain('John Smith');
+    expect(hits.find((s) => s.value === 'John Smith')?.confidence).toBe('high');
+  });
+  it('verb guard fires on merged too', () => {
+    expect(vals('Alice fixed the bug')).toHaveLength(0);
+    expect(vals('Bob merged the PR')).toHaveLength(0);
+  });
 });

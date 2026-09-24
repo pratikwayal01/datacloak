@@ -18,12 +18,15 @@ export class HeuristicNerProvider implements NerProvider {
       if (BLOCK_MONTHS.has(first.toLowerCase()) || BLOCK_MONTHS.has(last.toLowerCase())) continue;
       if (BLOCK_DAYS.has(first.toLowerCase()) || BLOCK_DAYS.has(last.toLowerCase())) continue;
       if (BLOCK_SUFFIX.has(last.toLowerCase())) continue;
-      if (/^[A-Z][a-z]* [A-Z][a-z]* (fixed|added|removed|merged|said|says|announced)$/.test(text.slice(Math.max(0, m.index - 1), m.index + full.length + 12))) continue;
+      if (/^[A-Z][a-z]{1,19} [A-Z][a-z]{1,19} (fixed|added|removed|merged|said|says|announced)\b/.test(text.slice(m.index, m.index + full.length + 12))) continue;
       const before = text.slice(Math.max(0, m.index - 24), m.index);
-      const signaled = HONORIFICS.test(full) || SIGNALS.test(before) || /(?:mr|ms|mrs|dr|prof)\.\s*$/i.test(before) || /, (jr|sr|ii|iii|iv)\.?$/i.test(full);
+      const signaled = HONORIFICS.test(full) || SIGNALS.test(before) || /(?:mr|ms|mrs|dr|prof)\.?\s*$/i.test(before) || /(?:^|\s|,)(jr|sr|ii|iii|iv)\.?(\s|$)/i.test(text.slice(m.index + full.length, m.index + full.length + 8));
       const sentenceStart = m.index === 0 || /[.!?]\s+$/.test(before);
       if (!signaled && sentenceStart) continue;
-      out.push({ value: HONORIFICS.test(full) ? full.replace(HONORIFICS, '') : full, start: m.index, end: m.index + full.length, confidence: signaled ? 'high' : 'medium' });
+      const stripped = HONORIFICS.test(full) ? full.replace(HONORIFICS, '') : full;
+      if (stripped.trim().split(/\s+/).length < 2) continue;
+      const start = m.index + full.indexOf(stripped);
+      out.push({ value: stripped, start, end: start + stripped.length, confidence: signaled ? 'high' : 'medium' });
     }
     return out;
   }
