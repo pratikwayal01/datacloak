@@ -16,6 +16,29 @@ const asTextParts = (messages: unknown): { type?: string; text?: string }[][] =>
   return (messages as { parts?: { type?: string; text?: string }[] }[]).map((m) => m.parts ?? []);
 };
 
+const cloakCounted = (engine: DataCloakEngine, text: string): string => {
+  const r = engine.cloak(text);
+  sessionStats.cloaked += r.substitutions.length;
+  return r.text;
+};
+
+const cloakDeep = (engine: DataCloakEngine, value: unknown, seen: Set<object>): unknown => {
+  if (typeof value === 'string') return value.length > 0 ? cloakCounted(engine, value) : value;
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return value;
+    seen.add(value);
+    for (let i = 0; i < value.length; i++) value[i] = cloakDeep(engine, value[i], seen);
+    return value;
+  }
+  if (value !== null && typeof value === 'object') {
+    if (seen.has(value)) return value;
+    seen.add(value);
+    for (const [k, v] of Object.entries(value)) (value as Record<string, unknown>)[k] = cloakDeep(engine, v, seen);
+    return value;
+  }
+  return value;
+};
+
 export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngine {
   const engine = new DataCloakEngine({
     detection: config.detection,
@@ -27,17 +50,17 @@ export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngi
     if (!config.enabled) return;
     try {
       if (typeof event.system === 'string') {
-        const r = engine.cloak(event.system);
-        event.system = r.text;
-        sessionStats.cloaked += r.substitutions.length;
+        event.system = cloakCounted(engine, event.system);
+      } else if (Array.isArray(event.system)) {
+        event.system = (event.system as unknown[]).map((s) =>
+          typeof s === 'string' ? cloakCounted(engine, s) : s,
+        );
       }
       if (Array.isArray(event.messages)) {
         for (const parts of asTextParts(event.messages)) {
           for (const part of parts) {
             if (part.type === 'text' && typeof part.text === 'string') {
-              const r = engine.cloak(part.text);
-              part.text = r.text;
-              sessionStats.cloaked += r.substitutions.length;
+              part.text = cloakCounted(engine, part.text);
             }
           }
         }
@@ -75,6 +98,12 @@ export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngi
             event[key] = `${r.text}\n[DataCloak: ${before} possible secrets redacted from output]`;
           }
         }
+      }
+      if (typeof event.title === 'string' && event.title.length > 0) {
+        event.title = cloakCounted(engine, event.title);
+      }
+      if (event.metadata !== undefined) {
+        event.metadata = cloakDeep(engine, event.metadata, new Set());
       }
     } catch {
       event.result = '[DataCloak: output suppressed after detection failure]';

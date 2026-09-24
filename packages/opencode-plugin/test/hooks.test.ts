@@ -18,6 +18,14 @@ describe('hooks', () => {
     expect(event.system).not.toContain('sk-abcdefghij1234567890');
     expect(event.messages[0].parts[0].text).not.toContain('john.doe@acme.com');
   });
+  it('request hook cloaks system array (real string[] shape)', () => {
+    const { ctx, handlers } = mockCtx();
+    createHooks(ctx as never, { ...defaultResolvedConfig });
+    const event = { system: ['key sk-abcdefghij1234567890', 'clean'] };
+    for (const fn of handlers['request'] ?? []) fn(event as never);
+    expect(event.system[0]).not.toContain('sk-abcdefghij1234567890');
+    expect(event.system[1]).toBe('clean');
+  });
   it('before hook throws on env dump, passes safe calls', () => {
     const { ctx, handlers } = mockCtx();
     createHooks(ctx as never, { ...defaultResolvedConfig, mode: 'block' });
@@ -30,5 +38,21 @@ describe('hooks', () => {
     const event = { tool: 'read', result: 'token sk-abcdefghij1234567890 end', output: '' };
     for (const fn of handlers['execute.after'] ?? []) fn(event as never);
     expect(event.result).not.toContain('sk-abcdefghij1234567890');
+  });
+  it('after hook redacts title + metadata leaves, cycle-safe', () => {
+    const { ctx, handlers } = mockCtx();
+    createHooks(ctx as never, { ...defaultResolvedConfig });
+    const metadata: Record<string, unknown> = {
+      note: 'mail john.doe@acme.com',
+      count: 3,
+      nested: ['token sk-abcdefghij1234567890'],
+    };
+    metadata.self = metadata;
+    const event = { tool: 'read', result: '', output: '', title: 'key sk-abcdefghij1234567890', metadata };
+    for (const fn of handlers['execute.after'] ?? []) fn(event as never);
+    expect(event.title).not.toContain('sk-abcdefghij1234567890');
+    expect(metadata.note as string).not.toContain('john.doe@acme.com');
+    expect((metadata.nested as string[])[0]).not.toContain('sk-abcdefghij1234567890');
+    expect(metadata.count).toBe(3);
   });
 });
