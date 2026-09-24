@@ -29,4 +29,14 @@ describe('write-path restore', () => {
     expect(applyWriteRestore(e, 'bash', args)).toBe(0);
     expect(args.command).toContain(c.text);
   });
+  it('restores synthetics in apply_patch patchText and camelCase edit keys', () => {
+    const e = new DataCloakEngine();
+    const c = e.cloak('key sk-abcdefghij1234567890');
+    const patch = { patchText: `*** Update File: a.txt\n+token=${c.text}` };
+    expect(applyWriteRestore(e, 'apply_patch', patch)).toBe(1);
+    expect(patch.patchText).toContain('sk-abcdefghij1234567890');
+    const edit = { filePath: 'a.txt', oldString: `token=${c.text}`, newString: 'token=ok' };
+    expect(applyWriteRestore(e, 'edit', edit)).toBe(1);
+    expect(edit.oldString).toContain('sk-abcdefghij1234567890');
+  });
 });

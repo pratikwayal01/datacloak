@@ -45,6 +45,12 @@ ever saw fakes. TUI display of model replies may still show synthetic values
 (no response-mutation hook exists in v2) — documented limitation, data-safe
 by default.
 
+Restored originals live only in the dispatched tool-call input (the
+`event.input` content args at `execute.before` time): they are never written
+back to the session transcript or vault log, never re-cloaked on that path,
+and restore never second-guesses — if `engine.restore` finds no known
+synthetic in a key, the arg passes through untouched.
+
 ## 5. No command surface
 
 Deliberately no `/datacloak` command: the plugin is invisible when nothing

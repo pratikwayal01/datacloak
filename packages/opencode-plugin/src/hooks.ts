@@ -39,8 +39,8 @@ const cloakDeep = (engine: DataCloakEngine, value: unknown, seen: Set<object>): 
   return value;
 };
 
-const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file']);
-const RESTORABLE_KEYS = new Set(['content', 'text', 'old_string', 'new_string', 'prefix', 'suffix']);
+const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file', 'apply_patch']);
+const RESTORABLE_KEYS = new Set(['content', 'text', 'old_string', 'new_string', 'oldString', 'newString', 'prefix', 'suffix', 'patchText']);
 
 export function applyWriteRestore(engine: DataCloakEngine, tool: string, args: Record<string, unknown>): number {
   if (!args || typeof args !== 'object') return 0;

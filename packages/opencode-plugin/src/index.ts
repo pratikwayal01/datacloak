@@ -1,6 +1,6 @@
 import type { Plugin } from '@opencode-ai/plugin';
 import { loadConfig } from './config.js';
-import { createHooks, sessionStats } from './hooks.js';
+import { createHooks } from './hooks.js';
 
 type AnyEvent = Record<string, unknown>;
 
@@ -41,4 +41,3 @@ export const DatacloakPlugin: Plugin = async (input) => {
 };
 
 export default DatacloakPlugin;
-export { sessionStats };
