@@ -27,7 +27,7 @@ restore(/* model reply with synthetics */)
 ## Contents
 
 - [Status](#status) · [What it detects](#what-it-detects) · [Requirements](#requirements)
-- [Installation](#installation) · [Quick start](#quick-start) · [Guarantees](#guarantees)
+- [Installation](#installation) · [Coding agents](#coding-agents) · [Quick start](#quick-start) · [Guarantees](#guarantees)
 - [Testing](#testing) · [Honest gaps](#honest-gaps) · [Architecture](#architecture)
 - [Publishing](#publishing) · [Contributing](#contributing) · [License](#license)
 - [Further reading](#further-reading)
@@ -94,6 +94,26 @@ Covers claude.ai, ChatGPT, Gemini, Grok (x.ai), Perplexity, Cowork and
 DeepSeek — auto-cloak on send, restore in responses, popup viewer on the
 toolbar. Firefox: `about:debugging → This Firefox → Load Temporary Add-on`
 with `manifest.json` (un tested, expected-compatible).
+
+## Coding agents
+
+One binary, eleven harnesses — full copy-paste steps in
+[`docs/harnesses.md`](docs/harnesses.md):
+
+| Agent | Mechanism |
+|---|---|
+| Claude Code | `UserPromptSubmit` + `PreToolUse`/`PostToolUse` hooks |
+| OpenAI Codex CLI | `hooks.json` prompt gate + tool deny/rewrite |
+| Gemini CLI | `BeforeAgent`/`BeforeTool`/`AfterTool` hooks |
+| Qwen Code | `UserPromptSubmit` + `PreToolUse`/`PostToolUse` hooks |
+| Kilo Code | Plugin (re-exports OpenCode hooks) |
+| OpenClaw | `before_prompt_build` / `before_tool_call` plugin |
+| Hermes Agent | `pre_llm_call` / `pre_tool_call` / result transform |
+| Pi | `hooks.yaml` (prompt context-only — Pi limitation) |
+| DeepSeek harness | `agent/pre-step` + `tools/pre-execute` cordis plugin |
+| Aider | Shell preexec + pre-commit hook (no in-harness API) |
+| OpenCode | Native plugin (built, publish pending) |
+| Anything else | `datacloak install-shell` preexec backstop |
 
 ## Quick start
 
