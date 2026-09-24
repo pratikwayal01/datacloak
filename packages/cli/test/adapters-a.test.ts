@@ -71,4 +71,20 @@ describe('adapters-a', () => {
     expect(r.status).toBe(2);
     expect(JSON.parse(r.stdout as string).decision).toBe('deny');
   });
+  it('claude guard.sh fails open on malformed input (exit 0, allow)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-shim-'));
+    const bin = join(dir, 'datacloak');
+    writeFileSync(bin, `#!/usr/bin/env bash\nexec node "${CLI}" "$@"\n`, { mode: 0o755 });
+    const env = { ...process.env, PATH: `${dir}:${process.env.PATH ?? ''}` };
+    const bad = spawnSync('bash', [ROOT + 'claude/guard.sh'], { input: '{{{not json', encoding: 'utf8', env });
+    expect(bad.status).toBe(0);
+    expect(JSON.parse(bad.stdout as string).decision).toBe('allow');
+    const tool = spawnSync('bash', [ROOT + 'claude/guard.sh'], {
+      input: JSON.stringify({ tool: 'bash', input: { command: 'echo hello' } }),
+      encoding: 'utf8',
+      env,
+    });
+    expect(tool.status).toBe(0);
+    expect(JSON.parse(tool.stdout as string).decision).toBe('allow');
+  });
 });
