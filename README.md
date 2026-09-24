@@ -81,6 +81,20 @@ npm run build --workspace packages/detect   # tsc → packages/detect/dist/
 npm test --workspace packages/detect        # 28 tests
 ```
 
+Browser extension (unpacked, Chrome/Edge):
+
+```bash
+npm install
+npm run build --workspace packages/browser-extension  # esbuild → dist/
+```
+
+Then open `chrome://extensions`, enable **Developer mode**, click
+**Load unpacked**, and select `packages/browser-extension`.
+Covers claude.ai, ChatGPT, Gemini, Grok (x.ai), Perplexity, Cowork and
+DeepSeek — auto-cloak on send, restore in responses, popup viewer on the
+toolbar. Firefox: `about:debugging → This Firefox → Load Temporary Add-on`
+with `manifest.json` (un tested, expected-compatible).
+
 ## Quick start
 
 ```js
