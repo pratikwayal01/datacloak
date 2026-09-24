@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { DataCloakEngine } from '@pratikw/detect';
 import { createHooks } from '../src/hooks.js';
 import { defaultResolvedConfig } from '../src/config.js';
 
@@ -54,5 +55,25 @@ describe('hooks', () => {
     expect(metadata.note as string).not.toContain('john.doe@acme.com');
     expect((metadata.nested as string[])[0]).not.toContain('sk-abcdefghij1234567890');
     expect(metadata.count).toBe(3);
+  });
+  it('after hook fail-closed sanitizes all four fields on cloak failure', () => {
+    const { ctx, handlers } = mockCtx();
+    createHooks(ctx as never, { ...defaultResolvedConfig });
+    vi.spyOn(DataCloakEngine.prototype, 'cloak').mockImplementationOnce(() => {
+      throw new Error('vault offline');
+    });
+    const event = {
+      tool: 'read',
+      result: 'token sk-abcdefghij1234567890',
+      output: 'token sk-abcdefghij1234567890',
+      title: 'key sk-abcdefghij1234567890',
+      metadata: { note: 'mail john.doe@acme.com' },
+    };
+    for (const fn of handlers['execute.after'] ?? []) fn(event as never);
+    vi.restoreAllMocks();
+    expect(event.result).toBe('[DataCloak: output suppressed after detection failure]');
+    expect(event.output).toBe('');
+    expect(event.title).toBe('');
+    expect(event.metadata).toEqual({});
   });
 });

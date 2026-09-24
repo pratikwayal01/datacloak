@@ -108,6 +108,8 @@ export function createHooks(ctx: HookCtx, config: ResolvedConfig): DataCloakEngi
     } catch {
       event.result = '[DataCloak: output suppressed after detection failure]';
       event.output = '';
+      event.title = '';
+      event.metadata = {};
     }
   });
 
