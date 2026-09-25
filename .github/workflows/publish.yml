@@ -13,19 +13,8 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
-    strategy:
-      matrix:
-        include:
-          - tag_prefix: detect-v
-            workspace: packages/detect
-          - tag_prefix: cli-v
-            workspace: packages/cli
-          - tag_prefix: plugin-v
-            workspace: packages/opencode-plugin
-          - tag_prefix: ner-v
-            workspace: packages/ner
-    if: startsWith(github.ref_name, matrix.tag_prefix)
+  publish-detect:
+    if: startsWith(github.ref_name, 'detect-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,13 +24,79 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
-      - run: npm run build --workspace ${{ matrix.workspace }}
-      - run: npm test --workspace ${{ matrix.workspace }}
+      - run: npm run build --workspace packages/detect
+      - run: npm test --workspace packages/detect
       - name: tag must match package version
         run: |
-          PKG="${{ matrix.tag_prefix }}$(node -p "require('./${{ matrix.workspace }}/package.json').version")"
+          PKG="detect-v$(node -p "require('./packages/detect/package.json').version")"
           test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != package $PKG"; exit 1; }
       - name: publish to npm
-        run: npm publish --workspace ${{ matrix.workspace }} --access public --provenance
+        run: npm publish --workspace packages/detect --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-cli:
+    if: startsWith(github.ref_name, 'cli-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/cli
+      - run: npm test --workspace packages/cli
+      - name: tag must match package version
+        run: |
+          PKG="cli-v$(node -p "require('./packages/cli/package.json').version")"
+          test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != package $PKG"; exit 1; }
+      - name: publish to npm
+        run: npm publish --workspace packages/cli --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-plugin:
+    if: startsWith(github.ref_name, 'plugin-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/opencode-plugin
+      - run: npm test --workspace packages/opencode-plugin
+      - name: tag must match package version
+        run: |
+          PKG="plugin-v$(node -p "require('./packages/opencode-plugin/package.json').version")"
+          test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != package $PKG"; exit 1; }
+      - name: publish to npm
+        run: npm publish --workspace packages/opencode-plugin --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-ner:
+    if: startsWith(github.ref_name, 'ner-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/ner
+      - run: npm test --workspace packages/ner
+      - name: tag must match package version
+        run: |
+          PKG="ner-v$(node -p "require('./packages/ner/package.json').version")"
+          test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != package $PKG"; exit 1; }
+      - name: publish to npm
+        run: npm publish --workspace packages/ner --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
