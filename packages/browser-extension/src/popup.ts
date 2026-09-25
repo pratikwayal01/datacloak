@@ -260,27 +260,43 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     toast(doc, 'Exported vault CSV');
   });
 
-  // ── Settings panel ──
-  const check = (id: string, val: boolean, onChange: (v: boolean) => void): void => {
-    const el = doc.getElementById(id) as HTMLInputElement | null;
-    if (!el) return;
-    el.checked = val;
-    el.addEventListener('change', () => onChange(el.checked));
-  };
-  check('s-autodetect', ui.autodetect, (v) => { ui.autodetect = v; });
-  check('s-clipboard', ui.clipboard, (v) => { ui.clipboard = v; });
-  check('s-network', ui.network, (v) => { ui.network = v; });
-  check('s-blur', ui.blur, (v) => { ui.blur = v; renderVault(); });
-  check('s-notif', ui.notif, (v) => { ui.notif = v; });
-
+  // ── Settings panel: listeners bound once, paintSettings renders all from state ──
   const paintRisk = (): void => {
     doc.querySelectorAll('.risk-btn').forEach((b) => {
       (b as HTMLElement).className = 'risk-btn' +
         ((b as HTMLElement).dataset.risk === ui.sensitivity ? ` active-${ui.sensitivity}` : '');
     });
   };
-  paintRisk();
+  const paintSettings = (): void => {
+    for (const [id, val] of [
+      ['s-autodetect', ui.autodetect], ['s-clipboard', ui.clipboard], ['s-network', ui.network],
+      ['s-blur', ui.blur], ['s-notif', ui.notif],
+    ] as const) {
+      const el = doc.getElementById(id) as HTMLInputElement | null;
+      if (el) el.checked = val;
+    }
+    paintRisk();
+    const style = doc.getElementById('s-style') as HTMLSelectElement | null;
+    if (style) style.value = ui.style;
+    const theme = doc.getElementById('s-theme') as HTMLSelectElement | null;
+    if (theme) theme.value = themePref;
+    renderAllowlist();
+  };
+  // ponytail: one-time bind guarded by dataset.bound; paintSettings owns all state→DOM
+  const bindCheck = (id: string, onChange: (v: boolean) => void): void => {
+    const el = doc.getElementById(id) as HTMLInputElement | null;
+    if (!el || el.dataset.bound) return;
+    el.dataset.bound = '1';
+    el.addEventListener('change', () => onChange(el.checked));
+  };
+  bindCheck('s-autodetect', (v) => { ui.autodetect = v; });
+  bindCheck('s-clipboard', (v) => { ui.clipboard = v; });
+  bindCheck('s-network', (v) => { ui.network = v; });
+  bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); });
+  bindCheck('s-notif', (v) => { ui.notif = v; });
   doc.querySelectorAll('.risk-btn').forEach((btn) => {
+    if ((btn as HTMLElement).dataset.bound) return;
+    (btn as HTMLElement).dataset.bound = '1';
     btn.addEventListener('click', () => {
       ui.sensitivity = ((btn as HTMLElement).dataset.risk ?? 'low') as UiSettings['sensitivity'];
       paintRisk();
@@ -288,8 +304,8 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   });
 
   const styleSel = doc.getElementById('s-style') as HTMLSelectElement | null;
-  if (styleSel) {
-    styleSel.value = ui.style;
+  if (styleSel && !styleSel.dataset.bound) {
+    styleSel.dataset.bound = '1';
     styleSel.addEventListener('change', () => { ui.style = styleSel.value; });
   }
 
@@ -346,25 +362,26 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     }
   };
   renderAllowlist();
-  doc.getElementById('s-allowlist-add')?.addEventListener('click', () => {
-    const input = doc.getElementById('s-allowlist-input') as HTMLInputElement | null;
-    const val = input?.value.trim() ?? '';
-    if (!val || ui.allowlist.includes(val)) return;
-    ui.allowlist = [...ui.allowlist, val];
-    if (input) input.value = '';
-    renderAllowlist();
-  });
+  paintSettings();
+  const allowAdd = doc.getElementById('s-allowlist-add');
+  if (allowAdd && !(allowAdd as HTMLElement).dataset.bound) {
+    (allowAdd as HTMLElement).dataset.bound = '1';
+    allowAdd.addEventListener('click', () => {
+      const input = doc.getElementById('s-allowlist-input') as HTMLInputElement | null;
+      const val = input?.value.trim() ?? '';
+      if (!val || ui.allowlist.includes(val)) return;
+      ui.allowlist = [...ui.allowlist, val];
+      if (input) input.value = '';
+      renderAllowlist();
+    });
+  }
   doc.getElementById('s-save')?.addEventListener('click', () => {
     deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
   });
   doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
-    const themeSel = doc.getElementById('s-theme') as HTMLSelectElement | null;
-    if (themeSel) themeSel.value = 'system';
-    check('s-autodetect', ui.autodetect, (v) => { ui.autodetect = v; });
-    renderAllowlist();
-    paintRisk();
+    paintSettings();
     renderVault();
     deps.setUiSettings({ ...ui }).catch(() => {});
     toast(doc, 'Reset to defaults');

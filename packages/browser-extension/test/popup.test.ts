@@ -303,6 +303,31 @@ describe('settings + dev panels', () => {
     expect(document.getElementById('storage-pct')?.textContent).toBe('n/a');
     expect(document.getElementById('storage-used')?.textContent).toBe('n/a');
   });
+  it('reset restores defaults and repaints every control, no duplicate listeners', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    state.ui = { ...state.ui, clipboard: true, network: false, blur: false, notif: false, sensitivity: 'high', style: 'token', allowlist: ['x.io'] };
+    state.theme = 'dark';
+    await renderPopup(document, deps);
+    expect((document.getElementById('s-clipboard') as HTMLInputElement).checked).toBe(true);
+    (document.getElementById('s-reset') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    for (const [id, val] of [['s-autodetect', true], ['s-clipboard', false], ['s-network', true], ['s-blur', true], ['s-notif', true]] as const) {
+      expect((document.getElementById(id) as HTMLInputElement).checked).toBe(val);
+    }
+    expect((document.getElementById('s-style') as HTMLSelectElement).value).toBe('realistic');
+    expect((document.getElementById('s-theme') as HTMLSelectElement).value).toBe('system');
+    expect(document.querySelector('.risk-btn[data-risk="low"]')?.className).toContain('active-low');
+    expect(document.getElementById('allowlist-tags')?.children).toHaveLength(0);
+    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, sensitivity: 'low', style: 'realistic', allowlist: [] });
+    // toggle once after reset → single state flip (no stacked listeners)
+    const blur = document.getElementById('s-blur') as HTMLInputElement;
+    blur.checked = false;
+    blur.dispatchEvent(new Event('change', { bubbles: true }));
+    (document.getElementById('s-save') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.blur).toBe(false);
+  });
   it('clear vault empties rows + badge', async () => {
     skeleton();
     const { deps, state } = fakeDeps();
