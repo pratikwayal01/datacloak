@@ -15,16 +15,12 @@ export function activate(context: { subscriptions: { dispose(): void }[] }): voi
   const wrap = (fn: (e: DataCloakEngine, ed: never, v: never) => Promise<number>) => async () => {
     const editor = ed();
     if (!editor) return;
-    // R1 (ledger): commands.ts calls b.replace(undefined, text) on the
-    // mock-tested path; adapt here so the live edit targets the real
-    // editor.selection range instead of undefined.
-    const adapted = {
-      ...editor,
-      edit: (fn2: (b: { replace(r: unknown, t: string): void }) => void) =>
-        (editor as unknown as { edit(f: (b: { replace(r: unknown, t: string): void }) => void): Promise<boolean> }).edit((b) =>
-          fn2({ replace: (r: unknown, t: string) => b.replace(r ?? (editor as unknown as { selection: unknown }).selection, t) }),
-        ),
+    const typed = editor as unknown as {
+      document: unknown;
+      selection: unknown;
+      edit(f: (b: { replace(r: unknown, t: string): void }) => void): Promise<boolean>;
     };
+    const adapted = { document: typed.document, selection: typed.selection, edit: typed.edit.bind(typed) };
     cloaked += await fn(engine, adapted as never, vscode as never);
     paint();
     provider.refresh();

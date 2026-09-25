@@ -1,6 +1,6 @@
 export class EventEmitter<T> {
   private fns: ((e: T) => void)[] = [];
-  event = (fn: (e: T) => void) => ({ dispose: () => {} });
+  event = (fn: (e: T) => void) => { this.fns.push(fn); return { dispose: () => {} }; };
   fire(e: T): void { for (const f of this.fns) f(e); }
 }
 export const commands = {

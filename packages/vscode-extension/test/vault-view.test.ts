@@ -27,4 +27,9 @@ describe('vault view', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].label).toMatch(/empty/i);
   });
+  it('short originals fully masked', async () => {
+    const fake = { vault: { list: () => [{ synthetic: 'S', original: 'abc', category: 'x' }] } };
+    const rows = await new VaultViewProvider(fake as never).getChildren();
+    expect(rows[0].description).toBe('••••');
+  });
 });

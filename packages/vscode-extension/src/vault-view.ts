@@ -19,7 +19,7 @@ export class VaultViewProvider {
     if (entries.length === 0) return [new vscode.TreeItem('vault empty')];
     return entries.map((e) => {
       const item = new vscode.TreeItem(`${e.synthetic} [${e.category}]`);
-      item.description = `••••${e.original.slice(-4)}`;
+      item.description = e.original.length <= 4 ? '••••' : `••••${e.original.slice(-4)}`;
       item.tooltip = 'click to reveal in output';
       item.command = { command: 'datacloak.reveal', title: 'Reveal', arguments: [e.synthetic] };
       return item;
