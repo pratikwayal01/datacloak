@@ -2,25 +2,370 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<style>
-body { width: 320px; font: 12px sans-serif; margin: 0; padding: 10px 12px; color: #111; }
-h1 { font-size: 14px; margin: 0 0 8px; }
-#dc-mode-toggle { margin-bottom: 8px; }
-#dc-counts { margin-bottom: 8px; color: #333; }
-.dc-row { display: flex; gap: 6px; align-items: baseline; padding: 4px 0; border-top: 1px solid #eee; }
-.dc-synth { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dc-cat { color: #666; font-size: 11px; }
-.dc-original { cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dc-blurred { filter: blur(4px); user-select: none; }
-#dc-export { margin-top: 8px; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<h1>DataCloak</h1>
-<button id="dc-mode-toggle" type="button">Mode: auto</button>
-<div id="dc-counts"></div>
-<div id="dc-vault"></div>
-<button id="dc-export" type="button">Export audit JSON</button>
-<script src="dist/popup.js"></script>
+
+<!-- ── Header ─────────────────────────────── -->
+<header class="header">
+  <div class="wordmark">
+    <svg width="17" height="19" viewBox="0 0 17 19" fill="none">
+      <path d="M8.5 1L1 4.2V9C1 13 4.1 16.7 8.5 18C12.9 16.7 16 13 16 9V4.2L8.5 1Z"
+            fill="rgba(0,212,170,.12)" stroke="#00D4AA" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M5.5 9.5L7.5 11.5L11.5 7.5" stroke="#00D4AA" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    DataCloak
+  </div>
+  <div class="header-right">
+    <button class="status-pill" id="dc-mode-toggle" type="button">
+      <span class="dot"></span>
+      <span id="dc-mode-label">Auto</span>
+    </button>
+  </div>
+</header>
+
+<!-- ── Tab bar ────────────────────────────── -->
+<div class="tabs">
+  <button class="tab active" data-tab="vault" type="button">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2.5" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 2.5V2a2 2 0 014 0v.5" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/></svg>
+    Vault <span class="tab-badge" id="vault-badge">6</span>
+  </button>
+  <button class="tab" data-tab="settings" type="button">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1.2M6 9.8V11M1 6h1.2M9.8 6H11M2.3 2.3l.84.84M8.86 8.86l.84.84M9.7 2.3l-.84.84M3.14 8.86l-.84.84" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    Settings
+  </button>
+  <button class="tab" data-tab="dev" type="button">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 4L1.5 6 4 8M8 4l2.5 2L8 8M6.5 3l-1 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Dev Tools
+  </button>
+  <button class="tab" data-tab="about" type="button">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 5.5v3M6 3.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    About
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     VAULT PANEL
+══════════════════════════════════════════ -->
+<div class="panel active" id="panel-vault">
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num" id="stat-total">6</div>
+      <div class="stat-label">Cloaked</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-session">6</div>
+      <div class="stat-label">This session</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-types">6</div>
+      <div class="stat-label">Types</div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="search-wrap">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <input class="search-input" id="dc-search" type="text" placeholder="Filter entries…">
+    </div>
+  </div>
+
+  <div class="cat-filter-row" id="cat-filters">
+    <button class="cat-btn active" data-cat="all" type="button">All</button>
+    <button class="cat-btn" data-cat="email" type="button">Email</button>
+    <button class="cat-btn" data-cat="name" type="button">Name</button>
+    <button class="cat-btn" data-cat="phone" type="button">Phone</button>
+    <button class="cat-btn" data-cat="card" type="button">Card</button>
+    <button class="cat-btn" data-cat="ip" type="button">IP</button>
+    <button class="cat-btn" data-cat="id" type="button">ID</button>
+    <button class="cat-btn" data-cat="addr" type="button">Address</button>
+  </div>
+
+  <div class="section-label">Vault entries</div>
+  <div class="vault" id="dc-vault">
+    <div class="vault-empty" id="dc-empty" style="display:none">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><rect x="3" y="7.5" width="24" height="17" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M10 7.5V6a5 5 0 0110 0v1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="15" cy="16" r="2" fill="currentColor" opacity=".4"/></svg>
+      <p>Nothing cloaked yet.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn btn-danger" id="dc-clear" type="button">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 2l7 7M9 2l-7 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Clear
+    </button>
+    <button class="btn" id="dc-copy-all" type="button">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="3" width="7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M3 3V2a1 1 0 011-1h5a1 1 0 011 1v6a1 1 0 01-1 1H9" stroke="currentColor" stroke-width="1.2"/></svg>
+      Copy map
+    </button>
+    <button class="btn btn-primary" id="dc-export" type="button">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1v6M3 4.5l2.5 2.5L8 4.5M1 9h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Export
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETTINGS PANEL
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-settings">
+  <div class="settings-body">
+
+    <div class="settings-group-label">Detection</div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Auto-detect PII</div>
+        <div class="setting-desc">Scan page content automatically on load</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-autodetect" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Clipboard watch</div>
+        <div class="setting-desc">Auto-cloak when sensitive data is copied</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-clipboard">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Network intercept</div>
+        <div class="setting-desc">Scan outgoing XHR/fetch payloads</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-network" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Sensitivity level</div>
+        <div class="setting-desc">How aggressively to flag potential PII</div>
+      </div>
+      <div class="risk-row" style="width:140px">
+        <button class="risk-btn active-low" data-risk="low" type="button">Low</button>
+        <button class="risk-btn" data-risk="medium" type="button">Med</button>
+        <button class="risk-btn" data-risk="high" type="button">High</button>
+      </div>
+    </div>
+
+    <div class="settings-group-label" style="margin-top:6px">Display</div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Blur originals</div>
+        <div class="setting-desc">Hide real values behind blur by default</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-blur" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Notifications</div>
+        <div class="setting-desc">Show badge count on extension icon</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-notif" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Replacement style</div>
+        <div class="setting-desc">How synthetic values are generated</div>
+      </div>
+      <select class="setting-select" id="s-style">
+        <option value="realistic">Realistic</option>
+        <option value="token">Token (PERSON_1)</option>
+        <option value="hash">Hash prefix</option>
+      </select>
+    </div>
+
+    <div class="settings-group-label" style="margin-top:6px">Keyboard shortcut</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Toggle cloak</div>
+        <div class="setting-desc">Keyboard shortcut to toggle on/off</div>
+      </div>
+      <div class="shortcut-display">
+        <kbd>⌘</kbd><kbd>Shift</kbd><kbd>D</kbd>
+      </div>
+    </div>
+
+    <div class="settings-group-label" style="margin-top:6px">Domain allowlist</div>
+    <div class="allowlist-wrap">
+      <div class="allowlist-input-row">
+        <input class="allowlist-input" id="s-allowlist-input" type="text" placeholder="example.com">
+        <button class="btn-sm accent" id="s-allowlist-add" type="button">Add</button>
+      </div>
+      <div class="allowlist-tags" id="allowlist-tags">
+        <span class="allowlist-tag">localhost <button title="Remove">×</button></span>
+        <span class="allowlist-tag">staging.acme.io <button title="Remove">×</button></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <button class="btn btn-danger" id="s-reset" type="button">Reset defaults</button>
+    <button class="btn btn-primary" id="s-save" type="button">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 6l3 3 5-5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Save settings
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DEV TOOLS PANEL
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-dev">
+  <div class="dev-body">
+
+    <div class="dev-tab-row">
+      <button class="dev-tab active" data-dtab="console" type="button">Console</button>
+      <button class="dev-tab" data-dtab="network" type="button">Network</button>
+      <button class="dev-tab" data-dtab="storage" type="button">Storage</button>
+      <button class="dev-tab" data-dtab="patterns" type="button">Patterns</button>
+    </div>
+
+    <!-- Console sub-panel -->
+    <div class="dev-panel-inner active" id="dpanel-console">
+      <div class="console-output" id="console-out"></div>
+      <div class="console-input-row">
+        <span class="console-prompt">&gt;</span>
+        <input class="console-input" id="console-input" type="text" placeholder="Run DataCloak command…" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+
+    <!-- Network sub-panel -->
+    <div class="dev-panel-inner" id="dpanel-network">
+      <div class="network-list" id="network-list"></div>
+    </div>
+
+    <!-- Storage sub-panel -->
+    <div class="dev-panel-inner" id="dpanel-storage">
+      <div class="storage-body">
+        <div class="storage-meter">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:2px">
+            <span>Extension storage used</span>
+            <span id="storage-pct">14%</span>
+          </div>
+          <div class="storage-meter-bar"><div class="storage-meter-fill" id="storage-bar" style="width:14%"></div></div>
+          <div class="storage-meta"><span id="storage-used">18 KB</span><span id="storage-quota">/ 128 KB</span></div>
+        </div>
+        <table class="storage-table" id="storage-table">
+          <thead><tr><th>Key</th><th>Value</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Patterns sub-panel -->
+    <div class="dev-panel-inner" id="dpanel-patterns">
+      <div class="patterns-body" id="patterns-list"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <button class="btn" id="dev-clear-log" type="button">Clear log</button>
+    <button class="btn btn-primary" id="dev-copy-log" type="button">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="3" width="7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M3 3V2a1 1 0 011-1h5a1 1 0 011 1v6a1 1 0 01-1 1H9" stroke="currentColor" stroke-width="1.2"/></svg>
+      Copy log
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ABOUT PANEL
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-about">
+  <div class="about-body">
+
+    <div class="about-hero">
+      <div class="about-icon">
+        <svg width="26" height="28" viewBox="0 0 18 20" fill="none">
+          <path d="M9 1L1 4.5V9.5C1 13.7 4.4 17.7 9 19C13.6 17.7 17 13.7 17 9.5V4.5L9 1Z"
+                fill="rgba(0,212,170,.15)" stroke="#00D4AA" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 10L8 12L12 8" stroke="#00D4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="about-name">DataCloak</div>
+      <div class="about-version">v1.0.0 — chrome extension</div>
+    </div>
+
+    <div class="about-links">
+      <a class="about-link" href="#" id="link-changelog">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10v10H2z" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 5h5M4.5 7h5M4.5 9h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+          Changelog
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="#" id="link-docs">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 5v4M7 3.5v.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+          Documentation
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="#" id="link-github">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5C3.96 1.5 1.5 3.96 1.5 7c0 2.43 1.57 4.49 3.75 5.22.27.05.37-.12.37-.26v-.92c-1.52.33-1.84-.73-1.84-.73-.25-.63-.61-.8-.61-.8-.5-.34.04-.33.04-.33.55.04.84.56.84.56.49.84 1.28.6 1.6.46.05-.36.19-.6.35-.73-1.21-.14-2.49-.6-2.49-2.69 0-.59.21-1.08.56-1.46-.06-.14-.24-.69.05-1.44 0 0 .46-.15 1.5.56A5.2 5.2 0 017 4.89c.46.002.93.062 1.36.18 1.04-.7 1.5-.56 1.5-.56.29.75.11 1.3.05 1.44.35.38.56.87.56 1.46 0 2.09-1.28 2.55-2.5 2.68.2.17.37.5.37 1.01v1.5c0 .14.1.31.38.26A5.508 5.508 0 0012.5 7C12.5 3.96 10.04 1.5 7 1.5z" fill="currentColor"/></svg></span>
+          GitHub
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="#" id="link-feedback">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5h10a.5.5 0 01.5.5v6a.5.5 0 01-.5.5H4.5L2 11.5V3a.5.5 0 01.5-.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></span>
+          Send feedback
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+    </div>
+
+    <div class="permission-list">
+      <div class="permission-list-label">Permissions used</div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 2h10v7.5H1.5z" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4 11.5h5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></span>
+        <div><div>activeTab</div><div class="perm-desc">Read content on the current tab only</div></div>
+      </div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="3" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4 3V2a2.5 2.5 0 015 0v1" stroke="currentColor" stroke-width="1.1"/></svg></span>
+        <div><div>storage</div><div class="perm-desc">Persist your vault and settings locally</div></div>
+      </div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M4 6.5h5M7 4.5l2 2-2 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div><div>webRequest</div><div class="perm-desc">Inspect outgoing network payloads</div></div>
+      </div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3.5L6.5 7 11 3.5M2 3h9a.5.5 0 01.5.5v7a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5v-7A.5.5 0 012 3z" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div><div>clipboardRead</div><div class="perm-desc">Detect PII when you copy text</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="popup-ui.js"></script>
 </body>
 </html>
