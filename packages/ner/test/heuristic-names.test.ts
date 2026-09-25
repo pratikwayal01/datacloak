@@ -37,6 +37,11 @@ describe('heuristic names', () => {
     expect(vals('ship to 847 Larkspur Ave, Denver CO 80203')).toHaveLength(0);
     expect(vals('meet on Pine Rd tomorrow')).toHaveLength(0);
   });
+  it('street-suffix block does not suppress real addresses', () => {
+    const hits = p.detectAddresses('ship to 847 Larkspur Ave, Denver CO 80203');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].value).toContain('Larkspur Ave');
+  });
   it('verb guard fires on merged too', () => {
     expect(vals('Alice fixed the bug')).toHaveLength(0);
     expect(vals('Bob merged the PR')).toHaveLength(0);
