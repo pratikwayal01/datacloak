@@ -112,3 +112,4 @@ export class DataCloakEngine {
   }
 }
 export type { CustomPattern };
+export { defaultConfig } from './types.js';

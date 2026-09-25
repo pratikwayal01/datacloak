@@ -1,5 +1,4 @@
-import { DataCloakEngine } from '@pratikw/detect';
-import { defaultConfig } from '@pratikw/detect/dist/types.js';
+import { DataCloakEngine, defaultConfig } from '@pratikw/detect';
 import type { BgRequest, BgResponse, StatsResponse } from './protocol.js';
 
 export interface MemoryStore {
@@ -111,4 +110,34 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
   const r = engine.restore(req.text);
   record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [] });
   return { text: r.text, restored: r.restored };
+}
+
+// Production wiring (no-op under test — chrome undefined there)
+declare const chrome: {
+  runtime: { onMessage: { addListener: (fn: (msg: BgRequest, sender: { tab?: { id?: number } }) => Promise<BgResponse>) => void } };
+  storage: {
+    session: { get: (k: string) => Promise<Record<string, unknown>>; set: (o: Record<string, unknown>) => Promise<void>; remove: (k: string) => Promise<void> };
+    sync: { get: (k: string) => Promise<Record<string, unknown>>; set: (o: Record<string, unknown>) => Promise<void> };
+  };
+  tabs: { onRemoved: { addListener: (fn: (tabId: number) => void) => void } };
+} | undefined;
+
+if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
+  const store: MemoryStore = {
+    getTab: async (t) => (await chrome.storage.session.get(`vault:${t}`))[`vault:${t}`] as { vault: [string, string, string][] } | undefined,
+    setTab: async (t, d) => { await chrome.storage.session.set({ [`vault:${t}`]: d }); },
+    removeTab: async (t) => { await chrome.storage.session.remove(`vault:${t}`); },
+  };
+  const sync: SyncStore = {
+    getFlags: async () => (await chrome.storage.sync.get('dc-flags'))['dc-flags'] as DetectorFlags | undefined,
+    setFlags: async (f) => { await chrome.storage.sync.set({ 'dc-flags': f }); },
+  };
+  chrome.runtime.onMessage.addListener(async (msg, sender) => {
+    const tabId = sender.tab?.id ?? 0;
+    return handleRequest(tabId, msg, store, sync);
+  });
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    engines.delete(tabId);
+    void store.removeTab(tabId);
+  });
 }
