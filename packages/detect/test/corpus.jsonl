@@ -37,3 +37,4 @@
 {"text": "deploy token xK9mQ2vL7pT4wK8nR1yU5aB3dEfG7hJkL expires", "expect": ["HIGH_ENTROPY_STRING"]}
 {"text": "nothing sensitive here just hello world", "expect": []}
 {"text": "version 1.2.3 released on monday morning", "expect": []}
+{"text": "proj sk-proj-7fK9mQ2xR4vN8cL1pT6yW3aB5dE0hG9jS2uI4o end", "expect": ["API_KEY_OPENAI"]}

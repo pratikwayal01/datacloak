@@ -9,6 +9,10 @@ describe('detectPass1', () => {
     expect(cats('key sk-abcdefghij1234567890')).toContain('API_KEY_OPENAI');
     expect(ds.find((d) => d.category === 'EMAIL')?.value).toBe('john.doe@acme.com');
   });
+  it('finds openai proj and svcacct keys', () => {
+    expect(cats('key sk-proj-7fK9mQ2xR4vN8cL1pT6yW3aB5dE0hG9jS2uI4oP8nM6qZ1xC3 end')).toContain('API_KEY_OPENAI');
+    expect(cats('key sk-svcacct-7fK9mQ2xR4vN8cL1pT6yW3aB5dE0hG9 end')).toContain('API_KEY_OPENAI');
+  });
   it('finds aws key, jwt, ipv4, e164', () => {
     expect(cats('x AKIAIOSFODNN7EXAMPLE y')).toContain('AWS_ACCESS_KEY');
     expect(cats('t eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_5NTkZBfQfRXNVIo z')).toContain('JWT');

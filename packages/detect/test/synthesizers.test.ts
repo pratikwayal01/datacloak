@@ -13,6 +13,7 @@ describe('synthesize', () => {
   it('openai key keeps prefix with SYNTH infix', () => {
     const s = synthesize('API_KEY_OPENAI', 'sk-abcdefghij1234567890');
     expect(s.startsWith('sk-SYNTH')).toBe(true);
+    expect(synthesize('API_KEY_OPENAI', 'sk-proj-7fK9mQ2xR4vN8cL1pT6yW3aB5dE0').startsWith('sk-proj-SYNTH')).toBe(true);
   });
   it('aws key keeps AKIA shape', () => {
     expect(synthesize('AWS_ACCESS_KEY', 'AKIAIOSFODNN7EXAMPLE')).toMatch(/^AKIA[0-9A-Z]{16}$/);

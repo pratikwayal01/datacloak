@@ -9,7 +9,7 @@ export function synthesize(category: string, original: string): string | null {
     case 'PHONE_US': return synthPhoneUS();
     case 'PHONE_E164': return synthPhoneE164();
     case 'IPV4': return synthIpv4();
-    case 'API_KEY_OPENAI': return synthOpenAI();
+    case 'API_KEY_OPENAI': return synthOpenAI(original);
     case 'API_KEY_ANTHROPIC': return synthAnthropic();
     case 'AWS_ACCESS_KEY': return synthAws();
     case 'GITHUB_PAT': return synthGithub();

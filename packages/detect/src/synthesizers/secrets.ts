@@ -1,6 +1,9 @@
 import { faker } from '@faker-js/faker';
 const alnum = (n: number): string => faker.string.alphanumeric(n);
-export function synthOpenAI(): string { return `sk-SYNTH${alnum(20)}`; }
+export function synthOpenAI(original = ''): string {
+  const prefix = original.startsWith('sk-proj-') ? 'sk-proj-' : original.startsWith('sk-svcacct-') ? 'sk-svcacct-' : 'sk-';
+  return `${prefix}SYNTH${alnum(20)}`;
+}
 export function synthAnthropic(): string { return `sk-ant-api03-SYNTH${alnum(20)}`; }
 export function synthAws(): string { return `AKIA${faker.string.alphanumeric({ length: 16, casing: 'upper' })}`; }
 export function synthGithub(): string { return `ghp_SYNTH${alnum(31)}`; }
