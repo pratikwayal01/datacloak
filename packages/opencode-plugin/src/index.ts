@@ -17,7 +17,9 @@ export const DatacloakPlugin: Plugin = async (input) => {
   const run = (name: string, event: AnyEvent) => {
     for (const fn of handlers[name] ?? []) fn(event);
   };
-  console.error(`[datacloak] active: secrets=${config.detection.secrets} pii=${config.detection.pii} entropy=${config.detection.entropy} vault=${config.vault.maxEntries}`);
+  if (!process.env.DATACLOAK_QUIET) {
+    console.error(`[datacloak] active: secrets=${config.detection.secrets} pii=${config.detection.pii} entropy=${config.detection.entropy} vault=${config.vault.maxEntries}`);
+  }
   return {
     'experimental.chat.system.transform': async (_in, out) => {
       for (let i = 0; i < out.system.length; i++) {
