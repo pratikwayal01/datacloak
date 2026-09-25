@@ -25,6 +25,7 @@ jobs:
             workspace: packages/opencode-plugin
           - tag_prefix: ner-v
             workspace: packages/ner
+    if: startsWith(github.ref_name, matrix.tag_prefix)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +38,10 @@ jobs:
       - run: npm run build --workspace ${{ matrix.workspace }}
       - run: npm test --workspace ${{ matrix.workspace }}
       - name: tag must match package version
-        if: startsWith(github.ref_name, matrix.tag_prefix)
         run: |
           PKG="${{ matrix.tag_prefix }}$(node -p "require('./${{ matrix.workspace }}/package.json').version")"
           test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != package $PKG"; exit 1; }
       - name: publish to npm
-        if: startsWith(github.ref_name, matrix.tag_prefix)
         run: npm publish --workspace ${{ matrix.workspace }} --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
