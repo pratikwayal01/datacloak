@@ -141,6 +141,8 @@ npm test --workspace packages/detect
 ```
 
 - Corpus recall: 39/39 labeled samples (100%, gate ≥ 95%) — `test/corpus.jsonl`
+  (fixtures use obviously-fake credentials like `admin:pass` by design —
+  GitHub secret-scanning hits on them are false positives)
 - Perf: ~9.5ms to cloak 12KB (guard < 200ms)
 - Synthesis pins: phones locked to fictional `555-01` / `+44770090` ranges,
   JWT encoder UTF-8-safe with NumericDate seconds
