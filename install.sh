@@ -21,4 +21,20 @@ if ! test -w "$(npm root -g 2>/dev/null || echo /nonexistent)"; then
 fi
 
 npm install -g "${PREFIX_ARGS[@]}" @pratikw/detect
-NODE_PATH="$(npm root -g "${PREFIX_ARGS[@]}")" node -e "import('@pratikw/detect').then(() => console.log('datacloak: installed ok'))"
+
+# Locate the install (global or user prefix) and verify by absolute path —
+# no reliance on NODE_PATH resolution quirks across npm/node versions.
+PKGDIR=""
+for c in "$(npm root -g 2>/dev/null)/@pratikw/detect" "$HOME/.local/lib/node_modules/@pratikw/detect"; do
+  if [ -f "$c/package.json" ] && [ -f "$c/dist/engine.js" ]; then PKGDIR="$c"; break; fi
+done
+if [ -z "$PKGDIR" ]; then
+  echo "datacloak: installed but package not found — check npm output above" >&2
+  exit 1
+fi
+node --input-type=module -e "
+import('file://$PKGDIR/dist/engine.js').then((m) => {
+  const c = new m.DataCloakEngine().cloak('mail john.doe@acme.com');
+  if (c.text.includes('john.doe@acme.com')) process.exit(1);
+  console.log('datacloak: installed ok (cloak verified)');
+}).catch((e) => { console.error('datacloak: verify failed:', e.message); process.exit(1); })"
