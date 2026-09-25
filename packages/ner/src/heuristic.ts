@@ -5,6 +5,7 @@ const SIGNALS = /(?:my name is|contact|attn|attn:|c\/o|signed|sincerely|regards|
 const BLOCK_MONTHS = new Set('january february march april may june july august september october november december jan feb mar apr jun jul aug sep sept oct nov dec'.split(' '));
 const BLOCK_DAYS = new Set(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 const BLOCK_SUFFIX = new Set(['inc', 'llc', 'gmbh', 'ltd', 'corp', 'co', 'ag', 'sas', 'bv']);
+const BLOCK_STREET = new Set('st street ave avenue rd road blvd boulevard ln lane dr drive ct court pl place way ter terrace str straße strasse weg allee gasse'.split(' '));
 const PAIR = /\b([A-Z][a-z]{1,19}) ([A-Z][a-z]{1,19})\b/g;
 const STREET_SUFFIX = 'St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Pl|Place|Way|Ter|Terrace|Str|Straße|Weg|Allee|Gasse';
 const ADDR = new RegExp(
@@ -29,6 +30,7 @@ export class HeuristicNerProvider implements NerProvider {
       if (BLOCK_MONTHS.has(first.toLowerCase()) || BLOCK_MONTHS.has(last.toLowerCase())) continue;
       if (BLOCK_DAYS.has(first.toLowerCase()) || BLOCK_DAYS.has(last.toLowerCase())) continue;
       if (BLOCK_SUFFIX.has(last.toLowerCase())) continue;
+      if (BLOCK_STREET.has(last.toLowerCase().replace(/\.$/, ''))) continue;
       if (/^[A-Z][a-z]{1,19} [A-Z][a-z]{1,19} (fixed|added|removed|merged|said|says|announced)\b/.test(text.slice(m.index, m.index + full.length + 12))) continue;
       const before = text.slice(Math.max(0, m.index - 24), m.index);
       const signaled = HONORIFICS.test(full) || SIGNALS.test(before) || /(?:mr|ms|mrs|dr|prof)\.?\s*$/i.test(before) || /(?:^|\s|,)(jr|sr|ii|iii|iv)\.?(\s|$)/i.test(text.slice(m.index + full.length, m.index + full.length + 8));

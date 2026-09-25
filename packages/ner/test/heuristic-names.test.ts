@@ -31,6 +31,12 @@ describe('heuristic names', () => {
     expect(hits.map((s) => s.value)).toContain('John Smith');
     expect(hits.find((s) => s.value === 'John Smith')?.confidence).toBe('high');
   });
+  it('rejects street-suffix pairs (not person names)', () => {
+    expect(vals('lives on Main St near downtown')).toHaveLength(0);
+    expect(vals('apt 4 on Oak Ave, second floor')).toHaveLength(0);
+    expect(vals('ship to 847 Larkspur Ave, Denver CO 80203')).toHaveLength(0);
+    expect(vals('meet on Pine Rd tomorrow')).toHaveLength(0);
+  });
   it('verb guard fires on merged too', () => {
     expect(vals('Alice fixed the bug')).toHaveLength(0);
     expect(vals('Bob merged the PR')).toHaveLength(0);
