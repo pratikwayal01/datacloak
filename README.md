@@ -1,10 +1,10 @@
 # DataCloak — swap real secrets for fakes before AI ever sees them
 
 ![docs](https://img.shields.io/badge/docs-GitHub_Pages-blue)
+![release](https://img.shields.io/github/v/release/pratikwayal01/datacloak)
 ![npm](https://img.shields.io/npm/v/@pratikw/detect)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
-![Stage](https://img.shields.io/badge/stage-detect_MVP-green)
-![Tests](https://img.shields.io/badge/tests-28_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Recall](https://img.shields.io/badge/corpus_recall-100%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
@@ -31,10 +31,11 @@ Full guides: **https://pratikwayal01.github.io/datacloak/**
 
 | Category | Coverage |
 |----------|----------|
-| API keys | OpenAI, Anthropic, AWS, GitHub PAT, Stripe |
+| API keys | OpenAI (incl. `sk-proj-`, `sk-svcacct-`), Anthropic, AWS, GitHub PAT, Stripe |
 | Tokens | JWT, PEM private keys, high-entropy strings (Shannon ≥ 4.5) |
 | Credentials | Env `KEY=value` (50+ key names), DSNs (postgres, mongo, redis, mysql, amqp), inline JSON/YAML secrets |
 | PII | Email, US + E.164 phones, IPv4 |
+| NER (opt-in `@pratikw/detect-ner`) | Person names, street addresses (US/DE), DOB (gated on co-located PII) |
 
 ## Requirements
 
@@ -62,7 +63,7 @@ From source:
 git clone https://github.com/pratikwayal01/datacloak.git && cd datacloak
 npm install
 npm run build --workspace packages/detect   # tsc → packages/detect/dist/
-npm test --workspace packages/detect        # 28 tests
+npm test --workspace packages/detect        # 29 tests, corpus recall gate
 ```
 
 Browser extension (unpacked, Chrome/Edge):
@@ -77,7 +78,7 @@ Then open `chrome://extensions`, enable **Developer mode**, click
 Covers claude.ai, ChatGPT, Gemini, Grok (x.ai), Perplexity, Cowork and
 DeepSeek — auto-cloak on send, restore in responses, popup viewer on the
 toolbar. Firefox: `about:debugging → This Firefox → Load Temporary Add-on`
-with `manifest.json` (un tested, expected-compatible).
+with `manifest.json` (untested, expected-compatible).
 
 ## Coding agents
 
@@ -96,7 +97,7 @@ One binary, eleven harnesses — full copy-paste steps in
 | Pi | `hooks.yaml` (prompt context-only — Pi limitation) |
 | DeepSeek harness | `agent/pre-step` + `tools/pre-execute` cordis plugin |
 | Aider | Shell preexec + pre-commit hook (no in-harness API) |
-| OpenCode | Native plugin (built, publish pending) |
+| OpenCode | Native plugin ([npm](https://www.npmjs.com/package/@pratikw/opencode-plugin)) — add `@pratikw/opencode-plugin` to the `plugin` array in `opencode.json`, restart |
 | Anything else | `datacloak install-shell` preexec backstop |
 
 ## Quick start
@@ -137,12 +138,13 @@ Rules that hold on every call:
 
 ```bash
 npm test --workspace packages/detect
-# vault, patterns, entropy, synthesizers, engine — 5 suites, 28/28 green
+# vault, patterns, entropy, synthesizers, engine — 5 suites, 29/29 green
 ```
 
-- Corpus recall: 39/39 labeled samples (100%, gate ≥ 95%) — `test/corpus.jsonl`
+- Corpus recall: 40/40 labeled samples (100%, gate ≥ 95%) — `test/corpus.jsonl`
   (fixtures use obviously-fake credentials like `admin:pass` by design —
   GitHub secret-scanning hits on them are false positives)
+- NER corpus: 26/26 positives + 10/10 negatives — `packages/ner/test/corpus-ner.jsonl`
 - Perf: ~9.5ms to cloak 12KB (guard < 200ms)
 - Synthesis pins: phones locked to fictional `555-01` / `+44770090` ranges,
   JWT encoder UTF-8-safe with NumericDate seconds
@@ -157,20 +159,27 @@ Surfaced during implementation, all tracked (none hidden):
 - Opaque-token fallback skips the input-collision check (negligible: random 6-char suffix).
 - `restore().restored` counts distinct vault entries hit, not total occurrences.
 - Env regex is line-anchored — mid-line `export KEY=v` is missed by design.
-- Corpus is 39 samples, not the 500+ planned for Phase 1 full.
-- No NER yet: names, street addresses, DOB need co-located signals or wait for Phase 4.
+- NER is heuristic-grade: rare surnames matching street suffixes (Lane, Way)
+  false-negative; multi-word streets partial; ONNX slot wired, model not bundled.
 
 ## Architecture
 
 ```
-packages/detect/src/
-├── engine.ts          # DataCloakEngine: detect(), cloak(), restore()
-├── patterns/          # secrets.ts, credentials.ts, pii.ts → index.ts registry
-├── entropy.ts         # Shannon scan (≥4.5, ≥20 chars, UUID/image skips)
-├── synthesizers/      # pii.ts, secrets.ts, credentials.ts → index.ts registry
-├── tokens.ts          # opaque [CATEGORY_XXXXXX] fallback
-├── vault.ts           # bidirectional Map + LRU(2000)
-└── types.ts           # Detection, CloakResult, VaultEntry, Config
+packages/
+├── detect/               @pratikw/detect — engine, patterns, synthesizers, vault
+│   └── src/
+│       ├── engine.ts          # DataCloakEngine: detect(), cloak(), restore()
+│       ├── patterns/          # secrets.ts, credentials.ts, pii.ts → index.ts registry
+│       ├── entropy.ts         # Shannon scan (≥4.5, ≥20 chars, UUID/image skips)
+│       ├── synthesizers/      # pii.ts, secrets.ts, credentials.ts → index.ts registry
+│       ├── tokens.ts          # opaque [CATEGORY_XXXXXX] fallback
+│       ├── vault.ts           # bidirectional Map + LRU(2000)
+│       └── types.ts           # Detection, CloakResult, VaultEntry, Config
+├── ner/                  @pratikw/detect-ner — heuristic NER + ONNX loader (opt-in)
+├── opencode-plugin/      @pratikw/opencode-plugin — cloak/block/redact/restore hooks
+├── cli/                  @pratikw/datacloak — binary + shell + 10 harness adapters
+├── browser-extension/    MV3 extension — composer intercept, per-tab vault, popup
+└── vscode-extension/     cloak/restore commands, vault tree, status bar
 ```
 
 Two-pass detection: compiled RegExp registry in priority order with
