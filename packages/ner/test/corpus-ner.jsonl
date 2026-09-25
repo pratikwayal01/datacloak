@@ -1,0 +1,36 @@
+{"expect": ["PERSON_NAME"], "text": "my name is Alice Johnson"}
+{"expect": ["PERSON_NAME"], "text": "contact Bob Williams tomorrow"}
+{"expect": ["PERSON_NAME"], "text": "Kind regards, Carol Davis"}
+{"expect": ["PERSON_NAME"], "text": "signed David Miller yesterday"}
+{"expect": ["PERSON_NAME"], "text": "Dr. Emily Carter will see you"}
+{"expect": ["PERSON_NAME"], "text": "from Frank Garcia regarding invoice"}
+{"expect": ["PERSON_NAME"], "text": "had lunch with Henry Taylor downtown"}
+{"expect": ["PERSON_NAME"], "text": "met Grace Hopper after the keynote"}
+{"expect": [], "text": "Alice Johnson went to the store"}
+{"expect": [], "text": "the January Smith report arrived today"}
+{"expect": ["STREET_ADDRESS"], "text": "ship to 123 main St, Springfield IL 62701"}
+{"expect": ["STREET_ADDRESS"], "text": "bill 45 oak Ave, Riverton CA 90210"}
+{"expect": ["STREET_ADDRESS"], "text": "office at 789 pine Rd, Austin TX 73301"}
+{"expect": ["STREET_ADDRESS"], "text": "deliver 10 cedar Blvd, Denver CO 80202"}
+{"expect": ["STREET_ADDRESS"], "text": "wohnhaft Hauptstraße 12, 10115 Berlin"}
+{"expect": ["STREET_ADDRESS"], "text": "bitte an Blumenweg 5, 80331 München senden"}
+{"expect": [], "text": "lives on Main St near downtown"}
+{"expect": [], "text": "apt 4 on Oak Ave, second floor"}
+{"expect": [], "text": "ZIP 62701 for delivery zone"}
+{"expect": [], "text": "area 90210 covers the region"}
+{"expect": ["DATE_OF_BIRTH", "EMAIL"], "text": "contact alice@acme.com, born 1990-05-14"}
+{"expect": ["DATE_OF_BIRTH", "EMAIL"], "text": "dob 1985-11-02 for bob@acme.com"}
+{"expect": ["DATE_OF_BIRTH", "EMAIL"], "text": "email carol@acme.com birth 12 Jan 1990 confirmed"}
+{"expect": ["DATE_OF_BIRTH", "EMAIL"], "text": "born 03 Feb 1978, reach me at dave@acme.com"}
+{"expect": [], "text": "born 1990-05-14 in spring records"}
+{"expect": [], "text": "dob 1985-11-02 noted in file"}
+{"expect": [], "text": "meeting on 2024-03-01 at noon"}
+{"expect": [], "text": "report due 15 Mar 2025 final"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "Regards, Alice Johnson, support@acme.com"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "from Bob Williams <bob@acme.com>"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "Sincerely, Carol Davis, carol@acme.com"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "ticket from Dave Miller dave@acme.com"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "contact Erin Hall at erin@acme.com"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "signed Frank Garcia frank@acme.com"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "Attn: Grace Lee grace@acme.com urgent"}
+{"expect": ["PERSON_NAME", "EMAIL"], "text": "c/o Henry Adams henry@acme.com"}

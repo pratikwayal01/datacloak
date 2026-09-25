@@ -29,6 +29,20 @@ export class DataCloakEngine {
         out.push({ value: h.value, category: 'HIGH_ENTROPY_STRING', type: 'secret', start: h.start, end: h.end, confidence: 'medium' });
       }
     }
+    if (this.config.ner) {
+      const cats = new Set(out.map((x) => x.category));
+      const context = { hasEmail: cats.has('EMAIL'), hasPhone: [...cats].some((c) => c.startsWith('PHONE')), hasId: false };
+      const push = (spans: { value: string; start: number; end: number; confidence: 'high' | 'medium' }[], category: string) => {
+        for (const s of spans) {
+          if (out.some((x) => s.start < x.end && x.start < s.end)) continue;
+          out.push({ value: s.value, category, type: 'pii', start: s.start, end: s.end, confidence: s.confidence });
+        }
+      };
+      const ner = this.config.ner;
+      push(ner.detectNames(text), 'PERSON_NAME');
+      push(ner.detectAddresses(text), 'STREET_ADDRESS');
+      push(ner.detectDob(text, context), 'DATE_OF_BIRTH');
+    }
     out.sort((a, b) => a.start - b.start || b.end - a.end);
     return out;
   }
