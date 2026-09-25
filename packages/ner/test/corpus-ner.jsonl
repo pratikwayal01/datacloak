@@ -14,8 +14,8 @@
 {"expect": ["STREET_ADDRESS"], "text": "deliver 10 cedar Blvd, Denver CO 80202"}
 {"expect": ["STREET_ADDRESS"], "text": "wohnhaft Hauptstraße 12, 10115 Berlin"}
 {"expect": ["STREET_ADDRESS"], "text": "bitte an Blumenweg 5, 80331 München senden"}
-{"expect": [], "text": "lives on Main St near downtown"}
-{"expect": [], "text": "apt 4 on Oak Ave, second floor"}
+{"expect": [], "text": "lives on main street near downtown"}
+{"expect": [], "text": "apt 4, second floor, street not listed"}
 {"expect": [], "text": "ZIP 62701 for delivery zone"}
 {"expect": [], "text": "area 90210 covers the region"}
 {"expect": ["DATE_OF_BIRTH", "EMAIL"], "text": "contact alice@acme.com, born 1990-05-14"}
