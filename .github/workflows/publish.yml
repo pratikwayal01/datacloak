@@ -46,6 +46,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      - run: npm run build --workspace packages/detect
       - run: npm run build --workspace packages/cli
       - run: npm test --workspace packages/cli
       - name: tag must match package version
@@ -68,6 +69,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      - run: npm run build --workspace packages/detect
       - run: npm run build --workspace packages/opencode-plugin
       - run: npm test --workspace packages/opencode-plugin
       - name: tag must match package version
@@ -90,6 +92,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+      - run: npm run build --workspace packages/detect
       - run: npm run build --workspace packages/ner
       - run: npm test --workspace packages/ner
       - name: tag must match package version
