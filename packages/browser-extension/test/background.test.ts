@@ -23,6 +23,8 @@ describe('background', () => {
     const c = await handleRequest(7, { kind: 'cloak', text: 'key sk-abcdefghij1234567890' }, s);
     const r = await handleRequest(7, { kind: 'restore', text: (c as { text: string }).text }, s);
     expect((r as { text: string }).text).toContain('sk-abcdefghij1234567890');
+    const hits = (r as { hits?: { synthetic: string; original: string }[] }).hits ?? [];
+    expect(hits.some((h) => h.original === 'sk-abcdefghij1234567890')).toBe(true);
   });
   it('oplog records cloak with ms>=0', async () => {
     const s = fakeStore();

@@ -132,23 +132,91 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
 export function observeResponses(logRoot: Node, send: SendFn): MutationObserver {
   const doc = logRoot.ownerDocument ?? (logRoot as Document);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const scan = async (): Promise<void> => {
-    const walker = doc.createTreeWalker(logRoot, 4 /* NodeFilter.SHOW_TEXT */);
-    const nodes: Text[] = [];
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-      const t = n as Text;
-      if ((t.parentElement as HTMLElement | null)?.closest?.('.dc-restored')) continue;
-      if (!t.data.trim()) continue;
-      nodes.push(t);
+  // Map a char offset in the concatenated group text to its (node, inner offset).
+  // lens is a snapshot: earlier replacements mutate live node data, so offsets
+  // must resolve against the pre-replacement layout (applied descending).
+  const locate = (nodes: Text[], starts: number[], lens: number[], off: number): { idx: number; inner: number } => {
+    let idx = starts.length - 1;
+    for (let i = 0; i < starts.length; i++) {
+      if (off < starts[i] + lens[i]) { idx = i; break; }
     }
-    for (const t of nodes) {
-      if (!t.isConnected) continue;
-      const res = await send({ kind: 'restore', text: t.data });
-      if (!('restored' in res) || res.restored === 0 || res.text === t.data) continue;
+    return { idx, inner: off - starts[idx] };
+  };
+  const replaceRange = (nodes: Text[], starts: number[], lens: number[], s: number, e: number, original: string): void => {
+    const a = locate(nodes, starts, lens, s);
+    const b = locate(nodes, starts, lens, e - 1);
+    if (a.idx === b.idx) {
+      const node = nodes[a.idx];
+      const eInner = e - starts[b.idx];
+      if (eInner < node.data.length) node.splitText(eInner);
+      const mid = a.inner > 0 ? node.splitText(a.inner) : node;
       const span = doc.createElement('span');
       span.className = 'dc-restored';
-      span.textContent = res.text;
-      t.replaceWith(span);
+      span.textContent = original;
+      mid.replaceWith(span);
+      return;
+    }
+    // Multi-node match: plain-text replacement to avoid breaking formatting.
+    const startNode = nodes[a.idx];
+    const startTail = a.inner > 0 ? startNode.splitText(a.inner) : startNode;
+    const endNode = nodes[b.idx];
+    const eInner = e - starts[b.idx];
+    const endAfter = eInner < endNode.data.length ? endNode.splitText(eInner) : null;
+    const replacement = doc.createTextNode(original);
+    startTail.before(replacement);
+    const stop: Node | null = endAfter ?? endNode.nextSibling;
+    for (let n: ChildNode | null = startTail; n && n !== stop;) {
+      const next: ChildNode | null = n.nextSibling;
+      n.remove();
+      n = next;
+    }
+  };
+  const scan = async (): Promise<void> => {
+    const walker = doc.createTreeWalker(logRoot, 4 /* NodeFilter.SHOW_TEXT */);
+    // Group CONTIGUOUS text nodes sharing the same parent: streamers append
+    // response chunks as sibling text nodes, splitting a synthetic mid-value.
+    const groups: Text[][] = [];
+    let prev: Text | null = null;
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const t = n as Text;
+      if ((t.parentElement as HTMLElement | null)?.closest?.('.dc-restored')) { prev = null; continue; }
+      if (prev && t.parentNode === prev.parentNode && t.previousSibling === prev) {
+        groups[groups.length - 1].push(t);
+      } else {
+        groups.push([t]);
+      }
+      prev = t;
+    }
+    for (const g of groups) {
+      if (!g.some((t) => t.isConnected)) continue;
+      const starts: number[] = [];
+      const lens: number[] = [];
+      let acc = '';
+      for (const t of g) { starts.push(acc.length); lens.push(t.data.length); acc += t.data; }
+      if (!acc.trim()) continue;
+      const res = await send({ kind: 'restore', text: acc });
+      if (!('restored' in res) || res.restored === 0) continue;
+      if (!g.some((t) => t.isConnected)) continue;
+      if (res.hits?.length) {
+        // Descending offsets so earlier replacements don't shift later ones.
+        const occs: { s: number; e: number; original: string }[] = [];
+        for (const h of [...res.hits].sort((x, y) => y.synthetic.length - x.synthetic.length)) {
+          let from = 0;
+          for (;;) {
+            const at = acc.indexOf(h.synthetic, from);
+            if (at < 0) break;
+            occs.push({ s: at, e: at + h.synthetic.length, original: h.original });
+            from = at + h.synthetic.length;
+          }
+        }
+        occs.sort((x, y) => y.s - x.s);
+        for (const o of occs) replaceRange(g, starts, lens, o.s, o.e, o.original);
+      } else if (res.text !== acc && g.length === 1 && g[0].isConnected) {
+        const span = doc.createElement('span');
+        span.className = 'dc-restored';
+        span.textContent = res.text;
+        g[0].replaceWith(span);
+      }
     }
   };
   const obs = new MutationObserver(() => {

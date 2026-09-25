@@ -109,7 +109,10 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
   const start = Date.now();
   const r = engine.restore(req.text);
   record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [] });
-  return { text: r.text, restored: r.restored };
+  const hits = engine.vault.list()
+    .filter((e) => req.text.includes(e.synthetic))
+    .map((e) => ({ synthetic: e.synthetic, original: e.original }));
+  return { text: r.text, restored: r.restored, hits };
 }
 
 // Production wiring (no-op under test — chrome undefined there)
