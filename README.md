@@ -27,14 +27,6 @@ restore(/* model reply with synthetics */)
 
 Full guides: **https://pratikwayal01.github.io/datacloak/**
 
-## Contents
-
-- [What it detects](#what-it-detects) · [Requirements](#requirements)
-- [Installation](#installation) · [Coding agents](#coding-agents) · [Quick start](#quick-start) · [Guarantees](#guarantees)
-- [Testing](#testing) · [Honest gaps](#honest-gaps) · [Architecture](#architecture)
-- [Publishing](#publishing) · [Contributing](#contributing) · [License](#license)
-- [Further reading](#further-reading)
-
 ## What it detects
 
 | Category | Coverage |
