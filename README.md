@@ -178,15 +178,19 @@ missed. Synthesis is per-category Faker calls; the vault maps
 
 ## Publishing
 
-Maintainer-only. Releases go out via the
-[`publish-detect`](.github/workflows/publish.yml) workflow
-(repo secret `NPM_TOKEN` needs publish rights on the `@pratikw` scope):
+Maintainer-only. Single release train: tag `vX.Y.Z` publishes all four
+packages (`detect`, `datacloak`, `opencode-plugin`, `detect-ner`) at that
+version via [`publish`](.github/workflows/publish.yml)
+(repo secret `NPM_TOKEN` needs publish rights on `@pratikw`):
 
 ```bash
-# bump version in packages/detect/package.json, then:
-git tag detect-v0.1.1 && git push origin detect-v0.1.1
-# CI builds, tests, checks tag == package version, publishes with provenance
+# bump version in all four packages/*/package.json to X.Y.Z, then:
+git tag v0.2.0 && git push origin v0.2.0
+# CI builds, tests, checks versions == tag, publishes with provenance
 ```
+
+Installer flags: `install.sh --repair` (reinstall + re-verify),
+`install.sh --uninstall` (removes packages; vault files left for you to purge).
 
 ## Contributing
 

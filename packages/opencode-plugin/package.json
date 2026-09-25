@@ -1,6 +1,6 @@
 {
   "name": "@pratikw/opencode-plugin",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "DataCloak for OpenCode: automatic prompt cloaking, tool-call blocking, output redaction.",
   "files": [
     "dist",
