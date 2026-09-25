@@ -3,9 +3,9 @@
 | Package | npm | What it does | Status |
 |---|---|---|---|
 | `@pratikw/detect` | [npm](https://www.npmjs.com/package/@pratikw/detect) | Detection engine, Faker synthesis, vault | v0.1.2 published |
-| `@pratikw/datacloak` | — | `cloak/restore/scan/guard` CLI + shell + 10 harness adapters | v0.1.0 pending |
-| `@pratikw/opencode-plugin` | — | Auto cloak/block/redact/restore in OpenCode | v0.1.0 pending |
-| `@pratikw/detect-ner` | — | Names, addresses, DOB (heuristics + ONNX loader) | v0.1.0 pending |
+| `@pratikw/datacloak` | [npm](https://www.npmjs.com/package/@pratikw/datacloak) | `cloak/restore/scan/guard` CLI + shell + 10 harness adapters | v0.1.3 published |
+| `@pratikw/opencode-plugin` | [npm](https://www.npmjs.com/package/@pratikw/opencode-plugin) | Auto cloak/block/redact/restore in OpenCode | v0.1.3 published |
+| `@pratikw/detect-ner` | [npm](https://www.npmjs.com/package/@pratikw/detect-ner) | Names, addresses, DOB (heuristics + ONNX loader) | v0.1.3 published |
 | Browser extension | — | 8 chat sites, per-tab vault, popup | Unreleased (load unpacked) |
 
 ## What each detects

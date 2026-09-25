@@ -29,22 +29,11 @@ Full guides: **https://pratikwayal01.github.io/datacloak/**
 
 ## Contents
 
-- [Status](#status) · [What it detects](#what-it-detects) · [Requirements](#requirements)
+- [What it detects](#what-it-detects) · [Requirements](#requirements)
 - [Installation](#installation) · [Coding agents](#coding-agents) · [Quick start](#quick-start) · [Guarantees](#guarantees)
 - [Testing](#testing) · [Honest gaps](#honest-gaps) · [Architecture](#architecture)
 - [Publishing](#publishing) · [Contributing](#contributing) · [License](#license)
 - [Further reading](#further-reading)
-
-## Status
-
-| Package | What it does | Status |
-|---------|--------------|--------|
-| `@pratikw/detect` ([npm](https://www.npmjs.com/package/@pratikw/detect)) | Detection engine, Faker synthesis, vault, `detect/cloak/restore` | ✅ v0.1.2 published |
-| `@pratikw/opencode-plugin` | Auto cloak/block/redact/restore inside OpenCode, no commands | ✅ Built, unpublished |
-| Browser extension | Auto-cloak on 8 AI chat sites, per-tab vault, popup viewer | ✅ Built, unreleased |
-| `@pratikw/datacloak` CLI + adapters | `cloak/restore/scan/guard` + hooks for Claude Code, Codex, Gemini, Qwen, Kilo, OpenClaw, Hermes, Pi, DeepSeek, Aider | ✅ Built, unpublished |
-| NER (`detect-ner`) | Person names, street addresses, DOB | ⬜ Next |
-| Teams + CI | Shared config, `scan` in pre-commit, VS Code | ⬜ Planned |
 
 ## What it detects
 
