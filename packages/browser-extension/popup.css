@@ -15,6 +15,22 @@
   --mono:        'JetBrains Mono', monospace;
 }
 
+/* ── Light theme (data-theme="light"; default :root is dark) ── */
+[data-theme="light"] {
+  --bg:          #F4F6FA;
+  --surface:     #FFFFFF;
+  --surface2:    #EAEFF5;
+  --border:      #D8DEE8;
+  --accent:      #009878;
+  --accent-dim:  rgba(0,152,120,.12);
+  --accent-glow: rgba(0,152,120,.06);
+  --text:        #1A2030;
+  --muted:       #5B6577;
+  --chip-bg:     #E8EDF4;
+}
+[data-theme="light"] .console-output,
+[data-theme="light"] .console-input-row { background: #10141C; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

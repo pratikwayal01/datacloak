@@ -31,3 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/pratikwayal01/datacloak/master/inst
 
 Then read [Installation](installation.md) for the extension and agent hooks,
 or jump to [Quick Start](quickstart.md) for the 5-minute tour.
+
+## Contact
+
+Bug reports and feature requests: https://github.com/pratikwayal01/datacloak/issues.

@@ -202,6 +202,10 @@ slice before code. Per-task review (spec + quality) gates every change.
 Threat model → `.opencode/datacloak-prd.md` §11 (read it before touching
 detection semantics).
 
+## Contact
+
+Bug reports and feature requests: https://github.com/pratikwayal01/datacloak/issues.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
