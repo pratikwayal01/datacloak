@@ -5,6 +5,7 @@
   "description": "Swap secrets/PII for realistic fakes before AI chat sees them.",
   "icons": {
     "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
@@ -36,5 +37,14 @@
       "run_at": "document_idle"
     }
   ],
-  "action": { "default_popup": "popup.html", "default_title": "DataCloak" }
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DataCloak",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
 }
