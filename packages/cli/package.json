@@ -1,9 +1,37 @@
 {
   "name": "@pratikw/datacloak",
   "version": "0.1.0",
+  "description": "datacloak CLI: cloak/restore/scan/guard plus shell integration and hooks for 11 coding agents.",
+  "files": [
+    "dist",
+    "shell",
+    "adapters",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratikwayal01/datacloak.git",
+    "directory": "packages/cli"
+  },
   "type": "module",
-  "bin": { "datacloak": "dist/cli.js" },
-  "scripts": { "build": "tsc", "test": "vitest run" },
-  "dependencies": { "@pratikw/detect": "*", "@pratikw/opencode-plugin": "*" },
-  "devDependencies": { "typescript": "~5.6.3", "vitest": "^3.0.0" }
+  "bin": {
+    "datacloak": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "cp ../../README.md ./README.md && cp ../../LICENSE ./LICENSE && npm run build && npm test"
+  },
+  "dependencies": {
+    "@pratikw/detect": "*",
+    "@pratikw/opencode-plugin": "*"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vitest": "^3.0.0"
+  }
 }

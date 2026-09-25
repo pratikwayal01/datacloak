@@ -6,3 +6,11 @@ packages/detect/dist/
 packages/detect/README.md
 packages/detect/LICENSE
 brag-output/
+packages/cli/README.md
+packages/cli/LICENSE
+packages/opencode-plugin/README.md
+packages/opencode-plugin/LICENSE
+packages/ner/README.md
+packages/ner/LICENSE
+__pycache__/
+site/

@@ -1,10 +1,35 @@
 {
   "name": "@pratikw/detect-ner",
   "version": "0.1.0",
+  "description": "DataCloak NER: person names, street addresses and DOB detection (heuristics + ONNX loader).",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratikwayal01/datacloak.git",
+    "directory": "packages/ner"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": { "build": "tsc", "test": "vitest run" },
-  "peerDependenciesMeta": { "onnxruntime-node": { "optional": true } },
-  "devDependencies": { "typescript": "~5.6.3", "vitest": "^3.0.0" }
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "cp ../../README.md ./README.md && cp ../../LICENSE ./LICENSE && npm run build && npm test"
+  },
+  "peerDependenciesMeta": {
+    "onnxruntime-node": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vitest": "^3.0.0"
+  }
 }

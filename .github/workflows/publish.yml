@@ -1,4 +1,4 @@
-name: publish-detect
+name: publish
 
 on:
   release:
@@ -6,11 +6,22 @@ on:
 
 permissions:
   contents: read
-  id-token: write   # npm provenance
+  id-token: write
 
 jobs:
   publish:
-    if: startsWith(github.event.release.tag_name, 'detect-v')
+    strategy:
+      matrix:
+        include:
+          - tag_prefix: detect-v
+            workspace: packages/detect
+          - tag_prefix: cli-v
+            workspace: packages/cli
+          - tag_prefix: plugin-v
+            workspace: packages/opencode-plugin
+          - tag_prefix: ner-v
+            workspace: packages/ner
+    if: startsWith(github.event.release.tag_name, matrix.tag_prefix)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,12 +31,12 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
-      - run: npm run build --workspace packages/detect
-      - run: npm test --workspace packages/detect
+      - run: npm run build --workspace ${{ matrix.workspace }}
+      - run: npm test --workspace ${{ matrix.workspace }}
       - name: release tag must match package version
         run: |
-          PKG="detect-v$(node -p "require('./packages/detect/package.json').version")"
+          PKG="${{ matrix.tag_prefix }}$(node -p "require('./${{ matrix.workspace }}/package.json').version")"
           test "${{ github.event.release.tag_name }}" = "$PKG" || { echo "release tag ${{ github.event.release.tag_name }} != package $PKG"; exit 1; }
-      - run: npm publish --workspace packages/detect --access public --provenance
+      - run: npm publish --workspace ${{ matrix.workspace }} --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

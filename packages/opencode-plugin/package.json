@@ -1,10 +1,35 @@
 {
   "name": "@pratikw/opencode-plugin",
   "version": "0.1.0",
+  "description": "DataCloak for OpenCode: automatic prompt cloaking, tool-call blocking, output redaction.",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pratikwayal01/datacloak.git",
+    "directory": "packages/opencode-plugin"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": { "build": "tsc", "test": "vitest run" },
-  "dependencies": { "@pratikw/detect": "*", "@opencode-ai/plugin": "^1.18.0" },
-  "devDependencies": { "@types/node": "^22.0.0", "typescript": "~5.6.3", "vitest": "^3.0.0" }
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "cp ../../README.md ./README.md && cp ../../LICENSE ./LICENSE && npm run build && npm test"
+  },
+  "dependencies": {
+    "@pratikw/detect": "*",
+    "@opencode-ai/plugin": "^1.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "~5.6.3",
+    "vitest": "^3.0.0"
+  }
 }

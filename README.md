@@ -1,5 +1,6 @@
 # DataCloak — swap real secrets for fakes before AI ever sees them
 
+![docs](https://img.shields.io/badge/docs-GitHub_Pages-blue)
 ![npm](https://img.shields.io/npm/v/@pratikw/detect)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)
 ![Stage](https://img.shields.io/badge/stage-detect_MVP-green)
@@ -23,6 +24,8 @@ cloak('contact john.doe@acme.com, key sk-abcdefghij1234567890')
 restore(/* model reply with synthetics */)
 // → originals back, byte-identical
 ```
+
+Full guides: **https://pratikwayal01.github.io/datacloak/**
 
 ## Contents
 
@@ -217,8 +220,6 @@ detection semantics).
 MIT — see [LICENSE](LICENSE).
 
 ## Further reading
-
-- [`.opencode/datacloak-prd.md`](.opencode/datacloak-prd.md) — full PRD (vision, both surfaces, roadmap)
 - [`docs/superpowers/specs/2026-09-24-detect-engine-mvp-design.md`](docs/superpowers/specs/2026-09-24-detect-engine-mvp-design.md) — engine design
 - [`docs/superpowers/plans/2026-09-24-detect-engine-mvp.md`](docs/superpowers/plans/2026-09-24-detect-engine-mvp.md) — implementation plan
 - `assets/` — launch video (`brag.mp4`), poster
