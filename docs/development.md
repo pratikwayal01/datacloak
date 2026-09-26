@@ -24,6 +24,6 @@ docs/                  this site (MkDocs Material)
 
 ## Process
 
-Spec → plan → subagent build with per-task review, recorded under
-`docs/superpowers/`. Threat model in `.opencode/datacloak-prd.md` §11 —
-read it before touching detection semantics.
+Bug reports and PRs via GitHub issues. Keep changes focused, add tests
+for behavior changes, and never ship a detection change without a
+corpus-backed recall check.

@@ -15,6 +15,11 @@ restore(modelReply)
 // → originals back, byte-identical
 ```
 
+![How DataCloak works](architecture.svg)
+
+Full walkthrough: [Architecture & how it works](architecture.md) ·
+[Privacy policy](privacy.md)
+
 ## Features
 
 - **Secrets + PII + credentials** — API keys, JWTs, PEMs, env vars, DSNs, emails, phones, IPs, names, addresses, DOB

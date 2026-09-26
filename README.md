@@ -205,11 +205,12 @@ Installer flags: `install.sh --repair` (reinstall + re-verify),
 
 ## Contributing
 
-Design-then-plan-then-build: spec docs live in `docs/superpowers/specs/`,
-implementation plans in `docs/superpowers/plans/` — one written plan per
-slice before code. Per-task review (spec + quality) gates every change.
-Threat model → `.opencode/datacloak-prd.md` §11 (read it before touching
-detection semantics).
+Bug reports and feature requests live in
+[GitHub issues](https://github.com/pratikwayal01/datacloak/issues) —
+check the [privacy policy](https://pratikwayal01.github.io/datacloak/privacy/)
+first if your report involves real credentials (hint: don't paste them;
+use synthetic examples). Pull requests welcome: keep them focused, add
+tests for behavior changes (`npm test --workspace packages/<name>`).
 
 ## Contact
 
@@ -220,6 +221,7 @@ Bug reports and feature requests: https://github.com/pratikwayal01/datacloak/iss
 MIT — see [LICENSE](LICENSE).
 
 ## Further reading
-- [`docs/superpowers/specs/2026-09-24-detect-engine-mvp-design.md`](docs/superpowers/specs/2026-09-24-detect-engine-mvp-design.md) — engine design
-- [`docs/superpowers/plans/2026-09-24-detect-engine-mvp.md`](docs/superpowers/plans/2026-09-24-detect-engine-mvp.md) — implementation plan
+
+- [Documentation](https://pratikwayal01.github.io/datacloak/) — install, quick start, agents, architecture, privacy
+- [Threat model](.opencode/datacloak-prd.md) — full PRD (vision, surfaces, roadmap, §11 limitations)
 - `assets/` — launch video (`brag.mp4`), poster
