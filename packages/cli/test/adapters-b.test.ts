@@ -78,6 +78,15 @@ describe('adapters-b', () => {
     expect(read('aider/README.md')).toContain('datacloak scan');
   });
   // ponytail: spawnSync avoids async execFile piped-stdin hang in this sandbox
+  it('pi observe.sh stays silent on scan errors (exit 1 → no note, still exit 0)', () => {
+    const env = shimEnv();
+    const dir = mkdtempSync(join(tmpdir(), 'dc-err-'));
+    writeFileSync(join(dir, 'datacloak'), '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+    const errEnv = { ...env, PATH: `${dir}:${env.PATH ?? ''}` };
+    const r = spawnSync('bash', [ROOT + 'pi/observe.sh'], { input: 'key sk-abcdefghij1234567890', encoding: 'utf8', env: errEnv });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+  });
   it('aider pre-commit blocks a staged secret via datacloak from PATH', () => {
     const env = shimEnv();
     const dir = mkdtempSync(join(tmpdir(), 'dc-aider-'));
