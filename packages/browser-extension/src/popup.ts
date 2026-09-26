@@ -3,6 +3,7 @@ import { runConsoleCmd } from './console-cmd.js';
 import { SITE_SELECTORS } from './sites.js';
 import { isEnabled, parseHost, requestSite, removeSite, type Scheme, type UserSites } from './site-store.js';
 import type { BgRequest, BgResponse } from './protocol.js';
+import type { CustomPattern } from '@pratikw/detect';
 
 export interface VaultEntry { synthetic: string; original: string; category: string; }
 export type Mode = 'auto' | 'off';
@@ -451,10 +452,86 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     }
   }
 
+  // ── Custom entities (static #c-* markup in popup.html; stored via patterns.get/set) ──
+  let custom: CustomPattern[] = [];
+  const paintCustom = (): void => {
+    const list = doc.getElementById('custom-list');
+    if (!list) return;
+    list.replaceChildren();
+    if (custom.length === 0) {
+      const hint = doc.createElement('div');
+      hint.className = 'setting-desc';
+      hint.textContent = 'No custom entities yet.';
+      list.appendChild(hint);
+      return;
+    }
+    for (const p of custom) {
+      const row = doc.createElement('div');
+      row.className = 'site-row';
+      const info = doc.createElement('div');
+      info.className = 'site-info';
+      const name = doc.createElement('div');
+      name.className = 'site-host';
+      name.textContent = p.name;
+      const desc = doc.createElement('div');
+      desc.className = 'site-desc';
+      desc.textContent = `${p.pattern} → ${p.category}`;
+      info.append(name, desc);
+      const rm = doc.createElement('button');
+      rm.className = 'btn-sm';
+      rm.type = 'button';
+      rm.textContent = 'Remove';
+      rm.setAttribute('aria-label', `Remove ${p.name}`);
+      rm.addEventListener('click', () => {
+        const next = custom.filter((c) => c.name !== p.name);
+        void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
+          if ('error' in res && res.error) { toast(doc, res.error); return; }
+          custom = next;
+          paintCustom();
+          toast(doc, `${p.name} removed`);
+        }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+      });
+      row.append(info, rm);
+      list.appendChild(row);
+    }
+  };
+  const val = (id: string): string => (doc.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
+  const submitCustom = (): void => {
+    const name = val('c-name');
+    const pattern = val('c-pattern');
+    const category = val('c-category');
+    if (!name || !pattern || !category) { toast(doc, 'Name, regex and category are required'); return; }
+    const entry: CustomPattern = {
+      name, pattern, category,
+      type: ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'],
+    };
+    const synth = val('c-synth');
+    if (synth) entry.synthesizer = synth;
+    const next = [...custom.filter((c) => c.name !== name), entry];
+    void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
+      if ('error' in res && res.error) { toast(doc, res.error); return; }
+      custom = next;
+      for (const id of ['c-name', 'c-pattern', 'c-category', 'c-synth']) {
+        const el = doc.getElementById(id) as HTMLInputElement | null;
+        if (el) el.value = '';
+      }
+      paintCustom();
+      toast(doc, `${name} added`);
+    }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+  };
+  const addBtn = doc.getElementById('c-add');
+  if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
+    (addBtn as HTMLElement).dataset.bound = '1';
+    addBtn.addEventListener('click', submitCustom);
+  }
+  paintCustom();
+  void deps.send({ kind: 'patterns.get' }).then((res) => {
+    if ('patterns' in res && Array.isArray(res.patterns)) { custom = res.patterns as CustomPattern[]; paintCustom(); }
+  }).catch(() => {});
+
   doc.getElementById('s-save')?.addEventListener('click', () => {
     deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
-  });
-  doc.getElementById('s-reset')?.addEventListener('click', () => {
+  });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
     paintSettings();

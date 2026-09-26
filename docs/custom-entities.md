@@ -38,7 +38,6 @@ Unknown expressions fail open: the value is cloaked with an opaque token
 and a warning goes to stderr. Templates honor the engine `locale`.
 
 ## 2. OpenCode plugin: `datacloak.json`
-
 ```jsonc
 // .opencode/datacloak.json
 {
@@ -51,6 +50,12 @@ and a warning goes to stderr. Templates honor the engine `locale`.
 
 Cloak, block, redact and restore all honor them automatically — no restart
 needed beyond OpenCode's config reload.
+
+## 1b. Browser extension: Settings → Custom entities
+
+Same fields (name, regex, category, type, optional fake template), stored in
+`chrome.storage.sync` and applied to every tab's engine. Invalid regex is
+rejected with an error toast — nothing is saved until it compiles.
 
 ## 3. CLI: `--config`
 

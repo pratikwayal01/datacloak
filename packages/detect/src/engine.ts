@@ -10,6 +10,9 @@ import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
 import { exportVaultJson, importVaultJson } from './vault-crypto.js';
 
+// Warn-once per category for broken custom synthesizer templates.
+const warnedTemplates = new Set<string>();
+
 export class DataCloakEngine {
   readonly vault: Vault;
   private config: DataCloakConfig;
@@ -70,17 +73,25 @@ export class DataCloakEngine {
   private makeSynthetic(det: Detection, fullText: string): string {
     if (det.category === 'ENV_VAR') return this.synthEnvValue(det.value);
     const custom = (this.config.customPatterns ?? []).find((c) => c.category === det.category && c.synthesizer);
+    // Invariant: a synthetic must never equal a value the vault already knows
+    // (as original OR synthetic) — otherwise cloak skips real secrets and
+    // restore maps them to the wrong identity.
+    const fresh = (s: string): boolean =>
+      !fullText.includes(s) && !this.vault.getByOriginal(s) && !this.vault.getBySynthetic(s);
     if (custom?.synthesizer) {
       try {
         const s = synthesizeCustom(custom.synthesizer, this.config.locale);
-        if (!fullText.includes(s)) return s;
+        if (fresh(s)) return s;
       } catch (err) {
-        console.error(`[datacloak] bad synthesizer for ${det.category}: ${(err as Error).message}`);
+        if (!warnedTemplates.has(det.category)) {
+          warnedTemplates.add(det.category);
+          console.error(`[datacloak] bad synthesizer for ${det.category}: ${(err as Error).message}`);
+        }
       }
     }
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       const s = synthesize(det.category, det.value, this.config.locale) ?? opaqueToken(det.category);
-      if (!fullText.includes(s)) return s;
+      if (fresh(s)) return s;
     }
     return opaqueToken(det.category);
   }

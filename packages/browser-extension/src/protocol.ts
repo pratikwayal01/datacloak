@@ -1,3 +1,5 @@
+import type { CustomPattern } from '@pratikw/detect';
+
 export interface CloakRequest { kind: 'cloak'; text: string; }
 export interface RestoreRequest { kind: 'restore'; text: string; }
 export interface StatsRequest { kind: 'stats'; }
@@ -8,5 +10,9 @@ export interface RestoreResponse { text: string; restored: number; hits?: { synt
 export interface StatsResponse { counts: { cloaked: number; restored: number }; byCategory: Record<string, number>; oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[] }[]; }
 export interface SettingsGetResponse { flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
 export interface SettingsSetResponse { flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
-export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest;
-export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse;
+export interface PatternsGetRequest { kind: 'patterns.get'; }
+export interface PatternsSetRequest { kind: 'patterns.set'; patterns: CustomPattern[]; }
+export interface PatternsGetResponse { patterns: CustomPattern[]; }
+export interface PatternsSetResponse { patterns: CustomPattern[]; error?: string; }
+export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest;
+export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse;

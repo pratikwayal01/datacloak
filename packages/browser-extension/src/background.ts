@@ -1,4 +1,5 @@
 import { DataCloakEngine, defaultConfig } from '@pratikw/detect';
+import type { CustomPattern } from '@pratikw/detect';
 import type { BgRequest, BgResponse, StatsResponse } from './protocol.js';
 import { decryptVault, encryptVault, loadOrCreateDek, MAX_ENTRIES, migrateSession, pruneStore, type StoredEntry, type StoredVault } from './vault-store.js';
 
@@ -18,6 +19,8 @@ export interface DetectorFlags {
 export interface SyncStore {
   getFlags(): Promise<DetectorFlags | undefined>;
   setFlags(flags: DetectorFlags): Promise<void>;
+  getPatterns(): Promise<CustomPattern[] | undefined>;
+  setPatterns(patterns: CustomPattern[]): Promise<void>;
 }
 
 export interface OpEntry {
@@ -35,16 +38,19 @@ const OPLOG_CAP = 100;
 const engines = new Map<number, DataCloakEngine>();
 const oplog: OpEntry[] = [];
 let memoryFlags: DetectorFlags | undefined;
+let memoryPatterns: CustomPattern[] | undefined;
 
 const defaultSync: SyncStore = {
   getFlags: async () => memoryFlags,
   setFlags: async (f) => { memoryFlags = f; },
+  getPatterns: async () => memoryPatterns,
+  setPatterns: async (p) => { memoryPatterns = p; },
 };
 
-export function __dropEnginesForTest(): void {
-  engines.clear();
+export function __dropEnginesForTest(): void {  engines.clear();
   oplog.length = 0;
   memoryFlags = undefined;
+  memoryPatterns = undefined;
 }
 
 // ── Vault v2: origin-scoped persistent vault (see vault-store.ts) ──
@@ -155,6 +161,7 @@ async function engineFor(tabId: number, store: MemoryStore, sync: SyncStore, vau
   const flags = (await sync.getFlags()) ?? DEFAULT_FLAGS;
   const engine = new DataCloakEngine({
     detection: { ...defaultConfig.detection, secrets: flags.secrets, envVars: flags.envVars, pii: flags.pii, entropy: flags.entropy },
+    customPatterns: (await sync.getPatterns()) ?? [],
   });
   const saved = await store.getTab(tabId);
   for (const [synthetic, original, category] of saved?.vault ?? []) {
@@ -211,13 +218,37 @@ function stats(): StatsResponse {
   return { counts: { cloaked, restored }, byCategory, oplog: [...oplog] };
 }
 
-export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {
-  if (req.kind === 'stats') return stats();
+const PATTERN_TYPES = new Set(['pii', 'secret', 'credential']);
+
+/** Validate user custom patterns. Returns error message, or null when valid (fills default type). */
+export function validatePatterns(patterns: CustomPattern[]): string | null {
+  if (!Array.isArray(patterns) || patterns.length > 50) return 'patterns must be a list of at most 50';
+  for (const p of patterns) {
+    if (!p || typeof p.name !== 'string' || !p.name.trim()) return 'each pattern needs a name';
+    if (typeof p.pattern !== 'string' || !p.pattern) return `pattern "${p.name}" needs a regex`;
+    try { new RegExp(p.pattern); } catch { return `pattern "${p.name}" is not a valid regex`; }
+    if (typeof p.category !== 'string' || !p.category.trim()) return `pattern "${p.name}" needs a category`;
+    if (p.type === undefined) p.type = 'pii';
+    else if (!PATTERN_TYPES.has(p.type)) return `pattern "${p.name}" has bad type ${p.type}`;
+    if (p.synthesizer !== undefined && typeof p.synthesizer !== 'string') return `pattern "${p.name}" has bad synthesizer`;
+  }
+  return null;
+}
+
+export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats();
   if (req.kind === 'settings.get') return { flags: (await sync.getFlags()) ?? { ...DEFAULT_FLAGS } };
   if (req.kind === 'settings.set') {
     await sync.setFlags(req.flags);
     engines.clear();
     return { flags: req.flags };
+  }
+  if (req.kind === 'patterns.get') return { patterns: (await sync.getPatterns()) ?? [] };
+  if (req.kind === 'patterns.set') {
+    const error = validatePatterns(req.patterns);
+    if (error) return { patterns: (await sync.getPatterns()) ?? [], error };
+    await sync.setPatterns(req.patterns);
+    engines.clear();
+    return { patterns: req.patterns };
   }
   const engine = await engineFor(tabId, store, sync, vault);
   if (req.kind === 'cloak') {
@@ -262,6 +293,8 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
   const sync: SyncStore = {
     getFlags: async () => (await chrome.storage.sync.get('dc-flags'))['dc-flags'] as DetectorFlags | undefined,
     setFlags: async (f) => { await chrome.storage.sync.set({ 'dc-flags': f }); },
+    getPatterns: async () => (await chrome.storage.sync.get('dc-patterns'))['dc-patterns'] as CustomPattern[] | undefined,
+    setPatterns: async (p) => { await chrome.storage.sync.set({ 'dc-patterns': p }); },
   };
   // Encrypted origin vault in chrome.storage.local; startup prune is the
   // TTL guarantee (no chrome.alarms — service-worker lifecycle makes it unreliable).

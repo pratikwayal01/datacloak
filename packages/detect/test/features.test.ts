@@ -111,3 +111,17 @@ describe('custom entity mapping', () => {
     expect(e.cloak('owner EMP-482913').text).toMatch(/\[EMPLOYEE_ID_[A-Z0-9]{6}\]/);
   });
 });
+
+describe('synthetic vault-collision guard', () => {
+  it('never reuses a synthetic the vault already knows', () => {
+    const lit = (cat: string) => ({ name: cat, pattern: `${cat}-[0-9]+`, category: cat, type: 'pii' as const, synthesizer: 'FIXED-SYNTH' });
+    const e = new DataCloakEngine({ customPatterns: [lit('C1'), lit('C2')] });
+    const first = e.cloak('id C1-1');
+    expect(first.text).toContain('FIXED-SYNTH');
+    const second = e.cloak('id C2-2');
+    expect(second.text).not.toContain('FIXED-SYNTH');
+    expect(second.text).toMatch(/\[C2_[A-Z0-9]{6}\]/);
+    // And the known synthetic is not re-cloaked as an original either.
+    expect(e.cloak('saw FIXED-SYNTH today').text).toContain('FIXED-SYNTH');
+  });
+});

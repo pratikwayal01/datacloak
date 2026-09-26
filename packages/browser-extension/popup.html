@@ -217,6 +217,30 @@
       </div>
     </div>
 
+    <div class="settings-group-label" style="margin-top:6px">Custom entities</div>
+    <div class="setting-desc">Your own regex patterns, cloaked like built-ins. Fake template is optional, e.g. <code>EMP-{{string.numeric(6)}}</code>.</div>
+    <div id="custom-list"></div>
+    <div class="allowlist-wrap">
+      <div class="allowlist-input-row">
+        <input class="allowlist-input" id="c-name" type="text" placeholder="Name — Employee ID">
+      </div>
+      <div class="allowlist-input-row">
+        <input class="allowlist-input" id="c-pattern" type="text" placeholder="Regex — EMP-[0-9]{6}" spellcheck="false">
+      </div>
+      <div class="allowlist-input-row">
+        <input class="allowlist-input" id="c-category" type="text" placeholder="Category — EMPLOYEE_ID" spellcheck="false">
+        <select class="setting-select" id="c-type" aria-label="Entity type">
+          <option value="pii">pii</option>
+          <option value="secret">secret</option>
+          <option value="credential">credential</option>
+        </select>
+      </div>
+      <div class="allowlist-input-row">
+        <input class="allowlist-input" id="c-synth" type="text" placeholder="Fake template (optional)" spellcheck="false">
+        <button class="btn-sm accent" id="c-add" type="button">Add</button>
+      </div>
+    </div>
+
   </div>
 
   <div class="footer">

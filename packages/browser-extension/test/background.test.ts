@@ -135,3 +135,31 @@ describe('background', () => {
     expect((await backend.load()).origins['stale']).toBeUndefined();
   });
 });
+describe('custom entity patterns', () => {
+  it('round-trips patterns and cloaks with them', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const emp = { name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii' as const, synthesizer: 'EMP-{{string.numeric(6)}}' };
+    const set = await handleRequest(31, { kind: 'patterns.set', patterns: [emp] }, s) as { patterns: unknown[]; error?: string };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns).toHaveLength(1);
+    const get = await handleRequest(31, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(1);
+    __dropEnginesForTest();
+    await handleRequest(31, { kind: 'patterns.set', patterns: [emp] }, s);
+    const c = await handleRequest(32, { kind: 'cloak', text: 'owner EMP-482913' }, s) as { text: string };
+    expect(c.text).toMatch(/EMP-[0-9]{6}/);
+    expect(c.text).not.toContain('EMP-482913');
+  });
+  it('rejects invalid regex without saving', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const bad = { name: 'Bad', pattern: '([a-z', category: 'X', type: 'pii' as const };
+    const res = await handleRequest(33, { kind: 'patterns.set', patterns: [bad] }, s) as { patterns: unknown[]; error?: string };
+    expect(res.error).toMatch(/valid regex/);
+    const get = await handleRequest(33, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(0);
+  });
+});
