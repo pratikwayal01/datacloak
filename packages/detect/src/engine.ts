@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult } from './types.js';
+import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult, Substitution } from './types.js';
 import { defaultConfig } from './types.js';
 import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
@@ -102,6 +102,40 @@ export class DataCloakEngine {
   }
   private vaultAbsorb(other: Vault): void {
     for (const e of other.list()) this.vault.set(e);
+  }
+  audit(text: string): { detections: Detection[]; preview: string } {
+    const detections = this.detect(text);
+    let preview = text;
+    const sorted = [...detections].sort((a, b) => b.start - a.start);
+    sorted.forEach((d) => {
+      const n = detections.indexOf(d) + 1;
+      preview = preview.slice(0, d.start) + `[${d.category}_${n}]` + preview.slice(d.end);
+    });
+    return { detections, preview };
+  }
+  cloakJson(value: unknown, seen = new Set<unknown>()): { value: unknown; substitutions: Substitution[] } {
+    const subs: Substitution[] = [];
+    const walk = (v: unknown): unknown => {
+      if (typeof v === 'string') {
+        const r = this.cloak(v);
+        subs.push(...r.substitutions);
+        return r.text;
+      }
+      if (Array.isArray(v)) {
+        if (seen.has(v)) return v;
+        seen.add(v);
+        return v.map(walk);
+      }
+      if (v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+        if (seen.has(v)) return v;
+        seen.add(v);
+        const o: Record<string, unknown> = {};
+        for (const [k, val] of Object.entries(v)) o[k] = walk(val);
+        return o;
+      }
+      return v;
+    };
+    return { value: walk(value), substitutions: subs };
   }
   restore(text: string): RestoreResult {
     const entries = this.vault.list().sort((a, b) => b.synthetic.length - a.synthetic.length);
