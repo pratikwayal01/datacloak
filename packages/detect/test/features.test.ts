@@ -32,6 +32,16 @@ describe('cloakJson', () => {
     expect(() => e.cloakJson(o)).not.toThrow();
     expect(e.cloakJson({ d: new Date('2020-01-01') }).value).toEqual({ d: new Date('2020-01-01') });
   });
+  it('cloaks cyclic refs without leaking original', () => {
+    const e = new DataCloakEngine();
+    const o: Record<string, unknown> = { email: 'john.doe@acme.com' };
+    o.self = o;
+    const r = e.cloakJson(o);
+    const out = r.value as Record<string, unknown>;
+    expect(out.email).not.toContain('john.doe@acme.com');
+    expect((out.self as Record<string, unknown>).email).not.toContain('john.doe@acme.com');
+    expect(out.self).toBe(out);
+  });
   it('cloaks null-prototype objects', () => {
     const e = new DataCloakEngine();
     const inner: Record<string, unknown> = Object.create(null);

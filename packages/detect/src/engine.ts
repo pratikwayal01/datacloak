@@ -114,7 +114,7 @@ export class DataCloakEngine {
     });
     return { detections, preview };
   }
-  cloakJson(value: unknown, seen = new Set<unknown>()): { value: unknown; substitutions: Substitution[] } {
+  cloakJson(value: unknown, seen = new Map<unknown, unknown>()): { value: unknown; substitutions: Substitution[] } {
     const subs: Substitution[] = [];
     const walk = (v: unknown): unknown => {
       if (typeof v === 'string') {
@@ -123,14 +123,16 @@ export class DataCloakEngine {
         return r.text;
       }
       if (Array.isArray(v)) {
-        if (seen.has(v)) return v;
-        seen.add(v);
-        return v.map(walk);
+        if (seen.has(v)) return seen.get(v);
+        const out: unknown[] = [];
+        seen.set(v, out);
+        for (const item of v) out.push(walk(item));
+        return out;
       }
       if (v !== null && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null)) {
-        if (seen.has(v)) return v;
-        seen.add(v);
+        if (seen.has(v)) return seen.get(v);
         const o: Record<string, unknown> = {};
+        seen.set(v, o);
         for (const [k, val] of Object.entries(v)) o[k] = walk(val);
         return o;
       }
