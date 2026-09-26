@@ -125,3 +125,13 @@ describe('synthetic vault-collision guard', () => {
     expect(e.cloak('saw FIXED-SYNTH today').text).toContain('FIXED-SYNTH');
   });
 });
+
+describe('restore chained entries', () => {
+  it('maps each synthetic to its direct original without cascading', () => {
+    const e = new DataCloakEngine();
+    e.vault.set({ original: 'AAA@x.com', synthetic: 'BBB@x.com', category: 'EMAIL', type: 'pii', synthesizedAt: 1, confidence: 'high' });
+    e.vault.set({ original: 'BBB@x.com', synthetic: 'CCC@x.com', category: 'EMAIL', type: 'pii', synthesizedAt: 2, confidence: 'high' });
+    expect(e.restore('hi CCC@x.com').text).toBe('hi BBB@x.com');
+    expect(e.restore('hi BBB@x.com').text).toBe('hi AAA@x.com');
+  });
+});

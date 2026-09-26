@@ -162,15 +162,32 @@ export class DataCloakEngine {
     return { value: walk(value), substitutions: subs };
   }
   restore(text: string): RestoreResult {
+    // Single pass over the INPUT snapshot: matches are located before any
+    // replacement, so a restored original is never re-scanned and chained
+    // entries (synthetic of one = original of another) can't cascade.
     const entries = this.vault.list().sort((a, b) => b.synthetic.length - a.synthetic.length);
-    let result = text;
-    let restored = 0;
+    const occs: { s: number; e: number; original: string; synthetic: string }[] = [];
     for (const e of entries) {
-      if (!result.includes(e.synthetic)) continue;
-      result = result.split(e.synthetic).join(e.original);
-      restored++;
+      if (!e.synthetic) continue;
+      let from = 0;
+      for (;;) {
+        const at = text.indexOf(e.synthetic, from);
+        if (at < 0) break;
+        occs.push({ s: at, e: at + e.synthetic.length, original: e.original, synthetic: e.synthetic });
+        from = at + e.synthetic.length;
+      }
     }
-    return { text: result, restored };
+    occs.sort((x, y) => y.s - x.s);
+    let result = text;
+    let leftEdge = Infinity;
+    const hit = new Set<string>();
+    for (const o of occs) {
+      if (o.e > leftEdge) continue; // overlaps an already-applied replacement
+      result = result.slice(0, o.s) + o.original + result.slice(o.e);
+      leftEdge = o.s;
+      hit.add(o.synthetic);
+    }
+    return { text: result, restored: hit.size };
   }
   async exportVault(pass: string): Promise<string> {
     return exportVaultJson(JSON.stringify(this.vault.list()), pass);
