@@ -1,5 +1,5 @@
 export interface UserSites {
-  custom: { host: string; enabled: boolean }[];
+  custom: { host: string; enabled: boolean; scheme?: Scheme }[];
   disabled: string[];
 }
 

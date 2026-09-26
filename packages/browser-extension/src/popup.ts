@@ -1,5 +1,7 @@
 import { toCsv } from './exporters.js';
 import { runConsoleCmd } from './console-cmd.js';
+import { SITE_SELECTORS } from './sites.js';
+import { isEnabled, parseHost, requestSite, removeSite, type Scheme, type UserSites } from './site-store.js';
 import type { BgRequest, BgResponse } from './protocol.js';
 
 export interface VaultEntry { synthetic: string; original: string; category: string; }
@@ -62,6 +64,8 @@ export function vaultEntriesFromSession(all: Record<string, unknown>): VaultEntr
   return out;
 }
 
+export interface SiteRow { host: string; enabled: boolean; builtin: boolean; active: boolean; scheme?: Scheme }
+
 export interface PopupDeps {
   send: (req: BgRequest) => Promise<BgResponse>;
   getVault: () => Promise<VaultEntry[]>;
@@ -79,6 +83,10 @@ export interface PopupDeps {
   download: (content: string, filename: string, mime: string) => void;
   copy: (text: string) => Promise<void>;
   version: string;
+  getSites?: () => Promise<{ sites: SiteRow[]; activeHost: string | null }>;
+  addSite?: (input: string) => Promise<{ ok: boolean; error?: string }>;
+  toggleSite?: (host: string, enabled: boolean, scheme?: Scheme) => Promise<boolean>;
+  removeSite?: (host: string, scheme?: Scheme) => Promise<void>;
 }
 
 const toast = (doc: Document, msg: string): void => {
@@ -375,6 +383,119 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       renderAllowlist();
     });
   }
+  // ── Sites section (settings tab; dynamic so test skeletons work, reuses
+  // static #sites-* markup from popup.html when present) ──
+  if (deps.getSites) {
+    const ensureSitesSection = (): { list: HTMLElement; active: HTMLElement } | null => {
+      let list = doc.getElementById('sites-list') as HTMLElement | null;
+      let active = doc.getElementById('sites-active') as HTMLElement | null;
+      if (list && active) return { list, active };
+      const settingsBody = doc.querySelector('#panel-settings .settings-body') ?? doc.getElementById('panel-settings');
+      if (!settingsBody) return null;
+      const label = doc.createElement('div');
+      label.className = 'settings-group-label';
+      label.style.marginTop = '6px';
+      label.textContent = 'Sites';
+      active = active ?? doc.createElement('div');
+      active.id = 'sites-active';
+      active.className = 'setting-desc';
+      list = list ?? doc.createElement('div');
+      list.id = 'sites-list';
+      const inputRow = doc.createElement('div');
+      inputRow.className = 'allowlist-input-row';
+      const input = doc.createElement('input');
+      input.className = 'allowlist-input';
+      input.id = 's-sites-input';
+      input.type = 'text';
+      input.placeholder = 'duck.ai or http://nas:3000';
+      const add = doc.createElement('button');
+      add.className = 'btn-sm accent';
+      add.id = 's-sites-add';
+      add.type = 'button';
+      add.textContent = 'Add';
+      inputRow.append(input, add);
+      const wrap = doc.createElement('div');
+      wrap.className = 'allowlist-wrap';
+      wrap.append(inputRow);
+      const footer = doc.getElementById('s-save')?.closest('.footer');
+      (footer ?? settingsBody).before(label, active, list, wrap);
+      return { list, active };
+    };
+    const section = ensureSitesSection();
+    if (section) {
+      const paintSites = async (): Promise<void> => {
+        let sites: SiteRow[] = [];
+        let activeHost: string | null = null;
+        try {
+          ({ sites, activeHost } = await deps.getSites!());
+        } catch { /* stays empty */ }
+        section.active.textContent = activeHost ? `This site: ${activeHost}` : 'This site: (unknown)';
+        section.list.replaceChildren();
+        for (const s of sites) {
+          const row = doc.createElement('div');
+          row.className = 'setting-row';
+          const info = doc.createElement('div');
+          info.className = 'setting-info';
+          const name = doc.createElement('div');
+          name.className = 'setting-name';
+          name.textContent = s.host;
+          const desc = doc.createElement('div');
+          desc.className = 'setting-desc';
+          desc.textContent = `${s.builtin ? 'Built-in' : 'Custom'}${s.active ? ' · current site' : ''}`;
+          info.append(name, desc);
+          const right = doc.createElement('div');
+          right.style.display = 'flex';
+          right.style.gap = '6px';
+          right.style.alignItems = 'center';
+          const wrap = doc.createElement('label');
+          wrap.className = 'toggle-wrap';
+          const input = doc.createElement('input');
+          input.type = 'checkbox';
+          input.checked = s.enabled;
+          input.setAttribute('aria-label', `Enable DataCloak on ${s.host}`);
+          input.addEventListener('change', () => {
+            void deps.toggleSite!(s.host, input.checked, s.scheme).then((ok) => {
+              if (ok) { toast(doc, `${s.host} ${input.checked ? 'enabled' : 'disabled'}`); void paintSites(); }
+              else { input.checked = !input.checked; toast(doc, 'Permission denied'); }
+            }).catch(() => { input.checked = !input.checked; });
+          });
+          const track = doc.createElement('span');
+          track.className = 'toggle-track';
+          wrap.append(input, track);
+          right.appendChild(wrap);
+          if (!s.builtin) {
+            const rm = doc.createElement('button');
+            rm.type = 'button';
+            rm.className = 'btn-sm';
+            rm.dataset.remove = s.host;
+            rm.title = `Remove ${s.host}`;
+            rm.textContent = '×';
+            rm.addEventListener('click', () => {
+              void deps.removeSite!(s.host, s.scheme).then(() => void paintSites()).catch(() => {});
+            });
+            right.appendChild(rm);
+          }
+          row.append(info, right);
+          section.list.appendChild(row);
+        }
+      };
+      await paintSites();
+      const addBtn = doc.getElementById('s-sites-add');
+      if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
+        (addBtn as HTMLElement).dataset.bound = '1';
+        addBtn.addEventListener('click', () => {
+          const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
+          const val = input?.value.trim() ?? '';
+          if (!val) return;
+          void deps.addSite!(val).then((r) => {
+            if (r.ok) { if (input) input.value = ''; void paintSites(); }
+            else toast(doc, r.error ?? 'Could not add site');
+          }).catch(() => {});
+        });
+      }
+    }
+  }
+
   doc.getElementById('s-save')?.addEventListener('click', () => {
     deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
   });
@@ -535,6 +656,12 @@ declare const chrome: {
     sync: { get(k: string | null): Promise<Record<string, unknown>>; set(o: Record<string, unknown>): Promise<void> };
     session: { get(k: string | null): Promise<Record<string, unknown>>; remove(k: string): Promise<void> };
   };
+  tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]> };
+  permissions: { request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
+  scripting: {
+    registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => Promise<void>;
+    unregisterContentScripts: (f: { ids: string[] }) => Promise<void>;
+  };
 } | undefined;
 
 function prodDeps(): PopupDeps {
@@ -592,6 +719,99 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
+    ...prodSites(),
+  };
+}
+
+const SITES_KEY = 'dc-sites';
+const BUILTINS = Object.keys(SITE_SELECTORS);
+
+// Scheme threads from parseHost into requestSite/removeSite: bare host:port
+// defaults http, remote https-with-port needs the explicit scheme.
+function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
+  const chromeish = {
+    permissions: {
+      request: (p: { origins: string[] }) => chrome!.permissions.request(p),
+      remove: (p: { origins: string[] }) => chrome!.permissions.remove(p),
+    },
+    scripting: {
+      registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => chrome!.scripting.registerContentScript(s),
+      unregisterContentScripts: (f: { ids: string[] }) => chrome!.scripting.unregisterContentScripts(f),
+    },
+  };
+  const loadSites = async (): Promise<UserSites> => {
+    try {
+      const got = await chrome!.storage.sync.get(SITES_KEY);
+      const v = got[SITES_KEY] as UserSites | undefined;
+      if (v && Array.isArray(v.custom) && Array.isArray(v.disabled)) return v;
+    } catch { /* defaults */ }
+    return { custom: [], disabled: [] };
+  };
+  const saveSites = async (u: UserSites): Promise<void> => {
+    await chrome!.storage.sync.set({ [SITES_KEY]: u });
+  };
+  const activeHost = async (): Promise<string | null> => {
+    try {
+      const [tab] = await chrome!.tabs.query({ active: true, currentWindow: true });
+      return parseHost(tab?.url ?? '')?.host ?? null;
+    } catch { return null; }
+  };
+  return {
+    getSites: async () => {
+      const user = await loadSites();
+      const host = await activeHost();
+      const sites: SiteRow[] = [
+        ...BUILTINS.map((h) => ({
+          host: h, enabled: isEnabled(h, SITE_SELECTORS, user), builtin: true, active: h === host,
+        })),
+        ...user.custom.map((c) => ({
+          host: c.host, enabled: c.enabled, builtin: false, active: c.host === host, scheme: c.scheme,
+        })),
+      ].filter((s, i, arr) => arr.findIndex((x) => x.host === s.host) === i);
+      return { sites, activeHost: host };
+    },
+    addSite: async (input) => {
+      const parsed = parseHost(input);
+      if (!parsed) return { ok: false, error: 'Unrecognized host — try duck.ai or http://nas:3000' };
+      const { host, scheme } = parsed;
+      // Thread scheme only when the input stated it explicitly; bare
+      // host:port keeps the colon-rule http default (see site-store).
+      const explicit = input.includes('://') ? scheme : undefined;
+      const user = await loadSites();
+      if (!(host in SITE_SELECTORS) && !user.custom.some((c) => c.host === host)) {
+        if (!await requestSite(host, chromeish, explicit)) return { ok: false, error: 'Permission denied' };
+        user.custom.push({ host, enabled: true, ...(explicit ? { scheme: explicit } : {}) });
+      } else {
+        user.disabled = user.disabled.filter((d) => d !== host);
+        user.custom = user.custom.map((c) => c.host === host ? { ...c, enabled: true } : c);
+        const known = user.custom.find((c) => c.host === host)?.scheme ?? explicit;
+        if (!await requestSite(host, chromeish, known)) return { ok: false, error: 'Permission denied' };
+      }
+      await saveSites(user);
+      return { ok: true };
+    },
+    toggleSite: async (host, enabled, scheme) => {
+      const user = await loadSites();
+      if (enabled) {
+        if (!await requestSite(host, chromeish, scheme)) return false;
+      } else {
+        await removeSite(host, chromeish, scheme);
+      }
+      const isBuiltin = host in SITE_SELECTORS;
+      if (isBuiltin) {
+        user.disabled = enabled ? user.disabled.filter((d) => d !== host) : [...new Set([...user.disabled, host])];
+      }
+      const idx = user.custom.findIndex((c) => c.host === host);
+      if (idx >= 0) user.custom[idx] = { ...user.custom[idx], enabled };
+      else if (!isBuiltin) user.custom.push({ host, enabled });
+      await saveSites(user);
+      return true;
+    },
+    removeSite: async (host, scheme) => {
+      await removeSite(host, chromeish, scheme);
+      const user = await loadSites();
+      await saveSites({ custom: user.custom.filter((c) => c.host !== host), disabled: user.disabled.filter((d) => d !== host) });
+    },
   };
 }
 
