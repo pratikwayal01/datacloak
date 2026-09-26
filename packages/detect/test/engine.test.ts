@@ -43,4 +43,25 @@ describe('engine', () => {
     e.cloak(big);
     expect(performance.now() - t0).toBeLessThan(200);
   });
+  it('never re-cloaks a known synthetic (idempotent)', () => {
+    const e = new DataCloakEngine();
+    const once = e.cloak('mail kloe36@gmail.com key sk-abcdefghij1234567890');
+    const sizeAfterFirst = e.vault.size;
+    const twice = e.cloak(once.text);
+    expect(twice.text).toBe(once.text);
+    expect(twice.substitutions).toHaveLength(0);
+    expect(e.vault.size).toBe(sizeAfterFirst);
+  });
+  it('restore recovers the original after a re-cloak attempt', () => {
+    const e = new DataCloakEngine();
+    const once = e.cloak('mail kloe36@gmail.com');
+    const r = e.restore(e.cloak(once.text).text);
+    expect(r.text).toBe('mail kloe36@gmail.com');
+  });
+  it('env values holding synthetics stay stable', () => {
+    const e = new DataCloakEngine();
+    const once = e.cloak('DATABASE_URL=postgres://alice:s3cr3t@db.prod.acme.com:5432/users');
+    expect(e.cloak(once.text).text).toBe(once.text);
+    expect(e.restore(once.text).text).toContain('db.prod.acme.com');
+  });
 });

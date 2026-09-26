@@ -52,6 +52,8 @@ export class DataCloakEngine {
     let result = text;
     for (let i = detections.length - 1; i >= 0; i--) {
       const det = detections[i];
+      // Invariant: a known synthetic is never cloaked again — leave it as-is.
+      if (this.vault.getBySynthetic(det.value)) continue;
       const existing = this.vault.getByOriginal(det.value);
       let synthetic = existing;
       if (!synthetic) {
@@ -95,7 +97,9 @@ export class DataCloakEngine {
     this.vaultAbsorb(inner.vault);
     return r.text === value ? `SYNTH${faker.string.alphanumeric(16)}` : r.text;
   }
-  private vaultImport(_other: Vault): void { /* shared via absorb on the way out; import is a no-op by design */ }
+  private vaultImport(other: Vault): void {
+    for (const e of other.list()) this.vault.set(e);
+  }
   private vaultAbsorb(other: Vault): void {
     for (const e of other.list()) this.vault.set(e);
   }
