@@ -48,6 +48,15 @@ export function summarize(entries: VaultEntry[]): { count: number; categories: s
   return { count: entries.length, categories: [...new Set(entries.map((e) => e.category))] };
 }
 
+/** Case-insensitive exact match without regexp flags: Ramesh → [Rr][Aa][Mm][Ee][Ss][Hh]. */
+export function literalPattern(s: string): string {
+  return [...s].map((ch) => {
+    if (ch >= 'a' && ch <= 'z') return `[${ch.toUpperCase()}${ch}]`;
+    if (ch >= 'A' && ch <= 'Z') return `[${ch}${ch.toLowerCase()}]`;
+    return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('');
+}
+
 // Shape-guarded: one malformed vault:* key must not throw the whole popup.
 export function vaultEntriesFromSession(all: Record<string, unknown>): VaultEntry[] {
   const out: VaultEntry[] = [];
@@ -520,7 +529,9 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       name.textContent = p.name;
       const desc = doc.createElement('div');
       desc.className = 'site-desc';
-      desc.textContent = p.synthesizer ? `${p.pattern} → ${p.synthesizer} · ${p.category}` : `${p.pattern} · ${p.category}`;
+      // Literal rows show the value as typed, not the compiled matcher.
+      const shown = p.literal ? p.name : p.pattern;
+      desc.textContent = p.synthesizer ? `${shown} → ${p.synthesizer} · ${p.category}` : `${shown} · ${p.category}`;
       info.append(name, desc);
       const rm = doc.createElement('button');
       rm.className = 'btn-sm';
@@ -561,7 +572,6 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     if (empty) { toast(doc, 'Give a value or a regex — nothing saved'); return; }
     const autoCat = (n: string): string =>
       n.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'CUSTOM';
-    const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const type = ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'];
     const synth = val('c-synth');
     const mk = (n: string, p: string): CustomPattern => ({
@@ -570,7 +580,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     });
     const entries = patternLines.length > 0
       ? [mk(nameLines[0] ?? givenCategory ?? 'Custom', patternLines.length > 1 ? `(?:${patternLines.join('|')})` : patternLines[0])]
-      : nameLines.map((n) => mk(n, escapeRe(n)));
+      : nameLines.map((n) => ({ ...mk(n, literalPattern(n)), literal: true as const }));
     const next = [...custom.filter((c) => !entries.some((e) => e.name === c.name)), ...entries];
     void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
       if ('error' in res && res.error) { toast(doc, res.error); return; }

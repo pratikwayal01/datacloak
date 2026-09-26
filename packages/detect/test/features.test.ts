@@ -135,3 +135,16 @@ describe('restore chained entries', () => {
     expect(e.restore('hi BBB@x.com').text).toBe('hi AAA@x.com');
   });
 });
+
+describe('case-insensitive literal', () => {
+  it('class-expanded pattern cloaks every case variant', () => {
+    const lit = '[Rr][Aa][Mm][Ee][Ss][Hh]';
+    const e = new DataCloakEngine({ customPatterns: [{ name: 'Ramesh', pattern: lit, category: 'RAMESH', type: 'pii' as const, literal: true }] });
+    for (const v of ['Ramesh', 'ramesh', 'RAMESH']) {
+      const r = e.cloak(`hi ${v} bye`);
+      expect(r.substitutions).toHaveLength(1);
+      expect(r.text).not.toContain(`hi ${v} bye`);
+      expect(e.restore(r.text).text).toContain(`hi ${v} bye`);
+    }
+  });
+});

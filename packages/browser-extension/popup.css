@@ -399,6 +399,8 @@ body {
 .allowlist-input::placeholder { color: var(--muted); }
 textarea.allowlist-input { resize: vertical; min-height: 32px; line-height: 1.45; }
 .fld-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 7px 0 3px; }
+.adv-details { margin-top: 6px; }
+.adv-details > summary { font-size: 11px; color: var(--muted); cursor: pointer; }
 .btn-sm {
   padding: 5px 10px;
   border-radius: 5px;

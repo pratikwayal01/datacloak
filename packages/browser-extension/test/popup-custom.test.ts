@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderPopup, type PopupDeps } from '../src/popup.js';
+import { literalPattern, renderPopup, type PopupDeps } from '../src/popup.js';
 import type { BgResponse } from '../src/protocol.js';
 import type { CustomPattern } from '@pratikw/detect';
 
@@ -202,18 +202,31 @@ describe('popup custom validation', () => {
     expect(store.patterns).toHaveLength(0);
   });
 
-  it('bare value saves as a literal with auto category', async () => {
+  it('bare value saves as a case-insensitive literal', async () => {
     skeleton();
     const store = { patterns: [] as CustomPattern[] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh';
+    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ramesh';
     document.getElementById('c-add')?.dispatchEvent(new Event('click'));
     await flush();
-    expect(store.patterns).toEqual([
-      expect.objectContaining({ name: 'Ramesh', pattern: 'Ramesh', category: 'RAMESH', type: 'pii' }),
-    ]);
+    expect(store.patterns).toHaveLength(1);
+    const [p] = store.patterns;
+    expect(p.literal).toBe(true);
+    expect(p.category).toBe('RAMESH');
+    for (const v of ['Ramesh', 'ramesh', 'RAMESH', 'rAmEsH']) {
+      expect(new RegExp(`^${p.pattern}$`).test(v)).toBe(true);
+    }
     expect(document.getElementById('toast')?.textContent).toMatch(/Ramesh added/);
+    // Row shows the value as typed, not the compiled matcher.
+    expect(document.querySelector('.site-desc')?.textContent).toBe('Ramesh · RAMESH');
+  });
+
+  it('literalPattern escapes specials and expands letter case', () => {
+    expect(literalPattern('EMP-001234')).toBe('[Ee][Mm][Pp]-001234');
+    const re = new RegExp(`^${literalPattern('a.c')}$`);
+    expect(re.test('A.C')).toBe(true);
+    expect(re.test('AxC')).toBe(false);
   });
 
   it('one value per line becomes one entry each', async () => {
