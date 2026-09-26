@@ -122,6 +122,11 @@ describe('popup sites section', () => {
     input.value = 'duck.ai';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
+    // Our rationale prompt comes first; native grant follows Allow.
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-site-confirm')?.textContent).toContain('duck.ai');
+    (document.querySelector('.dc-site-confirm button:last-child') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(calls.add).toEqual(['duck.ai']);
     const rm = document.querySelector('#sites-list button[data-remove]') as HTMLButtonElement;
     rm.click();
@@ -150,8 +155,22 @@ describe('popup sites section', () => {
     input.value = 'newsite.example';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
+    (document.querySelector('.dc-site-confirm button:last-child') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(calls.add).toEqual(['newsite.example']);
     expect(document.getElementById('sites-list')?.textContent).toContain('newsite.example');
+  });
+  it('cancel on rationale prompt adds nothing', async () => {
+    skeleton();
+    const { deps, calls } = fakeDeps();
+    await renderPopup(document, deps);
+    (document.getElementById('s-sites-input') as HTMLInputElement).value = 'duck.ai';
+    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    (document.querySelector('.dc-site-confirm button:first-child') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-site-confirm')).toBeNull();
   });
   it('allowlist entries migrate into sites as disabled unique rows', async () => {
     skeleton();

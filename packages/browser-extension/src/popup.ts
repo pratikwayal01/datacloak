@@ -95,7 +95,7 @@ const toast = (doc: Document, msg: string): void => {
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+  setTimeout(() => el.classList.remove('show'), 4000);
 };
 
 const fmtBytes = (n: number): string =>
@@ -428,14 +428,42 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         }
       };
       await paintSites();
+      // Our rationale prompt BEFORE Chrome's native grant dialog (which we
+      // cannot replace — permissions.request always shows the browser UI).
+      const confirmSiteAccess = (host: string, onAllow: () => void): void => {
+        doc.querySelector('.dc-site-confirm')?.remove();
+        const panel = doc.createElement('div');
+        panel.className = 'dc-review-panel dc-site-confirm';
+        panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:280px');
+        const title = doc.createElement('div');
+        title.setAttribute('style', 'font-weight:600;margin-bottom:4px');
+        title.textContent = `Allow access to ${host}?`;
+        const body = doc.createElement('div');
+        body.textContent = 'DataCloak will cloak what you type and restore replies for display. Vault stays on this device. Chrome shows its own grant dialog next.';
+        const row = doc.createElement('div');
+        row.setAttribute('style', 'margin-top:8px;display:flex;gap:8px;justify-content:flex-end');
+        const cancel = doc.createElement('button');
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('click', () => panel.remove());
+        const allow = doc.createElement('button');
+        allow.textContent = 'Allow';
+        allow.addEventListener('click', () => { panel.remove(); onAllow(); });
+        row.append(cancel, allow);
+        panel.append(title, body, row);
+        doc.body.appendChild(panel);
+        allow.focus();
+      };
       const submitSite = (): void => {
         const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
         const val = input?.value.trim() ?? '';
         if (!val) return;
-        void deps.addSite!(val).then((r) => {
-          if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
-          else toast(doc, r.error ?? 'Could not add site');
-        }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+        const host = parseHost(val)?.host ?? val;
+        confirmSiteAccess(host, () => {
+          void deps.addSite!(val).then((r) => {
+            if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
+            else toast(doc, r.error ?? 'Could not add site');
+          }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+        });
       };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
@@ -691,7 +719,7 @@ declare const chrome: {
   tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]> };
   permissions: { request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
   scripting: {
-    registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => Promise<void>;
+    registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => Promise<void>;
     unregisterContentScripts: (f: { ids: string[] }) => Promise<void>;
   };
 } | undefined;
@@ -773,7 +801,7 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
       remove: (p: { origins: string[] }) => chrome!.permissions.remove(p),
     },
     scripting: {
-      registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => chrome!.scripting.registerContentScript(s),
+      registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => chrome!.scripting.registerContentScripts(s),
       unregisterContentScripts: (f: { ids: string[] }) => chrome!.scripting.unregisterContentScripts(f),
     },
   };

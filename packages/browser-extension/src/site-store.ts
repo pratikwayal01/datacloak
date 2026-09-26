@@ -46,7 +46,7 @@ export interface Chromeish {
     remove: (perms: { origins: string[] }) => Promise<boolean>;
   };
   scripting: {
-    registerContentScript: (script: { id: string; matches: string[]; js: string[] }) => Promise<void>;
+    registerContentScripts: (scripts: { id: string; matches: string[]; js: string[] }[]) => Promise<void>;
     unregisterContentScripts: (filter: { ids: string[] }) => Promise<void>;
   };
 }
@@ -57,11 +57,11 @@ export async function requestSite(host: string, chromeish: Chromeish, scheme?: S
   const pattern = toOriginPattern(host, scheme);
   const granted = await chromeish.permissions.request({ origins: [pattern] });
   if (!granted) return false;
-  await chromeish.scripting.registerContentScript({
+  await chromeish.scripting.registerContentScripts([{
     id: scriptId(host),
     matches: [pattern],
     js: ['dist/content.js'],
-  });
+  }]);
   return true;
 }
 

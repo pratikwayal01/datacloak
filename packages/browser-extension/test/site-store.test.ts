@@ -3,7 +3,7 @@ import { isEnabled, parseHost, removeSite, requestSite, toOriginPattern } from '
 
 const chromeish = () => ({
   permissions: { request: vi.fn(async () => true), remove: vi.fn(async () => true) },
-  scripting: { registerContentScript: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },
+  scripting: { registerContentScripts: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },
 });
 
 describe('parseHost', () => {
@@ -60,17 +60,17 @@ describe('requestSite/removeSite', () => {
     const c = chromeish();
     expect(await requestSite('nas:3000', c)).toBe(true);
     expect(c.permissions.request).toHaveBeenCalledWith({ origins: ['http://nas:3000/*'] });
-    expect(c.scripting.registerContentScript).toHaveBeenCalledWith({
+    expect(c.scripting.registerContentScripts).toHaveBeenCalledWith([{
       id: 'dc-nas:3000',
       matches: ['http://nas:3000/*'],
       js: ['dist/content.js'],
-    });
+    }]);
   });
   it('requestSite returns false when permission denied', async () => {
     const c = chromeish();
     c.permissions.request.mockResolvedValueOnce(false);
     expect(await requestSite('duck.ai', c)).toBe(false);
-    expect(c.scripting.registerContentScript).not.toHaveBeenCalled();
+    expect(c.scripting.registerContentScripts).not.toHaveBeenCalled();
   });
   it('removeSite removes permission and unregisters script', async () => {
     const c = chromeish();
