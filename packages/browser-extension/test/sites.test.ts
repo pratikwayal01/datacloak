@@ -33,4 +33,24 @@ describe('sites', () => {
     setFieldText(document.getElementById('e') as HTMLElement, 'synth');
     expect(getFieldText(document.getElementById('e') as HTMLElement)).toBe('synth');
   });
+  it('uses the native value setter so React apps observe the change', () => {
+    document.body.innerHTML = `<textarea id="t">old</textarea>`;
+    const el = document.getElementById('t') as HTMLTextAreaElement;
+    const seen: string[] = [];
+    el.addEventListener('input', () => seen.push(el.value));
+    // Simulate a React-style value tracker that only updates via the
+    // prototype setter: direct assignment must not be the path used.
+    const proto = window.HTMLTextAreaElement.prototype;
+    const orig = Object.getOwnPropertyDescriptor(proto, 'value')!.set!;
+    let viaNative = false;
+    Object.defineProperty(proto, 'value', { set(v: string) { viaNative = true; orig.call(el, v); }, configurable: true });
+    try {
+      setFieldText(el, 'new');
+    } finally {
+      Object.defineProperty(proto, 'value', { set: orig, configurable: true });
+    }
+    expect(viaNative).toBe(true);
+    expect(el.value).toBe('new');
+    expect(seen).toEqual(['new']);
+  });
 });

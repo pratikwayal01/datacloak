@@ -50,7 +50,13 @@ export function getFieldText(el: HTMLElement): string {
 export function setFieldText(el: HTMLElement, text: string): void {
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     el.focus();
-    (el as HTMLTextAreaElement).value = text;
+    // Native setter hack: direct .value assignment bypasses React's value
+    // tracker, so the app would submit the OLD text. Invoking the prototype
+    // setter marks the field dirty so the dispatched input event sticks.
+    const proto = el instanceof HTMLTextAreaElement
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, text);
     el.dispatchEvent(new Event('input', { bubbles: true }));
   } else {
     el.focus();

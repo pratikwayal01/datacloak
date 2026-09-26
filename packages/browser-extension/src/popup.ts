@@ -404,7 +404,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
             void deps.toggleSite!(s.host, input.checked, s.scheme).then((ok) => {
               if (ok) { toast(doc, `${s.host} ${input.checked ? 'enabled' : 'disabled'}`); void paintSites(); }
               else { input.checked = !input.checked; toast(doc, 'Permission denied'); }
-            }).catch(() => { input.checked = !input.checked; });
+            }).catch((e: unknown) => { input.checked = !input.checked; toast(doc, `Toggle failed: ${(e as Error)?.message ?? e}`); });
           });
           const track = doc.createElement('span');
           track.className = 'toggle-track';
@@ -434,7 +434,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         void deps.addSite!(val).then((r) => {
           if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
           else toast(doc, r.error ?? 'Could not add site');
-        }).catch(() => {});
+        }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
       };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
