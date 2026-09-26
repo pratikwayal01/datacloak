@@ -64,6 +64,9 @@ describe('guard', () => {
     const deny = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'read', args: { filePath: '.env.local' } }));
     expect(deny.code).toBe(2);
     expect(JSON.parse(deny.stdout).decision).toBe('deny');
+    const pem = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'read', args: { filePath: 'key.pem' } }));
+    expect(pem.code).toBe(2);
+    expect(JSON.parse(pem.stdout).decision).toBe('deny');
     const ok = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'read', args: { filePath: 'src/index.ts' } }));
     expect(ok.code).toBe(0);
     expect(JSON.parse(ok.stdout).decision).toBe('allow');

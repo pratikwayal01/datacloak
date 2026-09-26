@@ -7,7 +7,7 @@ const ENV_DUMP = [/(^|[;&|]\s*)printenv\b/, /(^|[;&|]\s*)env\b/, /echo\s+\$[A-Za
 const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file', 'apply_patch']);
 const READ_TOOLS = new Set(['read', 'read_file']);
 // ponytail: inline */** glob, same approach as opencode-plugin guard.ts
-const SENSITIVE_GLOBS = ['.env', '.env.local', '**/.env', '**/.env.local', '**/*.pem', '~/.ssh/**', '**/.ssh/**', '*credentials*', '**/*credentials*'];
+const SENSITIVE_GLOBS = ['.env', '.env.local', '**/.env', '**/.env.local', '*.pem', '**/*.pem', '~/.ssh/**', '**/.ssh/**', '*credentials*', '**/*credentials*'];
 
 const globToRegExp = (glob: string): RegExp => {
   const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
