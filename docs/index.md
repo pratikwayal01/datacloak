@@ -18,7 +18,7 @@ restore(modelReply)
 ![How DataCloak works](architecture.svg)
 
 Full walkthrough: [Architecture & how it works](architecture.md) ·
-[Privacy policy](privacy.md)
+[Privacy policy](privacy.md) · [Custom entity mapping](custom-entities.md)
 
 ## Features
 

@@ -92,3 +92,22 @@ describe('cloakFile', () => {
     await expect(cloakFile(new DataCloakEngine(), p)).rejects.toThrow(/unsupported extension/);
   });
 });
+
+describe('custom entity mapping', () => {
+  const emp = { name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii' as const, synthesizer: 'EMP-{{string.numeric(6)}}' };
+  it('cloaks with shape-preserving fake and restores', () => {
+    const e = new DataCloakEngine({ customPatterns: [emp] });
+    const r = e.cloak('owner EMP-482913 please');
+    expect(r.text).toMatch(/EMP-[0-9]{6}/);
+    expect(r.text).not.toContain('EMP-482913');
+    expect(e.restore(r.text).text).toContain('EMP-482913');
+  });
+  it('falls back to opaque without a synthesizer', () => {
+    const e = new DataCloakEngine({ customPatterns: [{ name: 'x', pattern: 'XX-[0-9]+', category: 'XX_CODE', type: 'secret' }] });
+    expect(e.cloak('id XX-123').text).toMatch(/\[XX_CODE_[A-Z0-9]{6}\]/);
+  });
+  it('bad synthesizer fails open with opaque token', () => {
+    const e = new DataCloakEngine({ customPatterns: [{ ...emp, synthesizer: 'EMP-{{nope.fn(1)}}' }] });
+    expect(e.cloak('owner EMP-482913').text).toMatch(/\[EMPLOYEE_ID_[A-Z0-9]{6}\]/);
+  });
+});
