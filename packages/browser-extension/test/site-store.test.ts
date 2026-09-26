@@ -81,6 +81,13 @@ describe('requestSite/removeSite', () => {
 });
 
 describe('ensureSiteAccess/loadUserSites', () => {
+  it('remove tolerates a never-registered script id', async () => {
+    const { removeSite } = await import('../src/site-store.js');
+    const c = chromeish();
+    c.scripting.unregisterContentScripts.mockRejectedValueOnce(new Error(`Nonexistent script ID 'dc-gpt.com'`));
+    await removeSite('gpt.com', c, 'https');
+    expect(c.permissions.remove).toHaveBeenCalledWith({ origins: ['https://gpt.com/*'] });
+  });
   const chromeishOk = () => ({
     permissions: { contains: vi.fn(async () => false), request: vi.fn(async () => true), remove: vi.fn(async () => true) },
     scripting: { registerContentScripts: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },

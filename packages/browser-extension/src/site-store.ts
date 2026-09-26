@@ -80,8 +80,12 @@ export async function requestSite(host: string, chromeish: Chromeish, scheme?: S
 
 export async function removeSite(host: string, chromeish: Chromeish, scheme?: Scheme): Promise<void> {
   const pattern = toOriginPattern(host, scheme);
+  try {
+    await chromeish.scripting.unregisterContentScripts({ ids: [scriptId(host)] });
+  } catch {
+    // Script was never registered (or already gone) — removal is still complete.
+  }
   await chromeish.permissions.remove({ origins: [pattern] });
-  await chromeish.scripting.unregisterContentScripts({ ids: [scriptId(host)] });
 }
 
 export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {

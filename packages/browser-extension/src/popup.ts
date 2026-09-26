@@ -520,7 +520,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       name.textContent = p.name;
       const desc = doc.createElement('div');
       desc.className = 'site-desc';
-      desc.textContent = `${p.pattern} → ${p.category}`;
+      desc.textContent = p.synthesizer ? `${p.pattern} → ${p.synthesizer} · ${p.category}` : `${p.pattern} · ${p.category}`;
       info.append(name, desc);
       const rm = doc.createElement('button');
       rm.className = 'btn-sm';
@@ -553,7 +553,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     const name = val('c-name');
     const pattern = val('c-pattern');
     const category = val('c-category');
-    if (!name || !pattern || !category) { toast(doc, 'Name, regex and category are required'); return; }
+    // Per-field errors: ring the empty fields and name them, instead of a
+    // silent all-or-nothing reject.
+    const missing: string[] = [];
+    for (const [label, id] of [['Name', 'c-name'], ['Regex', 'c-pattern'], ['Category', 'c-category']] as const) {
+      const empty = !val(id);
+      doc.getElementById(id)?.classList.toggle('invalid', empty);
+      if (empty) missing.push(label);
+    }
+    if (missing.length > 0) { toast(doc, `${missing.join(' + ')} required — nothing saved`); return; }
     const entry: CustomPattern = {
       name, pattern, category,
       type: ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'],
@@ -581,6 +589,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     const el = doc.getElementById(id) as HTMLInputElement | null;
     if (el && !el.dataset.bound) {
       el.dataset.bound = '1';
+      el.addEventListener('input', () => el.classList.remove('invalid'));
       el.addEventListener('keydown', (ev) => {
         if ((ev as KeyboardEvent).key === 'Enter') submitCustom();
       });

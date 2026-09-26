@@ -171,3 +171,28 @@ describe('popup full page', () => {
     expect(opened).toBe(1);
   });
 });
+
+describe('popup custom validation', () => {
+  it('partial fill rings the empty fields and names them', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh';
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(document.getElementById('c-pattern')?.classList.contains('invalid')).toBe(true);
+    expect(document.getElementById('c-category')?.classList.contains('invalid')).toBe(true);
+    expect(document.getElementById('c-name')?.classList.contains('invalid')).toBe(false);
+    expect(document.getElementById('toast')?.textContent).toMatch(/Regex \+ Category required/);
+    expect(store.patterns).toHaveLength(0);
+  });
+
+  it('saved rows show pattern, fake and category', async () => {
+    skeleton();
+    const store = { patterns: [{ name: 'Ramesh', pattern: 'ramesh', category: 'PERSON_NAME', type: 'pii' as const, synthesizer: 'X-{{string.numeric(4)}}' }] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    expect(document.querySelector('.site-desc')?.textContent).toBe('ramesh → X-{{string.numeric(4)}} · PERSON_NAME');
+  });
+});

@@ -395,6 +395,7 @@ body {
   transition: border-color .15s;
 }
 .allowlist-input:focus { border-color: var(--accent); }
+.allowlist-input.invalid { border-color: var(--danger); }
 .allowlist-input::placeholder { color: var(--muted); }
 .btn-sm {
   padding: 5px 10px;
