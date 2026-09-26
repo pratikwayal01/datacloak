@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -28,6 +28,14 @@ describe('cli', () => {
     expect((await cli(['scan'], 'key sk-abcdefghij1234567890')).code).toBe(2);
     expect((await cli(['scan'], 'hello world')).code).toBe(0);
   });
+  it('cloak starts empty on corrupt vault, stderr names path', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-'));
+    const vault = join(dir, 'v.json');
+    writeFileSync(vault, '{not-json');
+    const c = await cli(['cloak', '--vault', vault], 'hello world');
+    expect(c.code).toBe(0);
+    expect(c.stderr).toContain(`corrupt vault at ${vault}`);
+  });
 });
 
 describe('guard', () => {
@@ -51,5 +59,13 @@ describe('guard', () => {
     expect(rw.code).toBe(0);
     expect(JSON.parse(rw.stdout).decision).toBe('rewrite');
     expect(JSON.parse(rw.stdout).args.content).toContain('sk-abcdefghij1234567890');
+  });
+  it('denies sensitive reads, allows normal reads', async () => {
+    const deny = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'read', args: { filePath: '.env.local' } }));
+    expect(deny.code).toBe(2);
+    expect(JSON.parse(deny.stdout).decision).toBe('deny');
+    const ok = await cli(['guard'], JSON.stringify({ event: 'tool', tool: 'read', args: { filePath: 'src/index.ts' } }));
+    expect(ok.code).toBe(0);
+    expect(JSON.parse(ok.stdout).decision).toBe('allow');
   });
 });

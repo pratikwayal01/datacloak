@@ -5,6 +5,16 @@ export type GuardOut = { decision: 'allow' | 'deny' | 'rewrite'; reason?: string
 
 const ENV_DUMP = [/(^|[;&|]\s*)printenv\b/, /(^|[;&|]\s*)env\b/, /echo\s+\$[A-Za-z_]/, /~\/\.ssh\//, /~\/\.aws\/credentials/, /\.env\b/];
 const WRITE_TOOLS = new Set(['write', 'edit', 'create', 'write_file', 'edit_file', 'apply_patch']);
+const READ_TOOLS = new Set(['read', 'read_file']);
+// ponytail: inline */** glob, same approach as opencode-plugin guard.ts
+const SENSITIVE_GLOBS = ['.env', '.env.local', '**/.env', '**/.env.local', '**/*.pem', '~/.ssh/**', '**/.ssh/**', '*credentials*', '**/*credentials*'];
+
+const globToRegExp = (glob: string): RegExp => {
+  const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
+  return new RegExp(`^${esc}$`);
+};
+
+export const isSensitivePath = (p: string): boolean => SENSITIVE_GLOBS.some((g) => globToRegExp(g).test(p));
 
 export function guard(incoming: { event: string; text?: string; tool?: string; args?: Record<string, unknown> }, engine: DataCloakEngine): { out: GuardOut; code: number } {
   if (incoming.event === 'prompt' && typeof incoming.text === 'string') {
@@ -17,6 +27,10 @@ export function guard(incoming: { event: string; text?: string; tool?: string; a
     const cmd = (incoming.args as Record<string, unknown> | undefined)?.command;
     if (typeof cmd === 'string' && ENV_DUMP.some((re) => re.test(cmd))) {
       return { out: { decision: 'deny', reason: 'datacloak: blocked env-dump command' }, code: 2 };
+    }
+    const fp = (incoming.args as Record<string, unknown> | undefined)?.filePath;
+    if (incoming.tool && READ_TOOLS.has(incoming.tool) && typeof fp === 'string' && isSensitivePath(fp)) {
+      return { out: { decision: 'deny', reason: 'datacloak: blocked sensitive read' }, code: 2 };
     }
     if (incoming.tool && WRITE_TOOLS.has(incoming.tool) && incoming.args && typeof incoming.args === 'object') {
       let rewrote = false;

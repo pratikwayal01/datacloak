@@ -13,7 +13,13 @@ export function defaultVaultPath(): string {
 
 export function loadInto(engine: DataCloakEngine, path: string): void {
   if (!existsSync(path)) return;
-  const data = JSON.parse(readFileSync(path, 'utf8')) as { version: number; entries: FileEntry[] };
+  let data: { version: number; entries: FileEntry[] };
+  try {
+    data = JSON.parse(readFileSync(path, 'utf8')) as { version: number; entries: FileEntry[] };
+  } catch {
+    process.stderr.write(`datacloak: corrupt vault at ${path}, starting empty\n`);
+    return;
+  }
   for (const e of data.entries ?? []) {
     engine.vault.set({ ...e, synthesizedAt: Date.now(), confidence: 'high' });
   }
