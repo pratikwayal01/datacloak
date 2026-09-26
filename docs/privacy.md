@@ -12,10 +12,14 @@ reporting, no update check, no account.
 
 ## Where your secrets live
 
-- **Library / plugin / extension:** the vault (synthetic ↔ original
-  mappings) lives in process memory (or the browser's session storage,
-  cleared when the tab closes). It is never written to disk, never synced,
-  never transmitted.
+- **Extension:** per-origin AES-GCM blobs in `chrome.storage.local`
+  (10 origins × 200 entries, 7-day TTL, auto-pruned) plus the raw device
+  key under `dc-dek` (obfuscation-grade: stops casual disk readers, not
+  determined local attackers) and the site list in sync storage. The
+  session vault remains a write-through cache.
+- **Library / plugin:** the vault (synthetic ↔ original mappings) lives
+  in process memory (or the browser's session storage, cleared when the
+  tab closes). It is never written to disk, never synced, never transmitted.
 - **CLI:** the file vault (`~/.config/datacloak/vault-*.json`, chmod 600)
   contains originals by design — it must, to restore across processes.
   Delete it when the session ends. `install.sh --uninstall` removes the

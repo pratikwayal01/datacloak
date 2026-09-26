@@ -229,6 +229,22 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
   return obs;
 }
 
+// Static manifest scripts can't unregister — runtime gate is the fix for
+// disabled built-ins that would otherwise still cloak.
+export interface UserSitesShape {
+  custom?: { host: string; enabled: boolean }[];
+  disabled?: string[];
+}
+
+export function shouldArmForSite(host: string, sites?: UserSitesShape | null): boolean {
+  if (!sites) return true;
+  const h = host.toLowerCase();
+  if (sites.disabled?.some((d) => d.toLowerCase() === h)) return false;
+  const custom = sites.custom?.find((c) => c.host.toLowerCase() === h);
+  if (custom && !custom.enabled) return false;
+  return true;
+}
+
 // Production bootstrap (no-op under test — chrome undefined there)
 // ponytail: chat-log root narrowing is a later optimization; body works with the TreeWalker skips.
 declare const chrome: {
@@ -238,7 +254,9 @@ declare const chrome: {
 
 if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.storage?.sync) {
   const send: SendFn = (req) => chrome.runtime.sendMessage(req);
-  void chrome.storage.sync.get(['dc-mode']).then((vals) => {
+  void chrome.storage.sync.get(['dc-mode', 'dc-sites']).then((vals) => {
+    const host = typeof location !== 'undefined' ? location.host.toLowerCase() : '';
+    if (host && !shouldArmForSite(host, (vals['dc-sites'] as UserSitesShape | undefined) ?? undefined)) return;
     const mode = vals['dc-mode'] === 'review' ? 'review' : 'auto';
     armComposer(document, send, { mode });
     if (document.body) observeResponses(document.body, send);

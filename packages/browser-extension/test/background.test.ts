@@ -101,7 +101,19 @@ describe('background', () => {
     expect(after.origins['fresh']).toBeDefined();
     expect(after.origins['stale']).toBeUndefined();
   });
-  it('originFromUrl derives vault host from sender tab url, never message body', async () => {    const { originFromUrl } = await import('../src/background.js');
+  it('first-run migrates session vault into empty origin namespace', async () => {
+    const { __dropEnginesForTest, memoryVaultBackend } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const s = fakeStore();
+    await s.setTab(61, { vault: [['SYN-old', 'john.doe@acme.com', 'EMAIL']] });
+    __dropEnginesForTest();
+    await handleRequest(61, { kind: 'cloak', text: 'hello world' }, s, undefined, { backend, origin: 'mig.test' });
+    const entries = (await backend.load()).origins['mig.test']?.entries ?? [];
+    expect(entries.some((e) => e.original === 'john.doe@acme.com')).toBe(true);
+  });
+  it('originFromUrl derives vault host from sender tab url, never message body', async () => {
+    const { originFromUrl } = await import('../src/background.js');
     expect(originFromUrl('https://claude.ai/chat/123')).toBe('claude.ai');
     expect(originFromUrl('http://nas:3000/x')).toBe('nas:3000');
     expect(originFromUrl('not a url')).toBeNull();

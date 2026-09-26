@@ -1,6 +1,6 @@
 import { DataCloakEngine, defaultConfig } from '@pratikw/detect';
 import type { BgRequest, BgResponse, StatsResponse } from './protocol.js';
-import { decryptVault, encryptVault, loadOrCreateDek, MAX_ENTRIES, pruneStore, type StoredEntry, type StoredVault } from './vault-store.js';
+import { decryptVault, encryptVault, loadOrCreateDek, MAX_ENTRIES, migrateSession, pruneStore, type StoredEntry, type StoredVault } from './vault-store.js';
 
 export interface MemoryStore {
   getTab(tabId: number): Promise<{ vault: [string, string, string][] } | undefined>;
@@ -167,6 +167,17 @@ async function engineFor(tabId: number, store: MemoryStore, sync: SyncStore, vau
         engine.vault.set({ original: e.original, synthetic: e.synthetic, category: e.category, type: 'pii', synthesizedAt: Date.now(), confidence: 'high' });
       }
     } catch { /* corrupt vault must not break cloak */ }
+    // One-time first-run migration: session vault has entries but the
+    // derived origin namespace is empty/absent — seed it so the origin
+    // store catches up; afterwards session writes flow normally.
+    if ((saved?.vault?.length ?? 0) > 0) {
+      try {
+        const stored = await vault.backend.load();
+        if (!stored.origins[vault.origin]?.entries?.length) {
+          await persistToVault(vault.backend, vault.origin, migrateSession(saved!.vault));
+        }
+      } catch { /* migration is best-effort */ }
+    }
   }
   engines.set(tabId, engine);
   return engine;
