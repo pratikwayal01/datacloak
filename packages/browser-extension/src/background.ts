@@ -1,4 +1,4 @@
-import { DataCloakEngine, defaultConfig } from '@pratikw/detect';
+import { DataCloakEngine, defaultConfig, expandEntityPattern, isEntityKind } from '@pratikw/detect';
 import type { CustomPattern } from '@pratikw/detect';
 import type { BgRequest, BgResponse, StatsResponse } from './protocol.js';
 import { decryptVault, encryptVault, loadOrCreateDek, MAX_ENTRIES, migrateSession, pruneStore, type StoredEntry, type StoredVault } from './vault-store.js';
@@ -225,6 +225,14 @@ export function validatePatterns(patterns: CustomPattern[]): string | null {
   if (!Array.isArray(patterns) || patterns.length > 50) return 'patterns must be a list of at most 50';
   for (const p of patterns) {
     if (!p || typeof p.name !== 'string' || !p.name.trim()) return 'each pattern needs a name';
+    if (p.kind !== undefined) {
+      // Typed entity row (value + kind): expand to a full pattern in place.
+      if (!isEntityKind(p.kind)) return `pattern "${p.name}" has bad kind ${String(p.kind)}`;
+      const expanded = expandEntityPattern(p.name.trim(), p.kind);
+      p.pattern = expanded.pattern;
+      p.category = expanded.category;
+      p.type = expanded.type;
+    }
     if (typeof p.pattern !== 'string' || !p.pattern) return `pattern "${p.name}" needs a regex`;
     try { new RegExp(p.pattern); } catch { return `pattern "${p.name}" is not a valid regex`; }
     if (typeof p.category !== 'string' || !p.category.trim()) return `pattern "${p.name}" needs a category`;

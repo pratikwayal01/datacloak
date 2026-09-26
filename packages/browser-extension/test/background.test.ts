@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CustomPattern } from '@pratikw/detect';
 import { handleRequest, type MemoryStore } from '../src/background.js';
 
 const fakeStore = (): MemoryStore => {
@@ -160,6 +161,34 @@ describe('custom entity patterns', () => {
     const res = await handleRequest(33, { kind: 'patterns.set', patterns: [bad] }, s) as { patterns: unknown[]; error?: string };
     expect(res.error).toMatch(/valid regex/);
     const get = await handleRequest(33, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(0);
+  });
+});
+
+describe('typed entity kinds', () => {
+  it('expands value+kind rows and cloaks same-length', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const row = { name: 'Ramesh', kind: 'name' as const };
+    const set = await handleRequest(41, { kind: 'patterns.set', patterns: [row] }, s) as { patterns: CustomPattern[]; error?: string };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns[0]).toMatchObject({ name: 'Ramesh', category: 'PERSON_NAME', type: 'pii', kind: 'name' });
+    expect(set.patterns[0].pattern).toContain('[Rr]');
+    const c = await handleRequest(42, { kind: 'cloak', text: 'hi RAMESH bye' }, s) as { text: string; count: number };
+    expect(c.count).toBe(1);
+    const fake = c.text.replace('hi ', '').replace(' bye', '');
+    expect(fake).toHaveLength(6);
+    expect(fake).toMatch(/^[A-Z]{6}$/);
+  });
+
+  it('rejects unknown kinds without saving', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const res = await handleRequest(43, { kind: 'patterns.set', patterns: [{ name: 'X', kind: 'regex' }] }, s) as { patterns: unknown[]; error?: string };
+    expect(res.error).toMatch(/bad kind/);
+    const get = await handleRequest(43, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
     expect(get.patterns).toHaveLength(0);
   });
 });
