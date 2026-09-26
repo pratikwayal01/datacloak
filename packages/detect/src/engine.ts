@@ -4,6 +4,7 @@ import { defaultConfig } from './types.js';
 import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
 import { synthesize } from './synthesizers/index.js';
+import { synthesizeCustom } from './synthesizers/custom.js';
 import { synthesizeDsn } from './synthesizers/credentials.js';
 import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
@@ -68,6 +69,15 @@ export class DataCloakEngine {
   }
   private makeSynthetic(det: Detection, fullText: string): string {
     if (det.category === 'ENV_VAR') return this.synthEnvValue(det.value);
+    const custom = (this.config.customPatterns ?? []).find((c) => c.category === det.category && c.synthesizer);
+    if (custom?.synthesizer) {
+      try {
+        const s = synthesizeCustom(custom.synthesizer, this.config.locale);
+        if (!fullText.includes(s)) return s;
+      } catch (err) {
+        console.error(`[datacloak] bad synthesizer for ${det.category}: ${(err as Error).message}`);
+      }
+    }
     for (let attempt = 0; attempt < 3; attempt++) {
       const s = synthesize(det.category, det.value, this.config.locale) ?? opaqueToken(det.category);
       if (!fullText.includes(s)) return s;
