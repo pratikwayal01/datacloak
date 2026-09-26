@@ -28,4 +28,17 @@ describe('vault export/import', () => {
     await expect(e.importVault('not-json', 'x')).rejects.toThrow();
     await expect(e.importVault(JSON.stringify({ v: 999 }), 'x')).rejects.toThrow(/unsupported vault export version/);
   });
+  it('2000-entry vault export/import round-trips (no spread stack overflow)', async () => {
+    const e = new DataCloakEngine();
+    for (let i = 0; i < 2000; i++) {
+      e.vault.set({ original: `original-${i}-pad-to-grow-payload-0123456789`, synthetic: `SYNTH${String(i).padStart(6, '0')}abcdefghij`, category: 'EMAIL', type: 'pii', synthesizedAt: Date.now(), confidence: 'high' });
+    }
+    expect(e.vault.size).toBe(2000);
+    const blob = await e.exportVault('correct-horse');
+    const e2 = new DataCloakEngine();
+    const n = await e2.importVault(blob, 'correct-horse');
+    expect(n).toBe(2000);
+    expect(e2.vault.size).toBe(2000);
+    expect(e2.restore('SYNTH001999abcdefghij').text).toContain('original-1999');
+  });
 });
