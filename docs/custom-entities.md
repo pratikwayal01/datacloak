@@ -53,9 +53,15 @@ needed beyond OpenCode's config reload.
 
 ## 1b. Browser extension: Settings → Custom entities
 
-Same fields (name, regex, category, type, optional fake template), stored in
-`chrome.storage.sync` and applied to every tab's engine. Invalid regex is
-rejected with an error toast — nothing is saved until it compiles.
+One row per value — type the value, pick its type (Name, Employee ID,
+Email, Phone, Other). No regex, no category, no fake template: each type
+has a hardcoded matcher and a same-length / same-case / same-format fake
+built in. `Ramesh` cloaks every case variant; `EMP-001234` cloaks any
+`EMP-<digits>` ID as `EMP-738291`. Rows save on edit and sync via
+`chrome.storage.sync` to every tab's engine.
+
+Upgrading: old literal entries become Name rows automatically; old manual
+regex entries are dropped (names logged to the console).
 
 ## 3. CLI: `--config`
 

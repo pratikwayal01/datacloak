@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { literalPattern, renderPopup, type PopupDeps } from '../src/popup.js';
+import { describe, expect, it, vi } from 'vitest';
+import { renderPopup, type PopupDeps } from '../src/popup.js';
 import type { BgResponse } from '../src/protocol.js';
 import type { CustomPattern } from '@pratikw/detect';
 
@@ -20,11 +20,7 @@ const skeleton = (): void => {
       <div class="setting-desc" id="sites-active"></div>
       <div id="sites-list"></div>
       <div id="custom-list"></div>
-      <textarea id="c-name"></textarea><textarea id="c-pattern"></textarea>
-      <input id="c-category" type="text">
-      <select id="c-type"><option value="pii">pii</option><option value="secret">secret</option></select>
-      <input id="c-synth" type="text">
-      <button id="c-add" type="button">Add</button>
+      <button id="c-add" type="button">+ Add entity</button>
       <div class="footer"><button id="s-fullpage">Full</button><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
     </div>
     <div class="panel" id="panel-dev">
@@ -50,7 +46,10 @@ const fakeDeps = (store: { patterns: CustomPattern[] }, over: Partial<PopupDeps>
     if (req.kind === 'settings.get') return { flags: { secrets: true, envVars: true, pii: true, entropy: true } };
     if (req.kind === 'patterns.get') return { patterns: store.patterns };
     if (req.kind === 'patterns.set') {
-      try { new RegExp(req.patterns[0]?.pattern ?? ''); } catch { return { patterns: store.patterns, error: 'not a valid regex' }; }
+      for (const p of req.patterns) {
+        if (p.kind) continue;
+        try { new RegExp(p.pattern ?? ''); } catch { return { patterns: store.patterns, error: 'not a valid regex' }; }
+      }
       store.patterns = req.patterns;
       return { patterns: store.patterns };
     }
@@ -69,100 +68,81 @@ const fakeDeps = (store: { patterns: CustomPattern[] }, over: Partial<PopupDeps>
   estimateStorage: async () => null,
   listStorage: async () => [],
   download: () => {},
-  copy: async () => {},
+  copy: () => {},
   version: '1.0.0',
   ...over,
 });
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
-describe('popup custom entities', () => {
-  it('lists saved patterns', async () => {
+const rows = (): { input: HTMLInputElement; sel: HTMLSelectElement }[] =>
+  [...document.querySelectorAll('#custom-list .allowlist-input-row')].map((w) => ({
+    input: w.querySelector('input') as HTMLInputElement,
+    sel: w.querySelector('select') as HTMLSelectElement,
+  }));
+
+describe('popup custom entity rows', () => {
+  it('paints stored kind entries as value+type rows', async () => {
     skeleton();
-    const store = { patterns: [{ name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii' as const }] };
+    const store = { patterns: [{ name: 'Ramesh', pattern: '[Rr][Aa][Mm][Ee][Ss][Hh]', category: 'PERSON_NAME', type: 'pii' as const, kind: 'name' as const }] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    expect(document.getElementById('custom-list')?.textContent).toContain('Employee ID');
+    const r = rows();
+    expect(r).toHaveLength(1);
+    expect(r[0].input.value).toBe('Ramesh');
+    expect(r[0].sel.value).toBe('name');
   });
-  it('add saves and clears inputs', async () => {
+
+  it('add appends an empty row defaulting to Name', async () => {
     skeleton();
     const store = { patterns: [] as CustomPattern[] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ticket';
-    (document.getElementById('c-pattern') as HTMLInputElement).value = 'TCK-[0-9]+';
-    (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
+    expect(document.getElementById('custom-list')?.textContent).toContain('No custom entities yet');
     document.getElementById('c-add')?.dispatchEvent(new Event('click'));
     await flush();
-    expect(store.patterns).toHaveLength(1);
-    expect(store.patterns[0].category).toBe('TICKET');
-    expect((document.getElementById('c-name') as HTMLInputElement).value).toBe('');
-    expect(document.getElementById('custom-list')?.textContent).toContain('Ticket');
+    const r = rows();
+    expect(r).toHaveLength(1);
+    expect(r[0].input.value).toBe('');
+    expect(r[0].sel.value).toBe('name');
   });
-  it('invalid regex surfaces error toast', async () => {
+
+  it('filling a row saves value+kind', async () => {
     skeleton();
     const store = { patterns: [] as CustomPattern[] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Bad';
-    (document.getElementById('c-pattern') as HTMLInputElement).value = '([a-z';
-    (document.getElementById('c-category') as HTMLInputElement).value = 'X';
     document.getElementById('c-add')?.dispatchEvent(new Event('click'));
     await flush();
-    expect(store.patterns).toHaveLength(0);
-    expect(document.getElementById('toast')?.textContent).toMatch(/regex/);
+    const [r] = rows();
+    r.input.value = 'EMP-001234';
+    r.input.dispatchEvent(new Event('change'));
+    r.sel.value = 'employee_id';
+    r.sel.dispatchEvent(new Event('change'));
+    await flush();
+    expect(store.patterns).toEqual([{ name: 'EMP-001234', kind: 'employee_id' }]);
   });
-});
 
-describe('popup custom entities save paths', () => {
-  it('Enter in a single-line custom input submits', async () => {
+  it('clearing a row deletes it without persisting empties', async () => {
     skeleton();
-    const store = { patterns: [] as CustomPattern[] };
+    const store = { patterns: [{ name: 'Ramesh', pattern: 'x', category: 'PERSON_NAME', type: 'pii' as const, kind: 'name' as const }] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ticket';
-    (document.getElementById('c-pattern') as HTMLTextAreaElement).value = 'TCK-[0-9]+';
-    (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
-    document.getElementById('c-synth')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(rows()).toHaveLength(1);
+    const [r] = rows();
+    r.input.value = '';
+    r.input.dispatchEvent(new Event('change'));
     await flush();
-    expect(store.patterns).toHaveLength(1);
+    expect(rows()).toHaveLength(0);
+    expect(store.patterns).toEqual([]);
   });
-  it('Ctrl+Enter submits from a textarea, plain Enter does not', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ticket';
-    document.getElementById('c-name')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await flush();
-    expect(store.patterns).toHaveLength(0);
-    const ctrl = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-    Object.defineProperty(ctrl, 'ctrlKey', { value: true });
-    document.getElementById('c-name')?.dispatchEvent(ctrl);
-    await flush();
-    expect(store.patterns).toHaveLength(1);
-  });
-  it('footer Save flushes a filled custom row', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ticket';
-    (document.getElementById('c-pattern') as HTMLInputElement).value = 'TCK-[0-9]+';
-    (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
-    document.getElementById('s-save')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(store.patterns).toHaveLength(1);
-  });
-});
 
-describe('popup custom entity remove', () => {
-  it('remove asks same-page confirm, then deletes', async () => {
+  it('× asks same-page confirm, then removes', async () => {
     skeleton();
-    const store = { patterns: [{ name: 'Ramesh', pattern: 'ramesh', category: 'PERSON_NAME', type: 'pii' as const }] };
+    const store = { patterns: [{ name: 'Ramesh', pattern: 'x', category: 'PERSON_NAME', type: 'pii' as const, kind: 'name' as const }] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    const btn = [...document.querySelectorAll('#custom-list button')].find((b) => b.textContent === 'Remove') as HTMLButtonElement;
+    const btn = document.querySelector('#custom-list button[aria-label="Remove Ramesh"]') as HTMLButtonElement;
     btn.click();
     await flush();
     expect(store.patterns).toHaveLength(1);
@@ -171,6 +151,34 @@ describe('popup custom entity remove', () => {
     await flush();
     expect(store.patterns).toHaveLength(0);
     expect(document.getElementById('custom-list')?.textContent).toContain('No custom entities yet');
+  });
+});
+
+describe('popup custom migration', () => {
+  it('legacy literal entries upgrade to name kind', async () => {
+    skeleton();
+    const store = { patterns: [{ name: 'Ramesh', pattern: '[Rr][Aa][Mm][Ee][Ss][Hh]', category: 'RAMESH', type: 'pii' as const, literal: true }] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    expect(store.patterns).toEqual([{ name: 'Ramesh', kind: 'name' }]);
+    const r = rows();
+    expect(r).toHaveLength(1);
+    expect(r[0].sel.value).toBe('name');
+  });
+
+  it('legacy regex entries drop with a console warn', async () => {
+    skeleton();
+    const store = { patterns: [{ name: 'Ticket', pattern: 'TCK-[0-9]+', category: 'TICKET', type: 'pii' as const }] };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await renderPopup(document, fakeDeps(store));
+      await flush();
+      expect(store.patterns).toEqual([]);
+      expect(document.getElementById('custom-list')?.textContent).toContain('No custom entities yet');
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/dropped legacy custom patterns.*Ticket/));
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -184,97 +192,5 @@ describe('popup full page', () => {
     document.getElementById('s-fullpage')?.dispatchEvent(new Event('click'));
     await flush();
     expect(opened).toBe(1);
-  });
-});
-
-describe('popup custom validation', () => {
-  it('empty value and regex rings both and saves nothing', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-category') as HTMLInputElement).value = 'X';
-    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(document.getElementById('c-name')?.classList.contains('invalid')).toBe(true);
-    expect(document.getElementById('c-pattern')?.classList.contains('invalid')).toBe(true);
-    expect(document.getElementById('toast')?.textContent).toMatch(/value or a regex/);
-    expect(store.patterns).toHaveLength(0);
-  });
-
-  it('bare value saves as a case-insensitive literal', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ramesh';
-    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(store.patterns).toHaveLength(1);
-    const [p] = store.patterns;
-    expect(p.literal).toBe(true);
-    expect(p.category).toBe('RAMESH');
-    for (const v of ['Ramesh', 'ramesh', 'RAMESH', 'rAmEsH']) {
-      expect(new RegExp(`^${p.pattern}$`).test(v)).toBe(true);
-    }
-    expect(document.getElementById('toast')?.textContent).toMatch(/Ramesh added/);
-    // Row shows the value as typed, not the compiled matcher.
-    expect(document.querySelector('.site-desc')?.textContent).toBe('Ramesh · RAMESH');
-  });
-
-  it('literalPattern escapes specials and expands letter case', () => {
-    expect(literalPattern('EMP-001234')).toBe('[Ee][Mm][Pp]-001234');
-    const re = new RegExp(`^${literalPattern('a.c')}$`);
-    expect(re.test('A.C')).toBe(true);
-    expect(re.test('AxC')).toBe(false);
-  });
-
-  it('one value per line becomes one entry each', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh\nEMP-001234';
-    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(store.patterns).toHaveLength(2);
-    expect(store.patterns.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
-    expect(document.getElementById('toast')?.textContent).toMatch(/2 values added/);
-  });
-
-  it('regex mode labels the entry and escapes nothing', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Employee ID';
-    (document.getElementById('c-pattern') as HTMLInputElement).value = 'EMP-[0-9]{6}';
-    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(store.patterns).toEqual([
-      expect.objectContaining({ name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID' }),
-    ]);
-  });
-
-  it('category stays sticky for batch entry', async () => {
-    skeleton();
-    const store = { patterns: [] as CustomPattern[] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh';
-    (document.getElementById('c-category') as HTMLInputElement).value = 'PERSON_NAME';
-    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
-    await flush();
-    expect(store.patterns[0].category).toBe('PERSON_NAME');
-    expect((document.getElementById('c-category') as HTMLInputElement).value).toBe('PERSON_NAME');
-    expect((document.getElementById('c-name') as HTMLInputElement).value).toBe('');
-  });
-
-  it('saved rows show pattern, fake and category', async () => {
-    skeleton();
-    const store = { patterns: [{ name: 'Ramesh', pattern: 'ramesh', category: 'PERSON_NAME', type: 'pii' as const, synthesizer: 'X-{{string.numeric(4)}}' }] };
-    await renderPopup(document, fakeDeps(store));
-    await flush();
-    expect(document.querySelector('.site-desc')?.textContent).toBe('ramesh → X-{{string.numeric(4)}} · PERSON_NAME');
   });
 });

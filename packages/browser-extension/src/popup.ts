@@ -48,15 +48,6 @@ export function summarize(entries: VaultEntry[]): { count: number; categories: s
   return { count: entries.length, categories: [...new Set(entries.map((e) => e.category))] };
 }
 
-/** Case-insensitive exact match without regexp flags: Ramesh → [Rr][Aa][Mm][Ee][Ss][Hh]. */
-export function literalPattern(s: string): string {
-  return [...s].map((ch) => {
-    if (ch >= 'a' && ch <= 'z') return `[${ch.toUpperCase()}${ch}]`;
-    if (ch >= 'A' && ch <= 'Z') return `[${ch}${ch.toLowerCase()}]`;
-    return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }).join('');
-}
-
 // Shape-guarded: one malformed vault:* key must not throw the whole popup.
 export function vaultEntriesFromSession(all: Record<string, unknown>): VaultEntry[] {
   const out: VaultEntry[] = [];
@@ -506,8 +497,28 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     }
   }
 
-  // ── Custom entities (static #c-* markup in popup.html; stored via patterns.get/set) ──
-  let custom: CustomPattern[] = [];
+  // ── Custom entities: one row per value — [value][kind ▾][×]. ──
+  // Rows persist minimal {name, kind}; the background expands value+kind
+  // to full matchers (see entity-types in @pratikw/detect).
+  // ponytail: kind labels hardcoded here — popup takes no value imports
+  // from @pratikw/detect to avoid bundling the whole engine (see ENTITY_KINDS).
+  const KINDS = ['name', 'employee_id', 'email', 'phone', 'other'] as const;
+  type RowKind = typeof KINDS[number];
+  const KIND_LABELS: Record<RowKind, string> = {
+    name: 'Name', employee_id: 'Employee ID', email: 'Email', phone: 'Phone', other: 'Other',
+  };
+  interface EntityRow { value: string; kind: RowKind; }
+  let custom: EntityRow[] = [];
+
+  const saveCustom = (): void => {
+    const minimal = custom
+      .filter((r) => r.value)
+      .map((r) => ({ name: r.value, kind: r.kind }) as CustomPattern);
+    void deps.send({ kind: 'patterns.set', patterns: minimal }).then((res) => {
+      if ('error' in res && res.error) toast(doc, res.error);
+    }).catch((e: unknown) => toast(doc, `Save failed: ${(e as Error)?.message ?? e}`));
+  };
+
   const paintCustom = (): void => {
     const list = doc.getElementById('custom-list');
     if (!list) return;
@@ -519,110 +530,99 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       list.appendChild(hint);
       return;
     }
-    for (const p of custom) {
-      const row = doc.createElement('div');
-      row.className = 'site-row';
-      const info = doc.createElement('div');
-      info.className = 'site-info';
-      const name = doc.createElement('div');
-      name.className = 'site-host';
-      name.textContent = p.name;
-      const desc = doc.createElement('div');
-      desc.className = 'site-desc';
-      // Literal rows show the value as typed, not the compiled matcher.
-      const shown = p.literal ? p.name : p.pattern;
-      desc.textContent = p.synthesizer ? `${shown} → ${p.synthesizer} · ${p.category}` : `${shown} · ${p.category}`;
-      info.append(name, desc);
+    for (const row of custom) {
+      const wrap = doc.createElement('div');
+      wrap.className = 'allowlist-input-row';
+      const input = doc.createElement('input');
+      input.className = 'allowlist-input';
+      input.type = 'text';
+      input.value = row.value;
+      input.placeholder = 'Value to cloak';
+      input.setAttribute('aria-label', 'Value to cloak');
+      const sel = doc.createElement('select');
+      sel.className = 'setting-select';
+      sel.setAttribute('aria-label', 'Entity type');
+      for (const k of KINDS) {
+        const opt = doc.createElement('option');
+        opt.value = k;
+        opt.textContent = KIND_LABELS[k];
+        sel.appendChild(opt);
+      }
+      sel.value = row.kind;
       const rm = doc.createElement('button');
       rm.className = 'btn-sm';
       rm.type = 'button';
-      rm.textContent = 'Remove';
-      rm.setAttribute('aria-label', `Remove ${p.name}`);
+      rm.textContent = '×';
+      rm.setAttribute('aria-label', `Remove ${row.value || 'entity'}`);
+      input.addEventListener('change', () => {
+        row.value = input.value.trim();
+        if (!row.value) {
+          // Clearing a row deletes it — empty rows never persist.
+          custom = custom.filter((r) => r !== row);
+          paintCustom();
+        }
+        saveCustom();
+      });
+      sel.addEventListener('change', () => {
+        row.kind = (KINDS as readonly string[]).includes(sel.value) ? sel.value as RowKind : 'name';
+        saveCustom();
+      });
       rm.addEventListener('click', () => {
         confirmAction(
           doc,
-          `Remove "${p.name}"?`,
+          `Remove "${row.value || 'this entity'}"?`,
           'This custom entity stops cloaking immediately. Past messages keep their fakes; the vault still restores them.',
           'Remove',
           () => {
-            const next = custom.filter((c) => c.name !== p.name);
-            void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
-              if ('error' in res && res.error) { toast(doc, res.error); return; }
-              custom = next;
-              paintCustom();
-              toast(doc, `${p.name} removed`);
-            }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+            custom = custom.filter((r) => r !== row);
+            paintCustom();
+            saveCustom();
+            toast(doc, `${row.value || 'Entity'} removed`);
           },
         );
       });
-      row.append(info, rm);
-      list.appendChild(row);
+      wrap.append(input, sel, rm);
+      list.appendChild(wrap);
     }
   };
-  const val = (id: string): string => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? '';
-  const rawVal = (id: string): string => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? '';
-  const submitCustom = (): void => {
-    const nameLines = rawVal('c-name').split('\n').map((s) => s.trim()).filter(Boolean);
-    const patternLines = rawVal('c-pattern').split('\n').map((s) => s.trim()).filter(Boolean);
-    const givenCategory = val('c-category');
-    // Literal-first: a bare value becomes an exact-match entry — no regex needed.
-    const empty = nameLines.length === 0 && patternLines.length === 0;
-    doc.getElementById('c-name')?.classList.toggle('invalid', empty);
-    doc.getElementById('c-pattern')?.classList.toggle('invalid', empty);
-    if (empty) { toast(doc, 'Give a value or a regex — nothing saved'); return; }
-    const autoCat = (n: string): string =>
-      n.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'CUSTOM';
-    const type = ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'];
-    const synth = val('c-synth');
-    const mk = (n: string, p: string): CustomPattern => ({
-      name: n, pattern: p, category: givenCategory || autoCat(n), type,
-      ...(synth ? { synthesizer: synth } : {}),
-    });
-    const entries = patternLines.length > 0
-      ? [mk(nameLines[0] ?? givenCategory ?? 'Custom', patternLines.length > 1 ? `(?:${patternLines.join('|')})` : patternLines[0])]
-      : nameLines.map((n) => ({ ...mk(n, literalPattern(n)), literal: true as const }));
-    const next = [...custom.filter((c) => !entries.some((e) => e.name === c.name)), ...entries];
-    void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
-      if ('error' in res && res.error) { toast(doc, res.error); return; }
-      custom = next;
-      // Category + type stay sticky for rapid batch entry.
-      for (const id of ['c-name', 'c-pattern', 'c-synth']) {
-        const el = doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
-        if (el) { el.value = ''; el.classList.remove('invalid'); }
-      }
-      paintCustom();
-      toast(doc, entries.length > 1 ? `${entries.length} values added` : `${entries[0].name} added`);
-    }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+  const focusRow = (i: number): void => {
+    const row = doc.querySelectorAll('#custom-list .allowlist-input-row')[i];
+    row?.querySelector('input')?.focus();
   };
+
   const addBtn = doc.getElementById('c-add');
   if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
     (addBtn as HTMLElement).dataset.bound = '1';
-    addBtn.addEventListener('click', submitCustom);
-  }
-  for (const id of ['c-name', 'c-pattern', 'c-category', 'c-synth']) {
-    const el = doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
-    if (el && !el.dataset.bound) {
-      el.dataset.bound = '1';
-      el.addEventListener('input', () => el.classList.remove('invalid'));
-      el.addEventListener('keydown', (ev) => {
-        // Plain Enter in a textarea means newline; Ctrl+Enter always submits.
-        const ke = ev as KeyboardEvent;
-        if (ke.key === 'Enter' && (ke.ctrlKey || ke.metaKey || el.tagName !== 'TEXTAREA')) submitCustom();
-      });
-    }
+    addBtn.addEventListener('click', () => {
+      const i = custom.findIndex((r) => !r.value);
+      if (i >= 0) { focusRow(i); return; }
+      custom.push({ value: '', kind: 'name' });
+      paintCustom();
+      focusRow(custom.length - 1);
+    });
   }
   paintCustom();
   void deps.send({ kind: 'patterns.get' }).then((res) => {
-    if ('patterns' in res && Array.isArray(res.patterns)) { custom = res.patterns as CustomPattern[]; paintCustom(); }
+    if (!('patterns' in res) || !Array.isArray(res.patterns)) return;
+    const stored = res.patterns as CustomPattern[];
+    const rows: EntityRow[] = [];
+    const dropped: string[] = [];
+    for (const p of stored) {
+      if (p.kind && (KINDS as readonly string[]).includes(p.kind)) { rows.push({ value: p.name, kind: p.kind as RowKind }); continue; }
+      if ((p as { literal?: boolean }).literal) { rows.push({ value: p.name, kind: 'name' }); continue; }
+      // Q1: legacy regex customs auto-drop, never read-only.
+      dropped.push(p.name);
+    }
+    if (dropped.length > 0) console.warn(`[datacloak] dropped legacy custom patterns without kinds: ${dropped.join(', ')}`);
+    custom = rows;
+    paintCustom();
+    if (dropped.length > 0 || stored.some((p) => !p.kind)) saveCustom();
   }).catch(() => {});
 
   doc.getElementById('s-fullpage')?.addEventListener('click', () => {
     void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
   });
   doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
-    // Footer Save also flushes a half-filled custom entity row — users
-    // expect it to save everything on the page, not just UI settings.
-    if (val('c-name') || val('c-pattern')) submitCustom();
   });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
