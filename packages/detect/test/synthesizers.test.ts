@@ -59,17 +59,18 @@ describe('locale-aware synthesis', () => {
     for (const m of mails) expect(m).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
     expect(mails.some((m) => m.endsWith('.fr'))).toBe(true);
   });
-  it('en_IN names differ from en pool (indian names appear)', () => {
-    const names = new Set(Array.from({ length: 20 }, () => synthesize('PERSON_NAME', 'John Doe', 'en_IN')!));
-    expect(names.size).toBeGreaterThan(1);
+  it('en_IN names come from a different pool than en', () => {
+    const en = Array.from({ length: 30 }, () => synthesize('PERSON_NAME', 'John Doe', 'en')!);
+    const inNames = Array.from({ length: 30 }, () => synthesize('PERSON_NAME', 'John Doe', 'en_IN')!);
+    const shared = inNames.filter((n) => en.includes(n)).length;
+    expect(shared).toBeLessThan(8);
   });
-  it('non-en e164 phones use locale shape, not ofcom range', () => {
-    for (let i = 0; i < 5; i++) {
-      const s = synthesize('PHONE_E164', '+14155552671', 'de')!;
-      expect(s).not.toMatch(/^\+44770090\d{4}$/);
-      expect(s.length).toBeGreaterThan(5);
+  it('e164 phones use fictional ofcom range for all locales', () => {
+    for (const loc of ['en', 'de', 'fr', 'en_IN']) {
+      for (let i = 0; i < 5; i++) {
+        expect(synthesize('PHONE_E164', '+14155552671', loc)).toMatch(/^\+44770090\d{4}$/);
+      }
     }
-    expect(synthesize('PHONE_E164', '+14155552671')).toMatch(/^\+44770090\d{4}$/);
   });
   it('default locale stays backward-compatible', () => {
     expect(synthesize('EMAIL', 'john.doe@acme.com')).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
