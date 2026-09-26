@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult, Substitution } from './types.js';
+import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult, Substitution, VaultEntry } from './types.js';
 import { defaultConfig } from './types.js';
 import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
@@ -7,6 +7,7 @@ import { synthesize } from './synthesizers/index.js';
 import { synthesizeDsn } from './synthesizers/credentials.js';
 import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
+import { exportVaultJson, importVaultJson } from './vault-crypto.js';
 
 export class DataCloakEngine {
   readonly vault: Vault;
@@ -147,6 +148,21 @@ export class DataCloakEngine {
       restored++;
     }
     return { text: result, restored };
+  }
+  async exportVault(pass: string): Promise<string> {
+    return exportVaultJson(JSON.stringify(this.vault.list()), pass);
+  }
+  async importVault(blob: string, pass: string): Promise<number> {
+    const json = await importVaultJson(blob, pass);
+    const parsed: unknown = JSON.parse(json);
+    if (!Array.isArray(parsed)) throw new Error('datacloak: wrong passphrase or corrupt vault export');
+    for (const e of parsed) {
+      if (typeof e !== 'object' || e === null || typeof (e as Record<string, unknown>).original !== 'string' || typeof (e as Record<string, unknown>).synthetic !== 'string' || typeof (e as Record<string, unknown>).category !== 'string') {
+        throw new Error('datacloak: wrong passphrase or corrupt vault export');
+      }
+    }
+    for (const e of parsed) this.vault.set(e as VaultEntry);
+    return parsed.length;
   }
 }
 export type { CustomPattern };
