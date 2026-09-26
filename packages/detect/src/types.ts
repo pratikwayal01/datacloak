@@ -5,7 +5,9 @@ export interface Substitution { original: string; synthetic: string; category: s
 export interface CloakResult { text: string; substitutions: Substitution[]; }
 export interface RestoreResult { text: string; restored: number; }
 export interface VaultEntry { original: string; synthetic: string; category: string; type: EntryType; synthesizedAt: number; confidence: Confidence; }
-export interface CustomPattern { name: string; pattern: string; category: string; type: EntryType; synthesizer?: string; literal?: boolean; }
+export interface CustomPattern { name: string; pattern: string; category: string; type: EntryType; synthesizer?: string; kind?: EntityKind; literal?: boolean; }
+/** Typed custom-entity kinds (Phase 1). `literal` is deprecated — popup-only, removed in Phase 3. */
+export type EntityKind = 'name' | 'employee_id' | 'email' | 'phone' | 'other';
 export interface NerLike {
   detectNames(text: string): { value: string; start: number; end: number; confidence: 'high' | 'medium' }[];
   detectAddresses(text: string): { value: string; start: number; end: number; confidence: 'high' | 'medium' }[];

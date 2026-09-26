@@ -5,6 +5,7 @@ import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
 import { synthesize } from './synthesizers/index.js';
 import { synthesizeCustom } from './synthesizers/custom.js';
+import { isEntityKind, synthesizeEntity } from './entity-types.js';
 import { synthesizeDsn } from './synthesizers/credentials.js';
 import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
@@ -87,6 +88,15 @@ export class DataCloakEngine {
           warnedTemplates.add(det.category);
           console.error(`[datacloak] bad synthesizer for ${det.category}: ${(err as Error).message}`);
         }
+      }
+    }
+    // Typed entity kinds: same-length/case/format fake for the matched value.
+    // Vault reuse above keeps it stable per session; fresh() retries collisions.
+    const kinded = (this.config.customPatterns ?? []).find((c) => c.category === det.category && isEntityKind(c.kind));
+    if (kinded?.kind) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const s = synthesizeEntity(kinded.kind, det.value, this.config.locale);
+        if (fresh(s)) return s;
       }
     }
     for (let attempt = 0; attempt < 5; attempt++) {
