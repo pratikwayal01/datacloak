@@ -1,0 +1,3490 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swap real secrets for fakes before AI ever sees them — restore originals on return.">
+      
+      
+      
+        <link rel="canonical" href="https://pratikwayal01.github.io/datacloak/prd/">
+      
+      
+        <link rel="prev" href="../privacy/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>PRD - DataCloak</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#datacloak-prd" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DataCloak" class="md-header__button md-logo" aria-label="DataCloak" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DataCloak
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              PRD
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="red"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="red"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/pratikwayal01/datacloak" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    pratikwayal01/datacloak
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../quickstart/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Quick Start
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../packages/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Packages
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../harnesses/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Coding Agents
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../configuration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Configuration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../development/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Development
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../privacy/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Privacy
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  PRD
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DataCloak" class="md-nav__button md-logo" aria-label="DataCloak" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    DataCloak
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/pratikwayal01/datacloak" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    pratikwayal01/datacloak
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../harnesses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PRD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sensitive-data-protection-for-ai-coding-agents-and-browser-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensitive Data Protection for AI Coding Agents and Browser Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-existing-oss-landscape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Existing OSS Landscape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-product-vision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Product Vision
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-target-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Target Users
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-detection-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Detection Engine
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Detection Engine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-detection-categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Detection Categories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-detection-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Detection Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-synthetic-substitution-via-faker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Synthetic Substitution via Faker
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.3 Synthetic Substitution via Faker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#431-faker-package-and-locale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.1 Faker Package and Locale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#432-substitution-map-by-detection-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.2 Substitution Map by Detection Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#433-consistency-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.3 Consistency Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#434-synthesis-safety-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.4 Synthesis Safety Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#435-fallback-to-opaque-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.5 Fallback to Opaque Token
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-opencode-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. OpenCode Plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. OpenCode Plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-hook-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Hook Specifications
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-slash-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Slash Command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#56-differentiation-from-existing-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.6 Differentiation from Existing Plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-browser-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Browser Extension
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Browser Extension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-prompt-interception" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Prompt Interception
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-response-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Response Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-ui-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 UI Components
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-vault-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 Vault Isolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 Permissions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-differentiation-from-existing-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 Differentiation from Existing Extensions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-shared-detection-engine-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Shared Detection Engine Package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Functional Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-detection-both-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Detection (both surfaces)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-opencode-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 OpenCode Plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-browser-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Browser Extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-non-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Non-Functional Requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-technical-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Technical Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Technical Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-repository-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Repository Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-detection-engine-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 Detection Engine Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-browser-extension-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 Browser Extension Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-threat-model-and-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Threat Model and Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-phased-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Phased Roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Phased Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-core-v01-target-8-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Core (v0.1, target: 8 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-quality-and-firefox-v02-target-4-weeks-post-v01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Quality and Firefox (v0.2, target: 4 weeks post v0.1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-ner-and-advanced-patterns-v03-target-6-weeks-post-v02" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — NER and Advanced Patterns (v0.3, target: 6 weeks post v0.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-teams-and-cicd-v10-target-3-months-post-v03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Teams and CI/CD (v1.0, target: 3 months post v0.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-success-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Success Metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-key-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Key References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sensitive-data-protection-for-ai-coding-agents-and-browser-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensitive Data Protection for AI Coding Agents and Browser Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-existing-oss-landscape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Existing OSS Landscape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-product-vision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Product Vision
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goals and Non-Goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Goals and Non-Goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-target-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Target Users
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-detection-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Detection Engine
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Detection Engine">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-detection-categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Detection Categories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-detection-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Detection Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-synthetic-substitution-via-faker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Synthetic Substitution via Faker
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.3 Synthetic Substitution via Faker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#431-faker-package-and-locale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.1 Faker Package and Locale
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#432-substitution-map-by-detection-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.2 Substitution Map by Detection Category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#433-consistency-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.3 Consistency Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#434-synthesis-safety-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.4 Synthesis Safety Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#435-fallback-to-opaque-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3.5 Fallback to Opaque Token
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Vault
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-opencode-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. OpenCode Plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. OpenCode Plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-hook-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Hook Specifications
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-slash-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Slash Command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 Installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#56-differentiation-from-existing-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.6 Differentiation from Existing Plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-browser-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Browser Extension
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Browser Extension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-prompt-interception" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Prompt Interception
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-response-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Response Scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-ui-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 UI Components
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-vault-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 Vault Isolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 Permissions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-differentiation-from-existing-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 Differentiation from Existing Extensions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-shared-detection-engine-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Shared Detection Engine Package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Functional Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-detection-both-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Detection (both surfaces)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-opencode-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 OpenCode Plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-browser-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Browser Extension
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-non-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Non-Functional Requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-technical-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Technical Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Technical Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-repository-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Repository Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-detection-engine-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 Detection Engine Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-browser-extension-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 Browser Extension Build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-threat-model-and-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Threat Model and Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-phased-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Phased Roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Phased Roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-core-v01-target-8-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Core (v0.1, target: 8 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-quality-and-firefox-v02-target-4-weeks-post-v01" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Quality and Firefox (v0.2, target: 4 weeks post v0.1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-ner-and-advanced-patterns-v03-target-6-weeks-post-v02" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — NER and Advanced Patterns (v0.3, target: 6 weeks post v0.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-teams-and-cicd-v10-target-3-months-post-v03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Teams and CI/CD (v1.0, target: 3 months post v0.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-success-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Success Metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-key-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Key References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="datacloak-prd">DataCloak PRD<a class="headerlink" href="#datacloak-prd" title="Permanent link">&para;</a></h1>
+<h2 id="sensitive-data-protection-for-ai-coding-agents-and-browser-interfaces">Sensitive Data Protection for AI Coding Agents and Browser Interfaces<a class="headerlink" href="#sensitive-data-protection-for-ai-coding-agents-and-browser-interfaces" title="Permanent link">&para;</a></h2>
+<p><strong>Version:</strong> 0.2 — Draft<br />
+<strong>Date:</strong> September 24, 2026<br />
+<strong>Status:</strong> For review — synthetic substitution strategy resolved  </p>
+<hr />
+<h2 id="1-overview">1. Overview<a class="headerlink" href="#1-overview" title="Permanent link">&para;</a></h2>
+<h3 id="11-problem-statement">1.1 Problem Statement<a class="headerlink" href="#11-problem-statement" title="Permanent link">&para;</a></h3>
+<p>AI coding agents and browser-based AI chat interfaces routinely receive text that contains secrets, credentials, and PII. When a developer pastes a <code>.env</code> file into OpenCode to debug a connection string, or asks Claude to help refactor code that reads from <code>process.env</code>, the raw values — database passwords, API keys, OAuth tokens — flow directly into the model's context window, are transmitted to external inference providers, logged in session history, and potentially used in training data.</p>
+<p>The same problem exists in the browser: developers paste stack traces with IP addresses, support engineers paste customer records into ChatGPT, and HR teams draft performance reviews in Gemini — all with personally identifiable information intact.</p>
+<p>This is not a theoretical risk. The OWASP Top 10 for LLMs (2025) lists Sensitive Information Disclosure (LLM01) as the leading vulnerability class for AI-integrated applications, and Gartner predicts that by 2028, fifty percent of all enterprise cybersecurity incident responses will involve AI application data leaks.</p>
+<h3 id="12-existing-oss-landscape">1.2 Existing OSS Landscape<a class="headerlink" href="#12-existing-oss-landscape" title="Permanent link">&para;</a></h3>
+<p>Several open-source projects address parts of this problem. DataCloak is designed with full awareness of them and is differentiated in scope, detection quality, and the combination of surfaces it covers.</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Surface</th>
+<th>Approach</th>
+<th>Key Gaps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>opencode-security-guard</strong> (marioalexandreantunes)</td>
+<td>OpenCode plugin</td>
+<td>53 regex rules + entropy, 5-layer hook chain, in-memory vault with HMAC-SHA256 tokens</td>
+<td>No PII (emails, phones, SSNs) — secrets only; no restore to agent; no browser surface</td>
+</tr>
+<tr>
+<td><strong>opencode-secrets-protect</strong> (jscheel)</td>
+<td>OpenCode plugin</td>
+<td>40+ pattern + entropy detection via <code>tool.execute.after</code></td>
+<td>Output-only (doesn't guard prompts); no vault/restore; no PII</td>
+</tr>
+<tr>
+<td><strong>taisy03/opencode-key-plugin</strong></td>
+<td>OpenCode plugin</td>
+<td>secretlint (27 rules) + vault + <code>/key</code> command; injects keys as env vars</td>
+<td>Limited to API keys; no PII; no browser surface</td>
+</tr>
+<tr>
+<td><strong>SteamedFish/opencode-guard</strong></td>
+<td>OpenCode plugin</td>
+<td>HMAC-masked values that preserve format (emails stay valid)</td>
+<td>Config-file global salt required; no PII generalization; no browser surface</td>
+</tr>
+<tr>
+<td><strong>PiiI</strong> (JaySmith502)</td>
+<td>Chrome extension (MV3)</td>
+<td>Local ML inference, alias mapping per session, 6 AI chat sites</td>
+<td>No secrets/env-var detection; no OpenCode integration; active development only</td>
+</tr>
+<tr>
+<td><strong>Blankit</strong> (SVirat)</td>
+<td>Chrome extension (MV3)</td>
+<td>Local PII redaction, file upload support, audit log</td>
+<td>No secrets; no OpenCode; closed-source core despite OSS claim</td>
+</tr>
+<tr>
+<td><strong>PrivacyScrubber</strong></td>
+<td>Chrome extension (MV3)</td>
+<td>Token substitution + restore, offline, no account needed</td>
+<td>Regex-only; no entropy; no OpenCode; no audit</td>
+</tr>
+<tr>
+<td><strong>pii-shield-extension</strong> (kaispriestersbach)</td>
+<td>Chrome extension (MV3)</td>
+<td>Chrome Built-in AI (Gemini Nano) for detection, reversible + one-way modes</td>
+<td>Requires Chrome Canary/Dev; Gemini Nano dependency; no secrets</td>
+</tr>
+<tr>
+<td><strong>presidio</strong> (data-privacy-stack, ex-Microsoft)</td>
+<td>Python library / Docker service</td>
+<td>NER + regex + checksum, 50+ entity types, images, structured data</td>
+<td>Not an agent plugin or browser extension; requires Python runtime; no secrets detection built-in</td>
+</tr>
+<tr>
+<td><strong>GrowthSpace MCP proxy</strong></td>
+<td>MCP proxy layer</td>
+<td>Lightweight sidecar that redacts PII in MCP tool results</td>
+<td>PII only; no secrets; not packaged as a reusable extension</td>
+</tr>
+<tr>
+<td><strong>hoop.dev</strong></td>
+<td>MCP gateway (MIT)</td>
+<td>Identity-aware L7 proxy, policy engine, session recording</td>
+<td>Server-side infrastructure; not a developer's local tool; requires deployment</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The gap:</strong> No existing OSS project combines (a) full secrets + PII + env-var detection, (b) bidirectional cloaking with a reversible token vault, (c) an OpenCode plugin surface, and (d) a browser extension surface, all in a single cohesive tool with a shared detection engine and shared configuration model.</p>
+<h3 id="13-product-vision">1.3 Product Vision<a class="headerlink" href="#13-product-vision" title="Permanent link">&para;</a></h3>
+<p>DataCloak is an open-source, local-first sensitive data protection layer that intercepts text before it reaches any AI model — whether that model is being driven by OpenCode, a browser chat interface, or an MCP tool call. Rather than replacing sensitive values with opaque brackets like <code>[REDACTED]</code> or <code>[API_KEY_X4T9KQZ]</code>, DataCloak substitutes them with <strong>Faker-generated synthetic values</strong> that are structurally identical to the originals: a real-looking email replaces a real email, a plausible Stripe key replaces a real Stripe key, a valid-format phone number replaces a real phone number. The model receives text that reads naturally and reasons over it accurately — it just never sees the real data. A local vault maps every synthetic value back to the original so responses can be de-synthesized on return. All processing happens on the user's machine. Nothing is ever sent to a DataCloak server.</p>
+<hr />
+<h2 id="2-goals-and-non-goals">2. Goals and Non-Goals<a class="headerlink" href="#2-goals-and-non-goals" title="Permanent link">&para;</a></h2>
+<h3 id="21-goals">2.1 Goals<a class="headerlink" href="#21-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Prevent API keys, secrets, credentials, and PII from reaching AI model providers in both agentic (OpenCode) and interactive (browser chat) contexts.</li>
+<li>Provide bidirectional cloaking: cloak on the way in, restore on the way back.</li>
+<li>Ship a single detection engine (TypeScript) shared by both surfaces so rules stay in sync.</li>
+<li>Be zero-config by default: no account, no server, no required setup beyond installation.</li>
+<li>Be transparent: every redaction is logged locally; users can see exactly what was replaced and why.</li>
+<li>Be extensible: custom regex patterns and named entity rules can be added per-project.</li>
+<li>Maintain full context utility: cloaked text must be indistinguishable in structure and meaning from the original so the model reasons over it naturally — achieved by replacing real values with Faker-generated synthetic equivalents, not opaque tokens.</li>
+</ul>
+<h3 id="22-non-goals">2.2 Non-Goals<a class="headerlink" href="#22-non-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Network egress control or firewall enforcement — DataCloak cannot stop a shell command from <code>curl</code>-ing secrets to an external host.</li>
+<li>Protection against a compromised OpenCode binary or malicious plugins loaded in the same process.</li>
+<li>GDPR/HIPAA compliance certification — DataCloak is a technical control that supports compliance but does not provide it.</li>
+<li>Image or audio redaction (tracked for a future release).</li>
+<li>Multi-user or cloud vault — the vault is strictly local and session-scoped.</li>
+<li>Replacing a dedicated secrets manager (Vault, AWS Secrets Manager, 1Password CLI) — DataCloak complements those tools at the AI-agent boundary.</li>
+</ul>
+<hr />
+<h2 id="3-target-users">3. Target Users<a class="headerlink" href="#3-target-users" title="Permanent link">&para;</a></h2>
+<p><strong>Primary: Individual developers using OpenCode or browser-based AI chat</strong><br />
+Developers who paste <code>.env</code> files, config snippets, database connection strings, or API key rotation scripts into AI agents as part of daily workflow. They want protection that is invisible when nothing sensitive is present and informative when something is caught.</p>
+<p><strong>Secondary: Security-conscious teams and platform engineers</strong><br />
+Teams that need a lightweight DLP control at the AI boundary without standing up infrastructure. They want custom rules per repo, an audit trail, and CI/CD integration (e.g., run DataCloak in dry-run mode on committed files).</p>
+<p><strong>Tertiary: Support engineers and non-technical AI chat users</strong><br />
+People who paste customer data, support tickets, or medical records into ChatGPT or Claude. They need automatic protection without any understanding of what was detected or why.</p>
+<hr />
+<h2 id="4-detection-engine">4. Detection Engine<a class="headerlink" href="#4-detection-engine" title="Permanent link">&para;</a></h2>
+<p>The detection engine is the core shared library. Both the OpenCode plugin and the browser extension import it. It runs entirely in-process — no subprocess, no network call, no native binary.</p>
+<h3 id="41-detection-categories">4.1 Detection Categories<a class="headerlink" href="#41-detection-categories" title="Permanent link">&para;</a></h3>
+<p><strong>Secrets</strong>
+- API keys: OpenAI (<code>sk-…</code>), Anthropic (<code>sk-ant-…</code>), AWS (<code>AKIA…</code>), Google Cloud (<code>AIza…</code>), Stripe (<code>sk_live_…</code>, <code>rk_live_…</code>), Twilio, SendGrid, GitHub PAT (<code>ghp_…</code>, <code>github_pat_…</code>), GitLab, Slack, Shopify, Vercel, Supabase, Hugging Face
+- PEM private keys (RSA, EC, DSA, OPENSSH)
+- JWTs (<code>eyJ…</code>)
+- Bearer tokens in Authorization headers
+- Generic high-entropy strings (Shannon entropy ≥ 4.5 over ≥ 20 characters, with false-positive suppression for base64-encoded images and UUIDs)</p>
+<p><strong>Credentials in structured text</strong>
+- Environment variable assignments: <code>KEY=value</code> where the key matches a credential pattern (50+ known key names)
+- Connection strings and DSNs: <code>postgres://user:pass@host</code>, <code>mongodb+srv://…</code>, <code>redis://:pass@…</code>, <code>mysql://…</code>, <code>amqp://user:pass@…</code>
+- Inline config values in JSON/YAML/TOML: <code>"api_key": "…"</code>, <code>secret: '…'</code>, etc.
+- <code>.env</code> file format (entire file or inline)</p>
+<p><strong>PII</strong>
+- Email addresses
+- Phone numbers (US, international E.164)
+- Social Security Numbers / National ID numbers (US SSN, UK NI, German Steuernummer)
+- Credit card numbers (Luhn-validated, all major networks)
+- IBAN / bank account numbers
+- IP addresses (IPv4 and IPv6, with private-range suppression option)
+- Dates of birth (when co-located with other PII signals)
+- Street addresses (US, UK, DE; heuristic NER-assisted)
+- Person names (optional; NER-based, off by default due to false-positive rate)</p>
+<h3 id="42-detection-architecture">4.2 Detection Architecture<a class="headerlink" href="#42-detection-architecture" title="Permanent link">&para;</a></h3>
+<p>Detection runs in two passes:</p>
+<p><strong>Pass 1 — Pattern matching (sync, &lt;1ms for typical prompts)</strong><br />
+A compiled set of RegExp objects applied in priority order. Matches are de-overlapped (longest match wins). Each match produces a <code>Detection</code> record: <code>{ value, category, type, start, end, confidence }</code>.</p>
+<p><strong>Pass 2 — Entropy scan (sync, &lt;5ms for typical prompts)</strong><br />
+A sliding-window Shannon entropy scan over tokenized words. Words exceeding the entropy threshold that were not already matched in pass 1 are flagged as <code>HIGH_ENTROPY_STRING</code> with <code>confidence: "medium"</code>.</p>
+<p>A future optional Pass 3 will support a locally-running NER model (via ONNX Runtime) for name and address detection, following the architecture of <code>privaite</code> and <code>presidio</code>. This is off by default.</p>
+<h3 id="43-synthetic-substitution-via-faker">4.3 Synthetic Substitution via Faker<a class="headerlink" href="#43-synthetic-substitution-via-faker" title="Permanent link">&para;</a></h3>
+<p><strong>Decision: DataCloak uses Faker-generated synthetic values as substitutes, not opaque tokens.</strong></p>
+<p>This resolves the token format open question entirely. Rather than replacing <code>john.doe@acme.com</code> with <code>[EMAIL_7BFNX1K]</code>, DataCloak replaces it with <code>patricia.holden@nexosoft.net</code> — a structurally valid email that the model treats as a real email. The model can still reason about "this is an email field", "the domain suggests a B2B context", "format this in a mailto link" — all without seeing the actual address.</p>
+<p><strong>Why this matters over opaque tokens:</strong></p>
+<p>Opaque tokens break semantic flow. A prompt like <code>"My database URL is [DATABASE_URL_R3TQP9W], why is it throwing a connection timeout?"</code> forces the model to work around the placeholder. The same prompt with <code>"My database URL is postgres://svc_user:wKqT7x2@db-staging.nexosoft.net:5432/appdb, why is it throwing a connection timeout?"</code> — synthetic but structurally real — lets the model reason about host, port, credentials format, SSL, and connection string validity exactly as it would with the real value.</p>
+<h4 id="431-faker-package-and-locale">4.3.1 Faker Package and Locale<a class="headerlink" href="#431-faker-package-and-locale" title="Permanent link">&para;</a></h4>
+<p>DataCloak depends on <code>@faker-js/faker</code> (MIT, zero native deps, browser-compatible). Locale defaults to <code>en</code> (US). Configurable per-project to any Faker locale for locale-appropriate synthetic names, addresses, and phone formats.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># No extra install needed — faker is a dependency of @datacloak/detect</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>npm<span class="w"> </span>install<span class="w"> </span>@datacloak/opencode-plugin
+</code></pre></div>
+<p>The browser extension bundles only the Faker modules it uses (tree-shaken), adding ~85KB to the extension bundle.</p>
+<h4 id="432-substitution-map-by-detection-category">4.3.2 Substitution Map by Detection Category<a class="headerlink" href="#432-substitution-map-by-detection-category" title="Permanent link">&para;</a></h4>
+<p>Each category has a dedicated synthesizer that calls Faker APIs to produce a structurally valid, semantically plausible replacement.</p>
+<p><strong>PII</strong></p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Real example</th>
+<th>Synthetic replacement</th>
+<th>Faker call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Email</td>
+<td><code>john.doe@acme.com</code></td>
+<td><code>patricia.holden@nexosoft.net</code></td>
+<td><code>faker.internet.email()</code></td>
+</tr>
+<tr>
+<td>Phone (US)</td>
+<td><code>(415) 555-0192</code></td>
+<td><code>(832) 555-0247</code></td>
+<td><code>faker.phone.number('(###) 555-0###')</code></td>
+</tr>
+<tr>
+<td>Phone (E.164)</td>
+<td><code>+447700900123</code></td>
+<td><code>+447700900847</code></td>
+<td><code>faker.phone.number('+44770090####')</code></td>
+</tr>
+<tr>
+<td>SSN</td>
+<td><code>324-67-8901</code></td>
+<td><code>518-92-3047</code></td>
+<td><code>faker.string.numeric</code> + checksum mask</td>
+</tr>
+<tr>
+<td>Credit card</td>
+<td><code>4111 1111 1111 1111</code></td>
+<td><code>4539 8280 3821 5742</code></td>
+<td><code>faker.finance.creditCardNumber('visa')</code></td>
+</tr>
+<tr>
+<td>IBAN</td>
+<td><code>GB29NWBK60161331926819</code></td>
+<td><code>GB47BARC20040191003530</code></td>
+<td><code>faker.finance.iban({ countryCode: 'GB' })</code></td>
+</tr>
+<tr>
+<td>IPv4</td>
+<td><code>192.168.1.104</code></td>
+<td><code>10.237.44.91</code></td>
+<td><code>faker.internet.ipv4()</code></td>
+</tr>
+<tr>
+<td>IPv6</td>
+<td><code>2001:db8::1</code></td>
+<td><code>fe80::4ab1:c2d3:e4f5:6a7b</code></td>
+<td><code>faker.internet.ipv6()</code></td>
+</tr>
+<tr>
+<td>Person name</td>
+<td><code>Alice Johnson</code></td>
+<td><code>Marcus Okafor</code></td>
+<td><code>faker.person.fullName()</code></td>
+</tr>
+<tr>
+<td>Street address</td>
+<td><code>123 Main St, Austin TX 78701</code></td>
+<td><code>847 Larkspur Ave, Denver CO 80203</code></td>
+<td><code>faker.location.streetAddress(true)</code></td>
+</tr>
+<tr>
+<td>Date of birth</td>
+<td><code>1987-03-22</code></td>
+<td><code>1991-09-14</code></td>
+<td><code>faker.date.birthdate()</code> — same decade bracket</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Secrets and credentials</strong></p>
+<p>For secrets, the synthesizer generates values that match the structural format of the original (prefix, length, character set) but are provably invalid — they will fail authentication at the service boundary. This is a critical safety property: synthetic secrets must never accidentally be valid.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Real example</th>
+<th>Synthetic replacement</th>
+<th>Strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI API key</td>
+<td><code>sk-abcdefghij1234567890</code></td>
+<td><code>sk-SYNTHfaker7291kxmqpRtz</code></td>
+<td>Prefix preserved, body is <code>SYNTH</code> + random alphanumeric — structurally valid, checksum invalid</td>
+</tr>
+<tr>
+<td>Anthropic API key</td>
+<td><code>sk-ant-api03-abc…</code></td>
+<td><code>sk-ant-api03-SYNTHfkr92…</code></td>
+<td>Same — prefix + version preserved</td>
+</tr>
+<tr>
+<td>AWS Access Key</td>
+<td><code>AKIAIOSFODNN7EXAMPLE</code></td>
+<td><code>AKIASYNT3HFKR29QMXZB</code></td>
+<td>AKIA prefix + 16 random uppercase alphanumeric</td>
+</tr>
+<tr>
+<td>GitHub PAT</td>
+<td><code>ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ</code></td>
+<td><code>ghp_SYNTHfkr7291KXmqPrTzWbVn</code></td>
+<td><code>ghp_</code> prefix + 36 random chars</td>
+</tr>
+<tr>
+<td>Stripe secret key</td>
+<td><code>sk_live_abcdefghij1234567890</code></td>
+<td><code>sk_live_SYNTHfkr7291kxmqpRtz</code></td>
+<td>Prefix preserved, body synthetic</td>
+</tr>
+<tr>
+<td>JWT</td>
+<td><code>eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_5NTkZBfQfRXNVIo</code></td>
+<td>Valid-structure JWT with synthetic claims and an invalid signature</td>
+<td><code>faker</code> generates sub/iat/exp claims, body is re-encoded, signature replaced with random bytes</td>
+</tr>
+<tr>
+<td>PEM private key</td>
+<td><code>-----BEGIN RSA PRIVATE KEY-----\n…</code></td>
+<td>Fresh RSA-2048 key generated by <code>@noble/rsa</code></td>
+<td>A real but throwaway keypair — structurally indistinguishable from the original</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Credentials in structured text</strong></p>
+<p>Connection strings are synthesized preserving the driver/protocol prefix, port conventions, and path structure, while replacing user, password, host, and database name with Faker equivalents.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Real</th>
+<th>Synthetic</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Postgres DSN</td>
+<td><code>postgres://alice:s3cr3t@db.prod.acme.com:5432/users</code></td>
+<td><code>postgres://marcus_svc:SYNTHpw49@db-staging.nexosoft.net:5432/appdata</code></td>
+</tr>
+<tr>
+<td>MongoDB</td>
+<td><code>mongodb+srv://admin:pass@cluster0.abcd1.mongodb.net/mydb</code></td>
+<td><code>mongodb+srv://synth_user:SYNTHpw82@cluster0.xk9p2.mongodb.net/catalog</code></td>
+</tr>
+<tr>
+<td>Redis</td>
+<td><code>redis://:secretpassword@redis.acme.com:6379/0</code></td>
+<td><code>redis://:SYNTHpw17@cache.nexosoft.net:6379/0</code></td>
+</tr>
+<tr>
+<td>Env var assignment</td>
+<td><code>DATABASE_URL=postgres://alice:s3cr3t@…</code></td>
+<td><code>DATABASE_URL=postgres://marcus_svc:SYNTHpw49@…</code> — key name preserved, value synthesized</td>
+</tr>
+</tbody>
+</table>
+<p>The key name in an env var assignment is <strong>always preserved</strong> — it is not PII and removing it would destroy the prompt's meaning. Only the value is substituted.</p>
+<h4 id="433-consistency-guarantee">4.3.3 Consistency Guarantee<a class="headerlink" href="#433-consistency-guarantee" title="Permanent link">&para;</a></h4>
+<p>Within a session, the same original value always maps to the same synthetic value. This is critical: if <code>john.doe@acme.com</code> appears five times in a prompt, all five occurrences are replaced by the same synthetic email. The model sees a consistent identity throughout the conversation.</p>
+<p>The vault stores the bidirectional mapping: <code>synthetic → original</code>. On response, DataCloak scans the model's output for known synthetic values and replaces them with originals before showing them to the user.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Vault entry structure</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kr">type</span><span class="w"> </span><span class="nx">VaultEntry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">original</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">       </span><span class="c1">// the real value — never leaves the vault</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">synthetic</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">      </span><span class="c1">// what the model sees</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nx">category</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">       </span><span class="c1">// e.g. "EMAIL", "API_KEY_OPENAI"</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">'pii'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'secret'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'credential'</span><span class="p">;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nx">synthesizedAt</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span><span class="w">  </span><span class="c1">// timestamp</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nx">confidence</span><span class="o">:</span><span class="w"> </span><span class="s1">'high'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'medium'</span><span class="p">;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nx">fakerSeed?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span><span class="w">     </span><span class="c1">// reproducible synthesis (optional, for testing)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">};</span>
+</code></pre></div>
+<h4 id="434-synthesis-safety-rules">4.3.4 Synthesis Safety Rules<a class="headerlink" href="#434-synthesis-safety-rules" title="Permanent link">&para;</a></h4>
+<ol>
+<li>
+<p><strong>Synthetic secrets must be structurally valid but service-invalid.</strong> A synthetic API key must look like an API key but must never authenticate. The <code>SYNTH</code> infix in the body ensures a human reading logs can identify synthetic values. Any service doing prefix-only validation will accept the format; any service doing full validation will reject it.</p>
+</li>
+<li>
+<p><strong>Synthetic PII must not correspond to a real person.</strong> Faker email domains default to <code>example.com</code>, <code>nexosoft.net</code>, and other non-existent or reserved domains. Names are drawn from Faker's diverse name pool and are statistically unlikely to match a real person by accident.</p>
+</li>
+<li>
+<p><strong>Synthetic values must not appear in the user's existing text.</strong> Before finalizing a synthetic value, DataCloak checks that it does not already appear anywhere in the input. Collision probability is negligible but the check is cheap.</p>
+</li>
+<li>
+<p><strong>PEM key synthesis generates a real but throwaway keypair.</strong> DataCloak uses <code>@noble/curves</code> (zero deps, audited) to generate a fresh keypair on the fly. The synthetic key is real and usable — it simply has no authorization anywhere. The private key is generated in ~2ms.</p>
+</li>
+</ol>
+<h4 id="435-fallback-to-opaque-token">4.3.5 Fallback to Opaque Token<a class="headerlink" href="#435-fallback-to-opaque-token" title="Permanent link">&para;</a></h4>
+<p>When no structurally valid synthetic value can be generated for a detection (e.g., a novel proprietary format, or a custom pattern added by the user), DataCloak falls back to an opaque token: <code>[CUSTOM_PATTERN_7BFNX1K]</code>. Fallback is logged and surfaced in the session panel. Users are encouraged to add a custom synthesizer for their custom patterns via config.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>// .opencode/datacloak.json — custom synthesizer example
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>{
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  "customPatterns": [
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    {
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      "name": "Internal Employee ID",
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      "pattern": "EMP-[0-9]{6}",
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      "category": "EMPLOYEE_ID",
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      "type": "pii",
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      "synthesizer": "EMP-{{faker.number.int({min:100000,max:999999})}}"
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    }
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  ]
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>}
+</code></pre></div>
+<h3 id="44-vault">4.4 Vault<a class="headerlink" href="#44-vault" title="Permanent link">&para;</a></h3>
+<p>The vault is an in-memory bidirectional Map: <code>synthetic → VaultEntry</code> and <code>original → synthetic</code> (for deduplication). It is never written to disk by default. An optional encrypted-at-rest mode writes the vault to <code>~/.config/datacloak/vault.enc</code> using AES-256-GCM with a key derived from the OS keychain (Keytar on macOS/Linux/Windows). This enables vault persistence across sessions — useful when a developer works across multiple OpenCode sessions on the same project.</p>
+<p>Vault capacity is bounded (default: 2000 entries, LRU eviction). The vault is cleared on process exit (OpenCode plugin) or tab close (browser extension).</p>
+<p><strong>Reverse scan on response:</strong> when the model returns a response, DataCloak scans the response text for any synthetic values currently in the vault and replaces them with originals. This works because Faker values are long and specific enough that accidental collisions with non-synthetic content in the response are negligible. The scan runs in O(n × m) where n is response length and m is vault size — fast enough for typical response sizes (&lt;50ms for a 10KB response with 50 vault entries).</p>
+<hr />
+<h2 id="5-opencode-plugin">5. OpenCode Plugin<a class="headerlink" href="#5-opencode-plugin" title="Permanent link">&para;</a></h2>
+<h3 id="51-architecture">5.1 Architecture<a class="headerlink" href="#51-architecture" title="Permanent link">&para;</a></h3>
+<p>The OpenCode plugin registers five hooks using the <code>@opencode-ai/plugin</code> SDK, forming a defense-in-depth chain. Each hook is independent — a failure in one does not disable the others.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>User prompt
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    │
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    ▼
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>[hook: chat.message]          ← cloak user-typed prompts
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    │
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    ▼
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>[hook: experimental.chat.system.transform]  ← cloak system prompt (injected context, rules)
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    │
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    ▼
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>[hook: experimental.chat.messages.transform] ← cloak full message history before inference
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    │
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    ▼
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>[Model provider — only sees tokens, never originals]
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    │
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    ▼
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>[hook: tool.execute.before]   ← block dangerous tool calls (env dumps, secret file reads)
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    │
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    ▼
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>[hook: tool.execute.after]    ← redact tool output (file reads, bash stdout, MCP results)
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    │
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    ▼
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>Response rendered in OpenCode TUI
+</code></pre></div>
+<h3 id="52-hook-specifications">5.2 Hook Specifications<a class="headerlink" href="#52-hook-specifications" title="Permanent link">&para;</a></h3>
+<p><strong><code>chat.message</code></strong><br />
+Intercepts the user's outgoing message before it is appended to history. Runs the detection engine on the message text. Replaces matched values with tokens. Returns the cloaked message. Emits a TUI notification listing categories detected (never the values themselves): <code>"DataCloak: replaced 2 secrets, 1 email"</code>.</p>
+<p><strong><code>experimental.chat.system.transform</code></strong><br />
+Intercepts the assembled system prompt (which may include injected file contents, memory summaries, and OpenCode rules). Runs detection and replaces matches. This is particularly important because system prompts often include automatically-injected context from tools like <code>@file</code>, <code>@git</code>, or MCP servers.</p>
+<p><strong><code>experimental.chat.messages.transform</code></strong><br />
+Last line of defense over the full message array sent to the inference provider. Scans all message parts: <code>text</code>, <code>system</code>, <code>summary</code>, <code>error</code>, <code>path</code>, <code>tool_result</code> content. Any token that slipped through earlier hooks is caught here.</p>
+<p><strong><code>tool.execute.before</code></strong><br />
+Receives the tool name and arguments before execution. Implements a blocklist of tool calls that are known to exfiltrate secrets:</p>
+<ul>
+<li><code>bash</code> / <code>shell</code>: blocks commands matching patterns like <code>cat ~/.env</code>, <code>printenv</code>, <code>env | grep</code>, <code>echo $SECRET</code>, <code>export</code>, reads of <code>~/.ssh/</code>, <code>~/.aws/credentials</code>, <code>~/.config/</code> secrets directories. Configurable allow/block lists per project.</li>
+<li><code>read_file</code> / <code>edit_file</code>: blocks reads of known sensitive paths (<code>.env</code>, <code>.env.local</code>, <code>*.pem</code>, <code>id_rsa</code>, <code>credentials</code>, <code>secrets.yaml</code>) unless the user has explicitly allowed them via <code>datacloak.allowPaths</code> in project config.</li>
+<li>MCP tool calls: scans the arguments object recursively for secrets before the call is dispatched.</li>
+</ul>
+<p>In <code>warn</code> mode (default): shows a confirmation prompt in the TUI. In <code>block</code> mode: hard-blocks and logs. In <code>allow</code> mode: passes through (for trusted paths).</p>
+<p><strong><code>tool.execute.after</code></strong><br />
+Receives the tool result. Recursively traverses the result object (text, title, metadata, nested arrays) and replaces any detected secrets or PII with tokens. If the detection engine returns a high-confidence match, the substitution is silent. For medium-confidence matches, a comment is appended: <code>[DataCloak: 1 possible secret redacted from output]</code>. On detection failure or exception, the entire output is suppressed and replaced with a safe error message (fail-closed).</p>
+<h3 id="53-configuration">5.3 Configuration<a class="headerlink" href="#53-configuration" title="Permanent link">&para;</a></h3>
+<p>Configuration is read from, in priority order:
+1. Environment variables (<code>DATACLOAK_*</code>)
+2. Project-level <code>.opencode/datacloak.json</code>
+3. User-level <code>~/.config/datacloak/config.json</code>
+4. Built-in defaults</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>// .opencode/datacloak.json
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>{
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  "enabled": true,
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  "mode": "warn",               // "warn" | "block" | "allow" (for tool.execute.before)
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  "detection": {
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    "secrets": true,
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    "envVars": true,
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    "pii": true,
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    "entropy": true,
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    "entropyThreshold": 4.5,
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    "nerNames": false           // off by default; requires ONNX runtime
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>  },
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>  "allowPaths": [
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    ".env.example",
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    "fixtures/**"
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>  ],
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>  "blockPaths": [
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>    ".env",
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>    ".env.local",
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>    "**/*.pem",
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    "~/.ssh/**"
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>  ],
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>  "customPatterns": [
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>    {
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>      "name": "Internal Employee ID",
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>      "pattern": "EMP-[0-9]{6}",
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>      "category": "EMPLOYEE_ID",
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>      "type": "pii"
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>    }
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>  ],
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>  "vault": {
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>    "persist": false,           // true = write encrypted vault to disk
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>    "maxEntries": 2000
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>  },
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>  "notifications": {
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>    "onDetection": true,        // TUI toast on detection
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>    "onBlock": true,            // TUI toast on blocked tool call
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>    "showCategories": true,     // show what was detected (not the values)
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>    "showCount": true
+<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>  }
+<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>}
+</code></pre></div>
+<h3 id="54-slash-command">5.4 Slash Command<a class="headerlink" href="#54-slash-command" title="Permanent link">&para;</a></h3>
+<p>DataCloak registers a <code>/datacloak</code> slash command in OpenCode with subcommands:</p>
+<ul>
+<li><code>/datacloak status</code> — show enabled rules, vault size, detection counts for this session</li>
+<li><code>/datacloak vault</code> — list synthetic↔original mappings (synthetic value shown, original blurred; categories shown)</li>
+<li><code>/datacloak reveal &lt;synthetic&gt;</code> — reveal the original value behind a specific synthetic value (requires confirmation)</li>
+<li><code>/datacloak restore &lt;message&gt;</code> — replace tokens in a pasted message with originals from vault</li>
+<li><code>/datacloak clear</code> — clear the vault and reset session counts</li>
+<li><code>/datacloak test &lt;text&gt;</code> — dry-run detection on arbitrary text, show what would be replaced</li>
+<li><code>/datacloak config</code> — show active configuration</li>
+</ul>
+<h3 id="55-installation">5.5 Installation<a class="headerlink" href="#55-installation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Global install (recommended)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>npm<span class="w"> </span>install<span class="w"> </span>-g<span class="w"> </span>@datacloak/opencode-plugin
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Or project-local</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>npm<span class="w"> </span>install<span class="w"> </span>--save-dev<span class="w"> </span>@datacloak/opencode-plugin
+</code></pre></div>
+<p>Add to <code>~/.config/opencode/opencode.json</code> or <code>.opencode/opencode.json</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"plugins"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"package"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@datacloak/opencode-plugin"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
+</code></pre></div>
+<p>No further setup required. On first run, DataCloak prints a startup banner listing active rules and the location of its project directory.</p>
+<h3 id="56-differentiation-from-existing-plugins">5.6 Differentiation from Existing Plugins<a class="headerlink" href="#56-differentiation-from-existing-plugins" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>DataCloak</th>
+<th>opencode-security-guard</th>
+<th>opencode-guard</th>
+<th>opencode-secrets-protect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Secrets detection</td>
+<td>✓ (50+ patterns)</td>
+<td>✓ (53 rules)</td>
+<td>✓</td>
+<td>✓ (40+ patterns)</td>
+</tr>
+<tr>
+<td>PII detection</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Env var / DSN detection</td>
+<td>✓</td>
+<td>✓</td>
+<td>partial</td>
+<td>partial</td>
+</tr>
+<tr>
+<td>Entropy scanning</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><strong>Faker synthetic substitution</strong></td>
+<td><strong>✓</strong></td>
+<td>✗ (HMAC tokens)</td>
+<td>✓ (format-preserving HMAC)</td>
+<td>✗ (opaque replace)</td>
+</tr>
+<tr>
+<td>Prompt-layer hook</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Tool output hook</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Tool call blocking</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>System prompt hook</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>History transform hook</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Bidirectional vault (restore)</td>
+<td>✓</td>
+<td>✗</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Vault persistence option</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Custom patterns + synthesizers</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Slash command</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Shared engine with browser ext</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-browser-extension">6. Browser Extension<a class="headerlink" href="#6-browser-extension" title="Permanent link">&para;</a></h2>
+<h3 id="61-architecture">6.1 Architecture<a class="headerlink" href="#61-architecture" title="Permanent link">&para;</a></h3>
+<p>The browser extension is a Manifest V3 Chrome/Edge/Firefox extension. It intercepts outgoing prompts and incoming responses on supported AI chat sites.</p>
+<p><strong>Components:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>┌─────────────────────────────────────────────────────────┐
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│ Extension                                               │
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>│                                                         │
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│  manifest.json (MV3)                                    │
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>│  ├── background.js (Service Worker)                     │
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>│  │   ├── Detection engine (shared with OpenCode plugin) │
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>│  │   ├── Vault (chrome.storage.session, per-tab)        │
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>│  │   └── Config (chrome.storage.sync)                   │
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>│  ├── content_script.js (injected per supported domain)  │
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>│  │   ├── Prompt interceptor                             │
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>│  │   ├── Response scanner                               │
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>│  │   └── UI overlays (indicator badge, review panel)    │
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>│  └── popup.html / popup.js                              │
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>│      ├── Rule toggles                                   │
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>│      ├── Session stats                                  │
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>│      ├── Vault viewer                                   │
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>│      └── Custom patterns editor                         │
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>└─────────────────────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>Supported sites (v1.0):</strong><br />
+Claude.ai, ChatGPT (chat.openai.com), Gemini (gemini.google.com), Grok (x.ai/grok), Perplexity (perplexity.ai), Cowork (cowork.ai), DeepSeek (chat.deepseek.com)</p>
+<h3 id="62-prompt-interception">6.2 Prompt Interception<a class="headerlink" href="#62-prompt-interception" title="Permanent link">&para;</a></h3>
+<p>The content script monitors the chat input textarea on each supported site. Interception fires when the user presses Enter or clicks the send button, before the site's own submit handler.</p>
+<p><strong>Flow:</strong></p>
+<ol>
+<li>Content script captures the prompt text from the textarea.</li>
+<li>Sends the text to the background service worker via <code>chrome.runtime.sendMessage</code>.</li>
+<li>Background runs the detection engine.</li>
+<li>If detections exist:
+   a. <strong>Auto-cloak mode (default):</strong> replaces values with tokens, returns cloaked text, content script rewrites the textarea value, allows submit to proceed. Shows a non-blocking badge: <code>"DataCloak: 3 items cloaked"</code>.
+   b. <strong>Review mode (optional):</strong> blocks submit, shows an inline review panel listing each detection with category, a preview of the matched value (first 4 + last 2 chars, rest starred), and Accept/Skip buttons per item. User confirms and submit proceeds.</li>
+<li>If no detections: submit proceeds normally with zero latency overhead.</li>
+</ol>
+<p><strong>Latency target:</strong> &lt;20ms from keypress to textarea rewrite for typical prompts (≤10KB). Detection engine is warm after first use; cold start is &lt;100ms.</p>
+<h3 id="63-response-scanning">6.3 Response Scanning<a class="headerlink" href="#63-response-scanning" title="Permanent link">&para;</a></h3>
+<p>The content script uses a MutationObserver on the response container to detect when new text is streamed into the page. When streaming completes (detected via a stable DOM state), the response text is scanned for synthetic values from the current session's vault. Because the model received realistic synthetic data, it will often echo those values back in its response (e.g., "I see the database host is <code>db-staging.nexosoft.net</code> — try checking your firewall rules for that host"). DataCloak catches these echo-backs and replaces them with the original values in the local DOM, so the user reads the response with their real data restored.</p>
+<p>Any synthetic values found are highlighted briefly with a subtle <code>↩ restored</code> indicator in the DOM. Clicking the indicator shows the synthetic value that was replaced. This is purely a local DOM operation — it does not modify what was sent to or stored by the AI service.</p>
+<h3 id="64-ui-components">6.4 UI Components<a class="headerlink" href="#64-ui-components" title="Permanent link">&para;</a></h3>
+<p><strong>Inline badge</strong><br />
+A small, non-intrusive pill appended to the chat input area when DataCloak is active. Shows green dot (active, nothing detected), yellow dot (active, recent detections), red dot (blocked). Clicking opens the session panel.</p>
+<p><strong>Review panel</strong> (Review mode only)<br />
+An overlay that appears above the input area when a prompt contains detections. Lists each detection as a row: <code>[CATEGORY]  •••••••[last4]  [Category label]  [Accept] [Skip]</code>. Accepted items are cloaked; skipped items pass through. A "Cloak all" button accepts all at once.</p>
+<p><strong>Session panel</strong> (popup or slide-in)<br />
+Accessible by clicking the badge or the extension icon. Shows:
+- Session stats: prompts sent, items cloaked, tokens in vault
+- Vault table: token ID, category, original value (blurred, click to reveal), detected-at timestamp
+- Rule toggles: enable/disable detection categories
+- Custom patterns editor: add/remove/test custom regex patterns
+- Export audit log: download session log as JSON</p>
+<p><strong>Extension popup</strong><br />
+The standard browser extension popup (clicked from toolbar icon). Shows active site, enabled rules, session counts, and links to settings page and GitHub.</p>
+<h3 id="65-vault-isolation">6.5 Vault Isolation<a class="headerlink" href="#65-vault-isolation" title="Permanent link">&para;</a></h3>
+<p>The vault is stored in <code>chrome.storage.session</code> which is:
+- Cleared on browser restart
+- Not accessible to web page scripts (unlike localStorage)
+- Scoped to the extension</p>
+<p>Each tab maintains its own vault namespace. A vault entry created in tab A is not accessible in tab B. This prevents cross-context token reuse while keeping the same session's tokens available across multiple prompts in the same chat tab.</p>
+<p>For users who want vault persistence across sessions, an optional encrypted persistent vault is stored in <code>chrome.storage.local</code>, encrypted with a key derived from a user-set passphrase (AES-256-GCM). The passphrase is never stored; the user is prompted once per browser session to unlock it.</p>
+<h3 id="66-permissions">6.6 Permissions<a class="headerlink" href="#66-permissions" title="Permanent link">&para;</a></h3>
+<p>The extension requests only the minimum required permissions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"permissions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="s2">"storage"</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="s2">"clipboardRead"</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">"host_permissions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="s2">"https://claude.ai/*"</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="s2">"https://chat.openai.com/*"</span><span class="p">,</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="s2">"https://gemini.google.com/*"</span><span class="p">,</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="s2">"https://x.ai/*"</span><span class="p">,</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="s2">"https://www.perplexity.ai/*"</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="s2">"https://cowork.ai/*"</span><span class="p">,</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="s2">"https://chat.deepseek.com/*"</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>No <code>tabs</code>, no <code>webRequest</code>, no <code>declarativeNetRequest</code>, no access to any site outside the supported list. The extension cannot read browsing history, cookies, or any data from non-AI-chat pages.</p>
+<h3 id="67-differentiation-from-existing-extensions">6.7 Differentiation from Existing Extensions<a class="headerlink" href="#67-differentiation-from-existing-extensions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>DataCloak</th>
+<th>PiiI</th>
+<th>Blankit</th>
+<th>PrivacyScrubber</th>
+<th>pii-shield-extension</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Secrets / API keys</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>partial</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Env var / DSN detection</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>PII detection</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Entropy scanning</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td><strong>Faker synthetic substitution</strong></td>
+<td><strong>✓</strong></td>
+<td>✗ (alias tokens)</td>
+<td>✗ (placeholders)</td>
+<td>✗ (placeholders)</td>
+<td>✗ (anonymization)</td>
+</tr>
+<tr>
+<td>Review panel (per-item)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Auto-cloak mode</td>
+<td>✓</td>
+<td>✗</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Bidirectional vault with restore</td>
+<td>✓</td>
+<td>✓</td>
+<td>partial</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Response synthetic scanning</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Vault persistence option</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Custom patterns + synthesizers</td>
+<td>✓</td>
+<td>✗</td>
+<td>partial</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Shared engine with OpenCode</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Firefox support</td>
+<td>✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>Open source</td>
+<td>✓</td>
+<td>✓</td>
+<td>partial</td>
+<td>✗</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-shared-detection-engine-package">7. Shared Detection Engine Package<a class="headerlink" href="#7-shared-detection-engine-package" title="Permanent link">&para;</a></h2>
+<p>The detection engine is published as a standalone npm package <code>@datacloak/detect</code> that both the OpenCode plugin and the browser extension depend on.</p>
+<p><strong>Package structure:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>@datacloak/detect
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── src/
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>│   ├── engine.ts           // main entry: detect(), cloak(), restore()
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>│   ├── patterns/
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>│   │   ├── secrets.ts      // API keys, tokens, private keys
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>│   │   ├── credentials.ts  // env vars, DSNs, connection strings
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>│   │   ├── pii.ts          // emails, phones, SSNs, cards, IPs
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>│   │   └── index.ts        // compiled pattern registry
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>│   ├── entropy.ts          // Shannon entropy scanner
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>│   ├── synthesizers/
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>│   │   ├── pii.ts          // Faker-based PII synthesizers
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>│   │   ├── secrets.ts      // Format-preserving synthetic secret generators
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>│   │   ├── credentials.ts  // DSN / connection string synthesizers
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>│   │   ├── keypair.ts      // @noble/curves throwaway keypair generator
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│   │   └── index.ts        // synthesizer registry: category → synthesizer fn
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│   ├── vault.ts            // in-memory bidirectional vault
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>│   ├── tokens.ts           // opaque token fallback (for unrecognized formats)
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>│   └── types.ts            // Detection, CloakResult, VaultEntry, Config
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>└── dist/
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>    ├── engine.cjs.js       // CommonJS (OpenCode plugin)
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>    └── engine.esm.js       // ES Module (browser extension, tree-shaken faker)
+</code></pre></div></p>
+<p><strong>Runtime dependencies:</strong> <code>@faker-js/faker</code> (MIT), <code>@noble/curves</code> (MIT, for PEM keypair synthesis). Both are zero-native-dependency packages safe for browser bundling.</p>
+<p><strong>Public API:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">DataCloakEngine</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@datacloak/detect'</span><span class="p">;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">engine</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">DataCloakEngine</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1">// Cloak: detects sensitive values, replaces each with a Faker-generated</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1">// synthetic equivalent, stores synthetic→original in vault.</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1">// Returns the synthesized text and a list of substitutions made.</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">engine</span><span class="p">.</span><span class="nx">cloak</span><span class="p">(</span><span class="nx">text</span><span class="p">);</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1">// result: {</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c1">//   text: string,              // text with synthetics in place of originals</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="c1">//   substitutions: Substitution[],  // [ { original, synthetic, category } ]</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1">// }</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="c1">// Restore: scan text for known synthetic values, replace with originals.</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1">// Used on model responses to de-synthesize before showing to user.</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="kd">const</span><span class="w"> </span><span class="nx">restored</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">engine</span><span class="p">.</span><span class="nx">restore</span><span class="p">(</span><span class="nx">text</span><span class="p">);</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="c1">// restored: { text: string, restored: number }  // count of values restored</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="c1">// Dry-run: detect without synthesizing or writing to vault</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="kd">const</span><span class="w"> </span><span class="nx">detections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">engine</span><span class="p">.</span><span class="nx">detect</span><span class="p">(</span><span class="nx">text</span><span class="p">);</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="c1">// detections: Detection[]  // [ { value, category, type, start, end, confidence } ]</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="c1">// Vault access</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="nx">engine</span><span class="p">.</span><span class="nx">vault</span><span class="p">.</span><span class="nx">list</span><span class="p">();</span><span class="w">                    </span><span class="c1">// all VaultEntry records</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="nx">engine</span><span class="p">.</span><span class="nx">vault</span><span class="p">.</span><span class="nx">getBySynthetic</span><span class="p">(</span><span class="nx">synthetic</span><span class="p">);</span><span class="w"> </span><span class="c1">// original for a known synthetic value</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="nx">engine</span><span class="p">.</span><span class="nx">vault</span><span class="p">.</span><span class="nx">getByOriginal</span><span class="p">(</span><span class="nx">original</span><span class="p">);</span><span class="w">   </span><span class="c1">// synthetic for a known original value</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="nx">engine</span><span class="p">.</span><span class="nx">vault</span><span class="p">.</span><span class="nx">clear</span><span class="p">();</span>
+</code></pre></div></p>
+<p><strong>Dependencies:</strong> <code>@faker-js/faker</code> (MIT) and <code>@noble/curves</code> (MIT). The optional NER module (<code>@datacloak/detect-ner</code>) adds ONNX Runtime as a peer dependency and is installed separately.</p>
+<hr />
+<h2 id="8-functional-requirements">8. Functional Requirements<a class="headerlink" href="#8-functional-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="81-detection-both-surfaces">8.1 Detection (both surfaces)<a class="headerlink" href="#81-detection-both-surfaces" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DET-01</td>
+<td>Engine MUST detect all patterns listed in §4.1 with ≥95% recall on the DataCloak test corpus</td>
+</tr>
+<tr>
+<td>DET-02</td>
+<td>Engine MUST maintain ≤5% false positive rate on a representative developer text corpus</td>
+</tr>
+<tr>
+<td>DET-03</td>
+<td>Same input value MUST always produce the same token within a session</td>
+</tr>
+<tr>
+<td>DET-04</td>
+<td>Detection MUST complete in &lt;20ms for inputs ≤10KB on a 2022-era laptop</td>
+</tr>
+<tr>
+<td>DET-05</td>
+<td>Engine MUST de-overlap matches (no partial matches within a longer match)</td>
+</tr>
+<tr>
+<td>DET-06</td>
+<td>Engine MUST be configurable to enable/disable individual detection categories</td>
+</tr>
+<tr>
+<td>DET-07</td>
+<td>Engine MUST support user-defined custom regex patterns with named categories</td>
+</tr>
+<tr>
+<td>DET-08</td>
+<td>Custom patterns MUST be validated at load time; invalid patterns MUST fail loudly</td>
+</tr>
+<tr>
+<td>DET-09</td>
+<td>Each built-in detection category MUST have a corresponding Faker synthesizer</td>
+</tr>
+<tr>
+<td>DET-10</td>
+<td>Synthetic API keys and tokens MUST include the <code>SYNTH</code> infix to be visually identifiable in logs</td>
+</tr>
+<tr>
+<td>DET-11</td>
+<td>Synthetic secrets MUST be structurally valid (pass format checks) but cryptographically invalid (fail authentication)</td>
+</tr>
+<tr>
+<td>DET-12</td>
+<td>The same original value MUST always produce the same synthetic value within a session (consistency guarantee)</td>
+</tr>
+<tr>
+<td>DET-13</td>
+<td>Synthetic values MUST be checked for collision with existing text before being accepted</td>
+</tr>
+<tr>
+<td>DET-14</td>
+<td>For unrecognized formats, engine MUST fall back to opaque token and log the fallback</td>
+</tr>
+<tr>
+<td>DET-15</td>
+<td>User-defined custom patterns MUST support a <code>synthesizer</code> template string using Faker API expressions</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-opencode-plugin">8.2 OpenCode Plugin<a class="headerlink" href="#82-opencode-plugin" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OC-01</td>
+<td>Plugin MUST register all five hooks defined in §5.2</td>
+</tr>
+<tr>
+<td>OC-02</td>
+<td><code>tool.execute.before</code> MUST fail-closed: on exception, the tool call MUST be blocked</td>
+</tr>
+<tr>
+<td>OC-03</td>
+<td><code>tool.execute.after</code> MUST fail-closed: on exception, the full output MUST be suppressed</td>
+</tr>
+<tr>
+<td>OC-04</td>
+<td>Plugin MUST NOT write original values to disk or to OpenCode's session log</td>
+</tr>
+<tr>
+<td>OC-05</td>
+<td>Plugin MUST emit a startup summary listing active rule categories and vault capacity</td>
+</tr>
+<tr>
+<td>OC-06</td>
+<td>Plugin MUST register the <code>/datacloak</code> slash command with all subcommands in §5.4</td>
+</tr>
+<tr>
+<td>OC-07</td>
+<td>Plugin MUST load config from all three config locations in priority order (§5.3)</td>
+</tr>
+<tr>
+<td>OC-08</td>
+<td>Plugin MUST support zero-config operation with safe defaults</td>
+</tr>
+<tr>
+<td>OC-09</td>
+<td>Plugin MUST be compatible with <code>@opencode-ai/plugin</code> SDK ≥1.15.0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-browser-extension">8.3 Browser Extension<a class="headerlink" href="#83-browser-extension" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BR-01</td>
+<td>Extension MUST intercept prompts before submission on all supported sites</td>
+</tr>
+<tr>
+<td>BR-02</td>
+<td>Extension MUST NOT block or delay submission when no detections are found</td>
+</tr>
+<tr>
+<td>BR-03</td>
+<td>Extension MUST store vault in <code>chrome.storage.session</code> (cleared on browser restart)</td>
+</tr>
+<tr>
+<td>BR-04</td>
+<td>Extension MUST NOT request host permissions beyond the supported site list</td>
+</tr>
+<tr>
+<td>BR-05</td>
+<td>Extension MUST support both auto-cloak and review modes, user-selectable</td>
+</tr>
+<tr>
+<td>BR-06</td>
+<td>Extension MUST work with no network connection (fully offline operation)</td>
+</tr>
+<tr>
+<td>BR-07</td>
+<td>Extension MUST be compatible with Chrome MV3, Edge MV3, and Firefox MV3</td>
+</tr>
+<tr>
+<td>BR-08</td>
+<td>Extension MUST NOT log prompt text or original values to <code>console</code> in production builds</td>
+</tr>
+<tr>
+<td>BR-09</td>
+<td>Vault viewer in popup MUST blur original values by default (reveal on click)</td>
+</tr>
+<tr>
+<td>BR-10</td>
+<td>Audit log export MUST be available as a local JSON download; MUST NOT be sent to any server</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-non-functional-requirements">9. Non-Functional Requirements<a class="headerlink" href="#9-non-functional-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Performance</strong></td>
+<td>Detection &lt;20ms for ≤10KB; vault lookup O(1); no blocking of OpenCode's main event loop</td>
+</tr>
+<tr>
+<td><strong>Security</strong></td>
+<td>Vault never written to disk in default mode; no original values in logs or console output; tokens are non-deterministic across sessions</td>
+</tr>
+<tr>
+<td><strong>Privacy</strong></td>
+<td>Zero telemetry by default; no network calls from either surface except to the AI provider the user is already using</td>
+</tr>
+<tr>
+<td><strong>Reliability</strong></td>
+<td>Both hooks and content scripts fail-closed: a DataCloak error MUST NOT crash OpenCode or break a chat interface (fail-closed for tool hooks; fail-open for prompt hooks with logged warning)</td>
+</tr>
+<tr>
+<td><strong>Compatibility</strong></td>
+<td>OpenCode plugin: Node.js ≥18, OpenCode ≥1.14; Browser extension: Chrome ≥120, Edge ≥120, Firefox ≥121</td>
+</tr>
+<tr>
+<td><strong>Bundle size</strong></td>
+<td>Browser extension: detection engine + tree-shaken Faker ≤250KB uncompressed; full extension ≤600KB</td>
+</tr>
+<tr>
+<td><strong>Accessibility</strong></td>
+<td>Extension popup and review panel MUST meet WCAG 2.1 AA</td>
+</tr>
+<tr>
+<td><strong>Internationalization</strong></td>
+<td>UI strings externalized; English only in v1.0; i18n-ready structure</td>
+</tr>
+<tr>
+<td><strong>Auditability</strong></td>
+<td>Session log available as structured JSON export; every redaction recorded with timestamp, category, token, and confidence</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-technical-architecture">10. Technical Architecture<a class="headerlink" href="#10-technical-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="101-repository-structure">10.1 Repository Structure<a class="headerlink" href="#101-repository-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>datacloak/
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>├── packages/
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>│   ├── detect/              @datacloak/detect — shared detection engine
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>│   ├── opencode-plugin/     @datacloak/opencode-plugin
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>│   └── browser-extension/   @datacloak/browser-extension
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>├── apps/
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>│   └── demo/                The DataCloak web demo (the HTML artifact built in session)
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>├── tools/
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>│   ├── corpus/              Test corpus: real-world samples with ground truth
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>│   └── bench/               Performance benchmarks
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>├── docs/
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>│   ├── patterns.md          Pattern documentation and test cases
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>│   ├── configuration.md
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>│   └── threat-model.md
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>└── CONTRIBUTING.md
+</code></pre></div>
+<p><strong>Build:</strong> pnpm workspaces + Turborepo. TypeScript throughout. Biome for linting and formatting.</p>
+<h3 id="102-detection-engine-build">10.2 Detection Engine Build<a class="headerlink" href="#102-detection-engine-build" title="Permanent link">&para;</a></h3>
+<p>The <code>@datacloak/detect</code> package is built with <code>tsup</code>, producing:
+- <code>dist/engine.cjs.js</code> — CommonJS for OpenCode plugin (Node.js)
+- <code>dist/engine.esm.js</code> — ES Module for browser extension (bundled with Rollup)
+- <code>dist/engine.d.ts</code> — TypeScript declarations</p>
+<p>No dynamic imports. No <code>eval</code>. Content-Security-Policy safe.</p>
+<h3 id="103-browser-extension-build">10.3 Browser Extension Build<a class="headerlink" href="#103-browser-extension-build" title="Permanent link">&para;</a></h3>
+<p>Built with Vite + CRXJS (for Chrome) and web-ext (for Firefox). Single build produces outputs for both targets. The shared <code>@datacloak/detect</code> package is bundled inline — no CDN fetches at runtime.</p>
+<hr />
+<h2 id="11-threat-model-and-limitations">11. Threat Model and Limitations<a class="headerlink" href="#11-threat-model-and-limitations" title="Permanent link">&para;</a></h2>
+<p><strong>What DataCloak protects against:</strong>
+- Accidental exposure of secrets typed or pasted into AI agent prompts
+- AI agents reading sensitive files and passing content to the model provider
+- Tool output (file reads, bash stdout, MCP results) containing credentials flowing into model context
+- Browser users inadvertently submitting PII to hosted AI chat services</p>
+<p><strong>What DataCloak does NOT protect against:</strong>
+- A network call made by a shell command (<code>curl</code>, <code>aws</code>, etc.) that exfiltrates secrets out-of-band
+- A compromised AI provider that stores or leaks model inputs after receiving them
+- Prompt injection attacks that instruct the model to request the vault's contents (the vault is not accessible to the model)
+- A malicious OpenCode plugin loaded alongside DataCloak that captures prompts at a different hook position
+- Physical access to the machine
+- An OS-level keylogger or memory reader</p>
+<p>These limitations are documented explicitly in <code>docs/threat-model.md</code> and shown in a summary in the startup banner.</p>
+<hr />
+<h2 id="12-phased-roadmap">12. Phased Roadmap<a class="headerlink" href="#12-phased-roadmap" title="Permanent link">&para;</a></h2>
+<h3 id="phase-1-core-v01-target-8-weeks">Phase 1 — Core (v0.1, target: 8 weeks)<a class="headerlink" href="#phase-1-core-v01-target-8-weeks" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>@datacloak/detect</code> package with secrets + credentials + PII detection</li>
+<li>Faker synthesizer library: all built-in categories covered, <code>SYNTH</code>-infixed secret formats, DSN template engine, PEM keypair pool</li>
+<li>OpenCode plugin: all 5 hooks, <code>/datacloak</code> slash command, JSON config including custom synthesizer templates</li>
+<li>Browser extension: Chrome/Edge MV3, auto-cloak mode, session vault, response synthetic scanning, popup</li>
+<li>Demo web app updated with Faker synthesis mode (already built as opaque token version)</li>
+<li>Test corpus with ≥500 labeled samples: ≥95% detection recall, synthesis correctness verified per category</li>
+<li>MIT license, public GitHub repo, npm publish (<code>@datacloak/detect</code>, <code>@datacloak/opencode-plugin</code>)</li>
+</ul>
+<h3 id="phase-2-quality-and-firefox-v02-target-4-weeks-post-v01">Phase 2 — Quality and Firefox (v0.2, target: 4 weeks post v0.1)<a class="headerlink" href="#phase-2-quality-and-firefox-v02-target-4-weeks-post-v01" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Firefox MV3 support (using WebExtensions polyfill)</li>
+<li>Review mode in browser extension (per-item accept/skip panel)</li>
+<li>Encrypted vault persistence option (both surfaces)</li>
+<li>Audit log export (JSON)</li>
+<li>False-positive suppression improvements (base64 image data, UUIDs, hashes in git commits)</li>
+<li>Expanded pattern library: 20+ additional service-specific API key formats</li>
+</ul>
+<h3 id="phase-3-ner-and-advanced-patterns-v03-target-6-weeks-post-v02">Phase 3 — NER and Advanced Patterns (v0.3, target: 6 weeks post v0.2)<a class="headerlink" href="#phase-3-ner-and-advanced-patterns-v03-target-6-weeks-post-v02" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Optional <code>@datacloak/detect-ner</code> package (ONNX Runtime, ~150MB, opt-in install)</li>
+<li>Person name detection (NER-based)</li>
+<li>Address detection (US/UK/DE)</li>
+<li>Date-of-birth detection with co-location context</li>
+<li>Structured data support: detect PII in JSON/CSV content passed to tools</li>
+<li>Claude Code integration (parallel to OpenCode; uses OpenCode plugin as reference)</li>
+</ul>
+<h3 id="phase-4-teams-and-cicd-v10-target-3-months-post-v03">Phase 4 — Teams and CI/CD (v1.0, target: 3 months post v0.3)<a class="headerlink" href="#phase-4-teams-and-cicd-v10-target-3-months-post-v03" title="Permanent link">&para;</a></h3>
+<ul>
+<li>CLI mode: <code>datacloak scan &lt;file&gt;</code> for pre-commit hooks and CI pipelines</li>
+<li>Shared team config via <code>.datacloak.json</code> committed to repo (patterns only, never vault)</li>
+<li>VS Code extension (sidebar vault viewer + status bar indicator)</li>
+<li>Integration guide for LiteLLM proxy deployment</li>
+<li>Community pattern registry: curated contributed patterns, reviewed before merge</li>
+</ul>
+<hr />
+<h2 id="13-open-questions">13. Open Questions<a class="headerlink" href="#13-open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>~~Token format collision~~</strong> <em>(resolved)</em>: DataCloak uses Faker-generated synthetic values as the primary substitution strategy. Opaque tokens (<code>[CATEGORY_XXXXXXX]</code>) are retained only as a fallback for custom patterns without a synthesizer. This decision is final for v0.1.</p>
+</li>
+<li>
+<p><strong>Synthetic value detectability by the model</strong>: There is a small risk that a well-calibrated model notices that certain values are suspiciously "stock" (e.g., <code>faker.internet.email()</code> tends to produce predictable-looking domains). Should we add more entropy to synthetic values (random TLDs, mixed-case names, numeric suffixes) to make them less uniform? Or is this a non-issue in practice?</p>
+</li>
+<li>
+<p><strong>Faker locale for non-English codebases</strong>: Faker defaults to <code>en</code> locale (US conventions). A developer working in German will have German-language comments, and a synthetic name like <code>John Smith</code> alongside German text may look odd. Should locale auto-detect from the system locale, or should it always default to <code>en</code> for consistency and let users override?</p>
+</li>
+<li>
+<p><strong>Multi-occurrence consistency across turns</strong>: Within a single session, the same original always maps to the same synthetic. But if a developer clears the vault and reuses a project, a new session will generate a different synthetic for the same original. This is intentional (fresh session = fresh synthetics) but could be surprising in long-lived projects. Should vault persistence be on by default for project-level vaults?</p>
+</li>
+<li>
+<p><strong>PEM keypair synthesis cost</strong>: Generating a throwaway RSA-2048 keypair takes ~2ms. For most prompts this is fine, but if a file contains 20 PEM blocks, that's 40ms of synthesis. Should we pre-generate a pool of 10 throwaway keypairs at startup (amortized to ~0ms per use) or generate on demand?</p>
+</li>
+<li>
+<p><strong>NER dependency size</strong>: The ONNX model for name/address detection is ~150MB. Is that acceptable as an opt-in install for v0.3, or should we explore a smaller distilled model (&lt;20MB) at the cost of recall?</p>
+</li>
+<li>
+<p><strong>Claude Code surface</strong>: Claude Code uses a different plugin API than OpenCode. Should Claude Code support be in Phase 3 as a separate package, or should we abstract a common hook interface that both plugins implement?</p>
+</li>
+<li>
+<p><strong>Persistent vault UX</strong>: Encrypted vault persistence requires a passphrase or OS keychain. What is the right UX for passphrase entry in the OpenCode TUI vs the browser extension popup? Should we use the OS keychain exclusively (Keytar) and avoid a user-facing passphrase entirely?</p>
+</li>
+<li>
+<p><strong>Pattern registry governance</strong>: If we open a community pattern registry, who reviews contributed patterns and synthesizers for false-positive rate and safety? Should contributed patterns be sandboxed (regex-only, no lookaheads above a complexity threshold) to prevent ReDoS?</p>
+</li>
+<li>
+<p><strong>MCP proxy mode</strong>: A future architecture option is running DataCloak as a local MCP proxy server (like hoop.dev but lighter-weight) that any MCP client can point to, synthesizing PII in MCP tool results before they reach the agent. Is this in scope for v1.0 or a separate project?</p>
+</li>
+</ol>
+<hr />
+<h2 id="14-success-metrics">14. Success Metrics<a class="headerlink" href="#14-success-metrics" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Detection recall on test corpus</td>
+<td>≥95%</td>
+</tr>
+<tr>
+<td>False positive rate on developer text</td>
+<td>≤5%</td>
+</tr>
+<tr>
+<td>Prompt interception latency (p99)</td>
+<td>&lt;20ms for ≤10KB</td>
+</tr>
+<tr>
+<td>OpenCode plugin startup time overhead</td>
+<td>&lt;100ms</td>
+</tr>
+<tr>
+<td>Browser extension bundle size</td>
+<td>&lt;500KB</td>
+</tr>
+<tr>
+<td>GitHub stars at 3 months</td>
+<td>500+</td>
+</tr>
+<tr>
+<td>npm weekly downloads at 3 months</td>
+<td>1,000+</td>
+</tr>
+<tr>
+<td>Community-contributed patterns at 6 months</td>
+<td>20+</td>
+</tr>
+<tr>
+<td>Known false-negative incidents reported</td>
+<td>0 critical (secrets bypassing detection)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="appendix-a-key-references">Appendix A — Key References<a class="headerlink" href="#appendix-a-key-references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/marioalexandreantunes/opencode-security-guard">opencode-security-guard</a> — most complete existing OpenCode secret guard; DataCloak extends with PII and bidirectional vault</li>
+<li><a href="https://github.com/jscheel/opencode-secrets-protect">jscheel/opencode-secrets-protect</a> — output-only secrets detection</li>
+<li><a href="https://github.com/SteamedFish/opencode-guard">SteamedFish/opencode-guard</a> — format-preserving masking; useful reference for vault design</li>
+<li><a href="https://github.com/JaySmith502/PiiI">JaySmith502/PiiI</a> — best existing OSS browser extension for PII; DataCloak adds secrets and shared engine</li>
+<li><a href="https://github.com/kaispriestersbach/pii-shield-extension">kaispriestersbach/pii-shield-extension</a> — good reference for MV3 architecture and reversible anonymization modes</li>
+<li><a href="https://github.com/data-privacy-stack/presidio">data-privacy-stack/presidio</a> — gold standard for PII detection; DataCloak's NER phase will use Presidio's recognizer patterns as a reference, not as a runtime dependency</li>
+<li><a href="https://medium.com/growthspace-internals/redacting-with-confidence-building-a-generic-privacy-first-mcp-proxy-for-ai-agents-075a8d9b5d1d">GrowthSpace MCP proxy</a> — architecture reference for MCP-layer redaction</li>
+<li><a href="https://hoop.dev">hoop.dev</a> — reference for gateway-layer redaction; DataCloak targets a lighter-weight local deployment model</li>
+<li>OWASP Top 10 for LLM Applications 2025 — LLM01 Sensitive Information Disclosure</li>
+<li>Truto: <a href="https://truto.one/blog/how-to-implement-pii-redaction-when-passing-saas-data-to-llms-via-mcp/">PII Redaction for MCP</a> — architecture guidance</li>
+</ul>
+<hr />
+<p><em>DataCloak is an open-source project. Contributions, issue reports, and pattern submissions are welcome. Nothing in this PRD constitutes a legal compliance guarantee.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
