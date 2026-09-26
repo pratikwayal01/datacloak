@@ -115,25 +115,42 @@ describe('popup sites section', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.toggle).toEqual([['claude.ai', false]]);
   });
-  it('add opens the fullscreen allow page, defers to it', async () => {
+  it('add asks same-page confirm, then calls through', async () => {
     skeleton();
-    const opened: string[] = [];
-    const { deps, calls } = fakeDeps({ openConfirmPage: async (q: string) => { opened.push(q); } });
+    const { deps, calls } = fakeDeps();
     await renderPopup(document, deps);
     const input = document.getElementById('s-sites-input') as HTMLInputElement;
     input.value = 'duck.ai';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.add).toEqual([]);
-    expect(opened).toEqual(['action=allow-site&host=duck.ai&scheme=']);
-    expect((document.getElementById('s-sites-input') as HTMLInputElement).value).toBe('');
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('duck.ai');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual(['duck.ai']);
   });
-  it('remove calls through to deps', async () => {
+  it('add cancel calls nothing', async () => {
+    skeleton();
+    const { deps, calls } = fakeDeps();
+    await renderPopup(document, deps);
+    (document.getElementById('s-sites-input') as HTMLInputElement).value = 'duck.ai';
+    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    (document.querySelectorAll('.dc-confirm button')[0] as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-confirm')).toBeNull();
+  });
+  it('remove asks same-page confirm with host', async () => {
     skeleton();
     const { deps, calls } = fakeDeps();
     await renderPopup(document, deps);
     const rm = document.querySelector('#sites-list button[data-remove]') as HTMLButtonElement;
     rm.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.remove).toEqual([]);
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('duck.ai');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.remove.length).toBe(1);
   });
@@ -141,36 +158,15 @@ describe('popup sites section', () => {
     const { deps } = fakeDeps({ getSites: undefined, addSite: undefined, toggleSite: undefined, removeSite: undefined });
     await expect(renderPopup(document, deps)).resolves.toBeUndefined();
   });
-  it('add via static input opens fullscreen allow page', async () => {
+  it('garbage input toasts instead of confirming', async () => {
     skeleton();
-    const opened: string[] = [];
-    const { deps } = fakeDeps({ openConfirmPage: async (q: string) => { opened.push(q); } });
-    await renderPopup(document, deps);
-    const input = document.getElementById('s-sites-input') as HTMLInputElement;
-    input.value = 'newsite.example';
-    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(opened).toEqual(['action=allow-site&host=newsite.example&scheme=']);
-  });
-  it('explicit scheme threads into the allow page query', async () => {
-    skeleton();
-    const opened: string[] = [];
-    const { deps } = fakeDeps({ openConfirmPage: async (q: string) => { opened.push(q); } });
-    await renderPopup(document, deps);
-    (document.getElementById('s-sites-input') as HTMLInputElement).value = 'http://nas:3000/x';
-    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(opened).toEqual(['action=allow-site&host=nas%3A3000&scheme=http']);
-  });
-  it('garbage input toasts instead of opening', async () => {
-    skeleton();
-    const opened: string[] = [];
-    const { deps } = fakeDeps({ openConfirmPage: async (q: string) => { opened.push(q); } });
+    const { deps, calls } = fakeDeps();
     await renderPopup(document, deps);
     (document.getElementById('s-sites-input') as HTMLInputElement).value = '::::';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(opened).toEqual([]);
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-confirm')).toBeNull();
     expect(document.getElementById('toast')?.textContent).toMatch(/Unrecognized host/);
   });
   it('allowlist entries migrate into sites as disabled unique rows', async () => {

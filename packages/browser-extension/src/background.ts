@@ -246,7 +246,11 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
   if (req.kind === 'patterns.set') {
     const error = validatePatterns(req.patterns);
     if (error) return { patterns: (await sync.getPatterns()) ?? [], error };
-    await sync.setPatterns(req.patterns);
+    try {
+      await sync.setPatterns(req.patterns);
+    } catch (e: unknown) {
+      return { patterns: (await sync.getPatterns()) ?? [], error: `save failed: ${(e as Error)?.message ?? e}` };
+    }
     engines.clear();
     return { patterns: req.patterns };
   }
@@ -313,6 +317,6 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     engines.delete(tabId);
     void store.removeTab(tabId);
   });
-  // Uninstall feedback goes to GitHub issues.
-  try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues'); } catch { /* older chrome */ }
+  // Uninstall feedback goes to a new GitHub issue.
+  try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues/new'); } catch { /* older chrome */ }
 }

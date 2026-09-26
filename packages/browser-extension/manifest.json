@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DataCloak",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Swap secrets/PII for realistic fakes before AI chat sees them.",
   "icons": {
     "16": "icons/icon16.png",

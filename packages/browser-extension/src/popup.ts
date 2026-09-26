@@ -88,7 +88,6 @@ export interface PopupDeps {
   addSite?: (input: string) => Promise<{ ok: boolean; error?: string }>;
   toggleSite?: (host: string, enabled: boolean, scheme?: Scheme) => Promise<boolean>;
   removeSite?: (host: string, scheme?: Scheme) => Promise<void>;
-  openConfirmPage?: (query: string) => Promise<void>;
 }
 
 const toast = (doc: Document, msg: string): void => {
@@ -101,6 +100,31 @@ const toast = (doc: Document, msg: string): void => {
 
 const fmtBytes = (n: number): string =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+
+// Same-page confirm modal: title + consequence + CTA/Cancel.
+const confirmAction = (doc: Document, title: string, body: string, cta: string, onConfirm: () => void): void => {
+  doc.querySelector('.dc-confirm')?.remove();
+  const panel = doc.createElement('div');
+  panel.className = 'dc-review-panel dc-confirm';
+  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:280px');
+  const h = doc.createElement('div');
+  h.setAttribute('style', 'font-weight:600;margin-bottom:4px');
+  h.textContent = title;
+  const b = doc.createElement('div');
+  b.textContent = body;
+  const row = doc.createElement('div');
+  row.setAttribute('style', 'margin-top:8px;display:flex;gap:8px;justify-content:flex-end');
+  const cancel = doc.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', () => panel.remove());
+  const ok = doc.createElement('button');
+  ok.textContent = cta;
+  ok.addEventListener('click', () => { panel.remove(); onConfirm(); });
+  row.append(cancel, ok);
+  panel.append(h, b, row);
+  doc.body.appendChild(panel);
+  ok.focus();
+};
 
 async function readFlags(deps: PopupDeps): Promise<DetectorFlags> {
   try {
@@ -420,7 +444,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
             rm.title = `Remove ${s.host}`;
             rm.textContent = '×';
             rm.addEventListener('click', () => {
-              void deps.removeSite!(s.host, s.scheme).then(() => void paintSites()).catch(() => {});
+              confirmAction(
+                doc,
+                `Remove ${s.host}?`,
+                'DataCloak stops cloaking here immediately. Saved vault entries still restore.',
+                'Remove',
+                () => {
+                  void deps.removeSite!(s.host, s.scheme).then(() => { void paintSites(); toast(doc, `${s.host} removed`); }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+                },
+              );
             });
             right.appendChild(rm);
           }
@@ -429,19 +461,24 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         }
       };
       await paintSites();
-      // Allow confirms on a full tab (confirm.html): the popup is too small
-      // for an access decision, and Chrome's native grant dialog follows
-      // Allow there — it cannot be replaced, only preceded.
       const submitSite = (): void => {
         const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
         const val = input?.value.trim() ?? '';
         if (!val) return;
         const parsed = parseHost(val);
         if (!parsed) { toast(doc, 'Unrecognized host — try duck.ai or http://nas:3000'); return; }
-        const explicit = val.includes('://') ? parsed.scheme : '';
-        const q = `action=allow-site&host=${encodeURIComponent(parsed.host)}&scheme=${explicit}`;
-        if (input) input.value = '';
-        void deps.openConfirmPage?.(q).catch((e: unknown) => toast(doc, `Cannot open confirm page: ${(e as Error)?.message ?? e}`));
+        confirmAction(
+          doc,
+          `Allow access to ${parsed.host}?`,
+          'DataCloak will cloak what you type and restore replies for display. Vault stays on this device. Chrome shows its own grant dialog next.',
+          'Allow',
+          () => {
+            void deps.addSite!(val).then((r) => {
+              if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
+              else toast(doc, r.error ?? 'Could not add site');
+            }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+          },
+        );
       };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
@@ -489,11 +526,21 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       rm.textContent = 'Remove';
       rm.setAttribute('aria-label', `Remove ${p.name}`);
       rm.addEventListener('click', () => {
-        // Removal confirms on a full tab — the popup is too small for a
-        // decision with consequences. Confirm page does the actual delete.
-        void deps.openConfirmPage?.(
-          `action=remove-pattern&name=${encodeURIComponent(p.name)}`,
-        ).catch((e: unknown) => toast(doc, `Cannot open confirm page: ${(e as Error)?.message ?? e}`));
+        confirmAction(
+          doc,
+          `Remove "${p.name}"?`,
+          'This custom entity stops cloaking immediately. Past messages keep their fakes; the vault still restores them.',
+          'Remove',
+          () => {
+            const next = custom.filter((c) => c.name !== p.name);
+            void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
+              if ('error' in res && res.error) { toast(doc, res.error); return; }
+              custom = next;
+              paintCustom();
+              toast(doc, `${p.name} removed`);
+            }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+          },
+        );
       });
       row.append(info, rm);
       list.appendChild(row);
@@ -768,7 +815,6 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
-    openConfirmPage: async (q) => { await chrome!.tabs.create({ url: chrome!.runtime.getURL(`confirm.html?${q}`) }); },
     ...prodSites(),
   };
 }

@@ -142,16 +142,19 @@ describe('popup custom entities save paths', () => {
 });
 
 describe('popup custom entity remove', () => {
-  it('remove opens the fullscreen confirm page, deletes nothing inline', async () => {
+  it('remove asks same-page confirm, then deletes', async () => {
     skeleton();
-    const opened: string[] = [];
     const store = { patterns: [{ name: 'Ramesh', pattern: 'ramesh', category: 'PERSON_NAME', type: 'pii' as const }] };
-    await renderPopup(document, fakeDeps(store, { openConfirmPage: async (q: string) => { opened.push(q); } }));
+    await renderPopup(document, fakeDeps(store));
     await flush();
     const btn = [...document.querySelectorAll('#custom-list button')].find((b) => b.textContent === 'Remove') as HTMLButtonElement;
     btn.click();
     await flush();
-    expect(opened).toEqual(['action=remove-pattern&name=Ramesh']);
     expect(store.patterns).toHaveLength(1);
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('Ramesh');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await flush();
+    expect(store.patterns).toHaveLength(0);
+    expect(document.getElementById('custom-list')?.textContent).toContain('No custom entities yet');
   });
 });
