@@ -113,3 +113,30 @@ describe('popup custom entities', () => {
     expect(document.getElementById('toast')?.textContent).toMatch(/regex/);
   });
 });
+
+describe('popup custom entities save paths', () => {
+  it('Enter in a custom input submits', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Ticket';
+    (document.getElementById('c-pattern') as HTMLInputElement).value = 'TCK-[0-9]+';
+    (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
+    document.getElementById('c-pattern')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+    expect(store.patterns).toHaveLength(1);
+  });
+  it('footer Save flushes a filled custom row', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Ticket';
+    (document.getElementById('c-pattern') as HTMLInputElement).value = 'TCK-[0-9]+';
+    (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
+    document.getElementById('s-save')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(store.patterns).toHaveLength(1);
+  });
+});

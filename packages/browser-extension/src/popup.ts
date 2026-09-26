@@ -552,6 +552,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     (addBtn as HTMLElement).dataset.bound = '1';
     addBtn.addEventListener('click', submitCustom);
   }
+  for (const id of ['c-name', 'c-pattern', 'c-category', 'c-synth']) {
+    const el = doc.getElementById(id) as HTMLInputElement | null;
+    if (el && !el.dataset.bound) {
+      el.dataset.bound = '1';
+      el.addEventListener('keydown', (ev) => {
+        if ((ev as KeyboardEvent).key === 'Enter') submitCustom();
+      });
+    }
+  }
   paintCustom();
   void deps.send({ kind: 'patterns.get' }).then((res) => {
     if ('patterns' in res && Array.isArray(res.patterns)) { custom = res.patterns as CustomPattern[]; paintCustom(); }
@@ -559,6 +568,9 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
 
   doc.getElementById('s-save')?.addEventListener('click', () => {
     deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
+    // Footer Save also flushes a fully-filled custom entity row — users
+    // expect it to save everything on the page, not just UI settings.
+    if (val('c-name') && val('c-pattern') && val('c-category')) submitCustom();
   });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
