@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderPopup, type PopupDeps } from '../src/popup.js';
+import { renderPopup, upsertCustomSite, type PopupDeps } from '../src/popup.js';
+import { toOriginPattern } from '../src/site-store.js';
 import type { BgResponse } from '../src/protocol.js';
 
 const skeleton = (): void => {
@@ -121,9 +122,18 @@ describe('popup sites section', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.remove.length).toBe(1);
   });
-  it('works with no sites backend (mock-safe)', async () => {
-    skeleton();
+  it('works with no sites backend (mock-safe)', async () => {    skeleton();
     const { deps } = fakeDeps({ getSites: undefined, addSite: undefined, toggleSite: undefined, removeSite: undefined });
     await expect(renderPopup(document, deps)).resolves.toBeUndefined();
+  });
+  it('toggle fallback preserves scheme through to the permission pattern', () => {
+    const user = upsertCustomSite({ custom: [], disabled: [] }, 'example.com:8443', true, 'https');
+    expect(user.custom).toEqual([{ host: 'example.com:8443', enabled: true, scheme: 'https' }]);
+    const [entry] = user.custom;
+    expect(toOriginPattern(entry.host, entry.scheme)).toBe('https://example.com:8443/*');
+    // No scheme → colon rule still applies, nothing stored.
+    const bare = upsertCustomSite({ custom: [], disabled: [] }, 'nas:3000', true);
+    expect(bare.custom).toEqual([{ host: 'nas:3000', enabled: true }]);
+    expect(toOriginPattern(bare.custom[0].host, bare.custom[0].scheme)).toBe('http://nas:3000/*');
   });
 });

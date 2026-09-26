@@ -723,6 +723,12 @@ function prodDeps(): PopupDeps {
   };
 }
 
+export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {
+  const idx = user.custom.findIndex((c) => c.host === host);
+  if (idx >= 0) return { ...user, custom: user.custom.map((c, i) => i === idx ? { ...c, enabled } : c) };
+  return { ...user, custom: [...user.custom, { host, enabled, ...(scheme ? { scheme } : {}) }] };
+}
+
 const SITES_KEY = 'dc-sites';
 const BUILTINS = Object.keys(SITE_SELECTORS);
 
@@ -791,7 +797,7 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
       return { ok: true };
     },
     toggleSite: async (host, enabled, scheme) => {
-      const user = await loadSites();
+      let user = await loadSites();
       if (enabled) {
         if (!await requestSite(host, chromeish, scheme)) return false;
       } else {
@@ -799,11 +805,10 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
       }
       const isBuiltin = host in SITE_SELECTORS;
       if (isBuiltin) {
-        user.disabled = enabled ? user.disabled.filter((d) => d !== host) : [...new Set([...user.disabled, host])];
+        user = { ...user, disabled: enabled ? user.disabled.filter((d) => d !== host) : [...new Set([...user.disabled, host])] };
+      } else {
+        user = upsertCustomSite(user, host, enabled, scheme);
       }
-      const idx = user.custom.findIndex((c) => c.host === host);
-      if (idx >= 0) user.custom[idx] = { ...user.custom[idx], enabled };
-      else if (!isBuiltin) user.custom.push({ host, enabled });
       await saveSites(user);
       return true;
     },
