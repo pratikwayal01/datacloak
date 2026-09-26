@@ -64,7 +64,14 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
 
   const intercept = async (field: HTMLElement): Promise<void> => {
     const text = getFieldText(field);
-    const res = await send({ kind: 'cloak', text });
+    let res: BgResponse;
+    try {
+      res = await send({ kind: 'cloak', text });
+    } catch {
+      // Stale content script (extension reloaded): fail closed — never send raw.
+      ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
+      return;
+    }
     if (!('count' in res) || res.count === 0) { setBadge(doc, 0); proceed(field); return; }
     const cloak = res as CloakResponse;
     if (opts.mode === 'auto') {
@@ -194,7 +201,16 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
       let acc = '';
       for (const t of g) { starts.push(acc.length); lens.push(t.data.length); acc += t.data; }
       if (!acc.trim()) continue;
-      const res = await send({ kind: 'restore', text: acc });
+      let res: BgResponse;
+      try {
+        res = await send({ kind: 'restore', text: acc });
+      } catch {
+        // Stale content script (extension reloaded): stop observing so the
+        // dead sendMessage doesn't spam errors every batch.
+        obs.disconnect();
+        ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
+        return;
+      }
       if (!('restored' in res) || res.restored === 0) continue;
       if (!g.some((t) => t.isConnected)) continue;
       if (res.hits?.length) {
@@ -260,5 +276,7 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.sto
     const mode = vals['dc-mode'] === 'review' ? 'review' : 'auto';
     armComposer(document, send, { mode });
     if (document.body) observeResponses(document.body, send);
+  }).catch(() => {
+    // Reload raced the initial read — the orphaned script stays inert.
   });
 }

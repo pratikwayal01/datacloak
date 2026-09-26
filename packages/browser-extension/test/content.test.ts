@@ -60,3 +60,20 @@ describe('content', () => {
     }
   });
 });
+
+describe('content dead-context', () => {
+  const deadSend = async (): Promise<BgResponse> => {
+    throw new Error('Extension context invalidated.');
+  };
+  it('cloak fails closed: nothing submits, badge warns', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">john.doe@acme.com</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, deadSend, { mode: 'auto' });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(submitted).toBe(0);
+    expect(document.querySelector('.dc-badge')?.textContent).toMatch(/refresh the page/);
+    disarm();
+  });
+});
