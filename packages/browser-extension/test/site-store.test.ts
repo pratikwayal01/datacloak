@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isEnabled, parseHost, removeSite, requestSite, toOriginPattern } from '../src/site-store.js';
 
 const chromeish = () => ({
-  permissions: { request: vi.fn(async () => true), remove: vi.fn(async () => true) },
+  permissions: { contains: vi.fn(async () => false), request: vi.fn(async () => true), remove: vi.fn(async () => true) },
   scripting: { registerContentScripts: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },
 });
 
@@ -82,8 +82,26 @@ describe('requestSite/removeSite', () => {
 
 describe('ensureSiteAccess/loadUserSites', () => {
   const chromeishOk = () => ({
-    permissions: { request: vi.fn(async () => true), remove: vi.fn(async () => true) },
+    permissions: { contains: vi.fn(async () => false), request: vi.fn(async () => true), remove: vi.fn(async () => true) },
     scripting: { registerContentScripts: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },
+  });
+  it('already-granted skips the native dialog', async () => {
+    const { ensureSiteAccess } = await import('../src/site-store.js');
+    const c = chromeishOk();
+    c.permissions.contains.mockResolvedValueOnce(true);
+    const r = await ensureSiteAccess({ custom: [], disabled: [] }, 'duck.ai', undefined, c, {});
+    expect(r.ok).toBe(true);
+    expect(c.permissions.request).not.toHaveBeenCalled();
+    expect(r.user.custom).toEqual([{ host: 'duck.ai', enabled: true }]);
+  });
+  it('duplicate script id clears and retries once', async () => {
+    const { ensureSiteAccess } = await import('../src/site-store.js');
+    const c = chromeishOk();
+    c.scripting.registerContentScripts.mockRejectedValueOnce(new Error('duplicate'));
+    const r = await ensureSiteAccess({ custom: [], disabled: [] }, 'duck.ai', undefined, c, {});
+    expect(r.ok).toBe(true);
+    expect(c.scripting.unregisterContentScripts).toHaveBeenCalledWith({ ids: ['dc-duck.ai'] });
+    expect(c.scripting.registerContentScripts).toHaveBeenCalledTimes(2);
   });
   it('new custom host registers and stores', async () => {
     const { ensureSiteAccess } = await import('../src/site-store.js');

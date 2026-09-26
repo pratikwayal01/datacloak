@@ -25,7 +25,7 @@ const skeleton = (): void => {
       <select id="c-type"><option value="pii">pii</option><option value="secret">secret</option></select>
       <input id="c-synth" type="text">
       <button id="c-add" type="button">Add</button>
-      <div class="footer"><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
+      <div class="footer"><button id="s-fullpage">Full</button><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
     </div>
     <div class="panel" id="panel-dev">
       <div class="dev-panel-inner active" id="dpanel-console">
@@ -156,5 +156,18 @@ describe('popup custom entity remove', () => {
     await flush();
     expect(store.patterns).toHaveLength(0);
     expect(document.getElementById('custom-list')?.textContent).toContain('No custom entities yet');
+  });
+});
+
+describe('popup full page', () => {
+  it('footer button opens full-page settings', async () => {
+    skeleton();
+    let opened = 0;
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store, { openFullPage: async () => { opened += 1; } }));
+    await flush();
+    document.getElementById('s-fullpage')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(opened).toBe(1);
   });
 });

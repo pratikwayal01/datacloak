@@ -41,6 +41,7 @@ export function isEnabled(  host: string,
 
 export interface Chromeish {
   permissions: {
+    contains: (perms: { origins: string[] }) => Promise<boolean>;
     request: (perms: { origins: string[] }) => Promise<boolean>;
     remove: (perms: { origins: string[] }) => Promise<boolean>;
   };
@@ -54,13 +55,26 @@ const scriptId = (host: string): string => `dc-${host}`;
 
 export async function requestSite(host: string, chromeish: Chromeish, scheme?: Scheme): Promise<boolean> {
   const pattern = toOriginPattern(host, scheme);
-  const granted = await chromeish.permissions.request({ origins: [pattern] });
-  if (!granted) return false;
-  await chromeish.scripting.registerContentScripts([{
+  // Already granted (e.g. retried Add) → skip the native dialog entirely.
+  if (!await chromeish.permissions.contains({ origins: [pattern] })) {
+    if (!await chromeish.permissions.request({ origins: [pattern] })) return false;
+  }
+  const script = {
     id: scriptId(host),
     matches: [pattern],
     js: ['dist/content.js'],
-  }]);
+  };
+  try {
+    await chromeish.scripting.registerContentScripts([script]);
+  } catch {
+    // Duplicate id from a partial earlier attempt → clear and retry once.
+    try {
+      await chromeish.scripting.unregisterContentScripts({ ids: [script.id] });
+      await chromeish.scripting.registerContentScripts([script]);
+    } catch {
+      return false;
+    }
+  }
   return true;
 }
 

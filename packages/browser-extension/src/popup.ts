@@ -88,6 +88,7 @@ export interface PopupDeps {
   addSite?: (input: string) => Promise<{ ok: boolean; error?: string }>;
   toggleSite?: (host: string, enabled: boolean, scheme?: Scheme) => Promise<boolean>;
   removeSite?: (host: string, scheme?: Scheme) => Promise<void>;
+  openFullPage?: () => Promise<void>;
 }
 
 const toast = (doc: Document, msg: string): void => {
@@ -473,6 +474,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
           'DataCloak will cloak what you type and restore replies for display. Vault stays on this device. Chrome shows its own grant dialog next.',
           'Allow',
           () => {
+            toast(doc, 'Requesting access…');
             void deps.addSite!(val).then((r) => {
               if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
               else toast(doc, r.error ?? 'Could not add site');
@@ -589,8 +591,10 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     if ('patterns' in res && Array.isArray(res.patterns)) { custom = res.patterns as CustomPattern[]; paintCustom(); }
   }).catch(() => {});
 
-  doc.getElementById('s-save')?.addEventListener('click', () => {
-    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
+  doc.getElementById('s-fullpage')?.addEventListener('click', () => {
+    void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
+  });
+  doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
     // Footer Save also flushes a fully-filled custom entity row — users
     // expect it to save everything on the page, not just UI settings.
     if (val('c-name') && val('c-pattern') && val('c-category')) submitCustom();
@@ -753,7 +757,7 @@ declare const chrome: {
     session: { get(k: string | null): Promise<Record<string, unknown>>; remove(k: string): Promise<void> };
   };
   tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]>; create: (p: { url: string }) => Promise<unknown> };
-  permissions: { request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
+  permissions: { contains: (p: { origins: string[] }) => Promise<boolean>; request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
   scripting: {
     registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => Promise<void>;
     unregisterContentScripts: (f: { ids: string[] }) => Promise<void>;
@@ -815,6 +819,7 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
+    openFullPage: async () => { await chrome!.tabs.create({ url: chrome!.runtime.getURL('popup.html') }); },
     ...prodSites(),
   };
 }
@@ -836,6 +841,7 @@ const syncSites: SitesStorage = {
 function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
   const chromeish = {
     permissions: {
+      contains: (p: { origins: string[] }) => chrome!.permissions.contains(p),
       request: (p: { origins: string[] }) => chrome!.permissions.request(p),
       remove: (p: { origins: string[] }) => chrome!.permissions.remove(p),
     },

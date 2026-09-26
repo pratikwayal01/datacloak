@@ -222,13 +222,13 @@
     <div id="custom-list"></div>
     <div class="allowlist-wrap">
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-name" type="text" placeholder="Name — Employee ID">
+        <input class="allowlist-input" id="c-name" type="text" placeholder="e.g. Employee ID">
       </div>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-pattern" type="text" placeholder="Regex — EMP-[0-9]{6}" spellcheck="false">
+        <input class="allowlist-input" id="c-pattern" type="text" placeholder="e.g. EMP-[0-9]{6}" spellcheck="false">
       </div>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-category" type="text" placeholder="Category — EMPLOYEE_ID" spellcheck="false">
+        <input class="allowlist-input" id="c-category" type="text" placeholder="e.g. EMPLOYEE_ID" spellcheck="false">
         <select class="setting-select" id="c-type" aria-label="Entity type">
           <option value="pii">pii</option>
           <option value="secret">secret</option>
@@ -240,10 +240,12 @@
         <button class="btn-sm accent" id="c-add" type="button">Add</button>
       </div>
     </div>
+    <div class="setting-desc">Name, regex and category are all required — empty fields will not save.</div>
 
   </div>
 
   <div class="footer">
+    <button class="btn" id="s-fullpage" type="button" title="Open settings in a full tab">⤢</button>
     <button class="btn btn-danger" id="s-reset" type="button">Reset defaults</button>
     <button class="btn btn-primary" id="s-save" type="button">
       <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 6l3 3 5-5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
