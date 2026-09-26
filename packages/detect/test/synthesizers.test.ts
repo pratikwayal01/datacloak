@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { synthesize } from '../src/synthesizers/index.js';
+import { fakerFor } from '../src/synthesizers/locale.js';
 import { synthesizeDsn } from '../src/synthesizers/credentials.js';
 import { synthJwt } from '../src/synthesizers/secrets.js';
 import { opaqueToken } from '../src/tokens.js';
@@ -38,5 +39,40 @@ describe('synthesize', () => {
     const payload = JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString('utf8'));
     expect(payload.sub).toBe('synth-Müller');
     expect(payload.exp - payload.iat).toBe(3600);
+  });
+});
+
+describe('locale-aware synthesis', () => {
+  it('caches faker per locale, distinct instances per locale', () => {
+    expect(fakerFor('en')).toBe(fakerFor('en'));
+    expect(fakerFor('de')).toBe(fakerFor('de'));
+    expect(fakerFor('de')).not.toBe(fakerFor('en'));
+  });
+  it('unknown locale warns on stderr and falls back to en', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(fakerFor('xx-unknown')).toBe(fakerFor('en'));
+    expect(err).toHaveBeenCalledWith(expect.stringContaining('xx-unknown'));
+    err.mockRestore();
+  });
+  it('fr emails use .fr domains', () => {
+    const mails = Array.from({ length: 20 }, () => synthesize('EMAIL', 'a@b.com', 'fr')!);
+    for (const m of mails) expect(m).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(mails.some((m) => m.endsWith('.fr'))).toBe(true);
+  });
+  it('en_IN names differ from en pool (indian names appear)', () => {
+    const names = new Set(Array.from({ length: 20 }, () => synthesize('PERSON_NAME', 'John Doe', 'en_IN')!));
+    expect(names.size).toBeGreaterThan(1);
+  });
+  it('non-en e164 phones use locale shape, not ofcom range', () => {
+    for (let i = 0; i < 5; i++) {
+      const s = synthesize('PHONE_E164', '+14155552671', 'de')!;
+      expect(s).not.toMatch(/^\+44770090\d{4}$/);
+      expect(s.length).toBeGreaterThan(5);
+    }
+    expect(synthesize('PHONE_E164', '+14155552671')).toMatch(/^\+44770090\d{4}$/);
+  });
+  it('default locale stays backward-compatible', () => {
+    expect(synthesize('EMAIL', 'john.doe@acme.com')).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(synthesize('PHONE_US', '(212) 555-1234')).toMatch(/^\(\d{3}\) 555-01\d{2}$/);
   });
 });

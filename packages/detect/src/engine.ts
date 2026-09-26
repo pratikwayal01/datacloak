@@ -69,7 +69,7 @@ export class DataCloakEngine {
   private makeSynthetic(det: Detection, fullText: string): string {
     if (det.category === 'ENV_VAR') return this.synthEnvValue(det.value);
     for (let attempt = 0; attempt < 3; attempt++) {
-      const s = synthesize(det.category, det.value) ?? opaqueToken(det.category);
+      const s = synthesize(det.category, det.value, this.config.locale) ?? opaqueToken(det.category);
       if (!fullText.includes(s)) return s;
     }
     return opaqueToken(det.category);
@@ -92,7 +92,7 @@ export class DataCloakEngine {
       return s;
     }
     // Otherwise cloak secrets/pii/entropy inside the value, offset by quote (handled by caller via full-string replace below)
-    const inner = new DataCloakEngine({ detection: { secrets: true, envVars: false, pii: true, entropy: true, entropyThreshold: this.config.detection.entropyThreshold }, vault: { maxEntries: this.config.vault.maxEntries } });
+    const inner = new DataCloakEngine({ detection: { secrets: true, envVars: false, pii: true, entropy: true, entropyThreshold: this.config.detection.entropyThreshold }, vault: { maxEntries: this.config.vault.maxEntries }, locale: this.config.locale });
     inner.vaultImport(this.vault);
     const r = inner.cloak(value);
     this.vaultAbsorb(inner.vault);
