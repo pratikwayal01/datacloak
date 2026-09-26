@@ -318,5 +318,5 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     void store.removeTab(tabId);
   });
   // Uninstall feedback goes to a new GitHub issue.
-  try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues/new'); } catch { /* older chrome */ }
+  try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues/new?template=uninstall-feedback.yml'); } catch { /* older chrome */ }
 }

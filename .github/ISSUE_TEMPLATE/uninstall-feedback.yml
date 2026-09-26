@@ -1,0 +1,32 @@
+name: Uninstall feedback
+description: Tell us why you removed the DataCloak extension
+title: "[Uninstall] "
+labels: ["uninstall-feedback"]
+body:
+  - type: dropdown
+    id: reason
+    attributes:
+      label: Main reason
+      options:
+        - It didn't work on my site
+        - Too many permission popups
+        - Missed detections or false positives
+        - Slowed things down
+        - Just cleaning up
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened?
+      description: Anything specific — which site, error text, what you expected.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: Shown in the popup footer (e.g. 0.2.0).
+    validations:
+      required: false
