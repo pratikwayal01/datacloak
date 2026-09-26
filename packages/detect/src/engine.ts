@@ -126,7 +126,7 @@ export class DataCloakEngine {
         seen.add(v);
         return v.map(walk);
       }
-      if (v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+      if (v !== null && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null)) {
         if (seen.has(v)) return v;
         seen.add(v);
         const o: Record<string, unknown> = {};
