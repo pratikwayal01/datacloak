@@ -15,6 +15,11 @@ describe('parseHost', () => {
   });
   it('explicit https kept, default ports stripped', () => {
     expect(parseHost('https://example.com:443/x')).toEqual({ host: 'example.com', scheme: 'https' });
+    expect(parseHost('http://example.com:80/x')).toEqual({ host: 'example.com', scheme: 'http' });
+  });
+  it('cross-scheme ports kept (not scheme defaults)', () => {
+    expect(parseHost('https://x.test:80/')).toEqual({ host: 'x.test:80', scheme: 'https' });
+    expect(parseHost('http://x.test:443/')).toEqual({ host: 'x.test:443', scheme: 'http' });
   });
   it('garbage returns null', () => {
     expect(parseHost('')).toBeNull();

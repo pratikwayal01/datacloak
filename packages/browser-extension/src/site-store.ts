@@ -13,8 +13,10 @@ export function parseHost(input: string): { host: string; scheme: Scheme } | nul
     const u = new URL(hasScheme ? t : `https://${t}`);
     if (!u.hostname) return null;
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-    const port = u.port && u.port !== '443' && u.port !== '80' ? `:${u.port}` : '';
     const scheme: Scheme = hasScheme ? (u.protocol === 'http:' ? 'http' : 'https') : 'https';
+    const isDefaultPort =
+      (scheme === 'https' && u.port === '443') || (scheme === 'http' && u.port === '80');
+    const port = u.port && !isDefaultPort ? `:${u.port}` : '';
     return { host: u.hostname + port, scheme };
   } catch {
     return null;
