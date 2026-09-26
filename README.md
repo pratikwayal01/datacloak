@@ -223,5 +223,5 @@ MIT — see [LICENSE](LICENSE).
 ## Further reading
 
 - [Documentation](https://pratikwayal01.github.io/datacloak/) — install, quick start, agents, architecture, privacy
-- [Threat model](.opencode/datacloak-prd.md) — full PRD (vision, surfaces, roadmap, §11 limitations)
+- [Threat model](docs/prd.md) — full PRD (vision, surfaces, roadmap, §11 limitations)
 - `assets/` — launch video (`brag.mp4`), poster
