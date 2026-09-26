@@ -28,8 +28,14 @@ const skeleton = (): void => {
       <button class="risk-btn" data-risk="medium">Med</button>
       <button class="risk-btn" data-risk="high">High</button>
       <select id="s-style"><option value="realistic">Realistic</option><option value="token">Token</option></select>
-      <input id="s-allowlist-input" type="text"><button id="s-allowlist-add">Add</button>
-      <div id="allowlist-tags"></div>
+      <div class="setting-desc" id="sites-active">This site: (unknown)</div>
+      <div id="sites-list"></div>
+      <div class="allowlist-wrap">
+        <div class="allowlist-input-row">
+          <input class="allowlist-input" id="s-sites-input" type="text" placeholder="duck.ai or http://nas:3000">
+          <button class="btn-sm accent" id="s-sites-add" type="button">Add</button>
+        </div>
+      </div>
       <div class="footer"><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
     </div>
     <div class="panel" id="panel-dev">
@@ -125,6 +131,52 @@ describe('popup sites section', () => {
   it('works with no sites backend (mock-safe)', async () => {    skeleton();
     const { deps } = fakeDeps({ getSites: undefined, addSite: undefined, toggleSite: undefined, removeSite: undefined });
     await expect(renderPopup(document, deps)).resolves.toBeUndefined();
+  });
+  it('add via static input creates custom site + appears in list', async () => {
+    skeleton();
+    const added: string[] = [];
+    const base = [
+      { host: 'claude.ai', enabled: true, builtin: true, active: true },
+    ] as { host: string; enabled: boolean; builtin: boolean; active: boolean }[];
+    const { deps, calls } = fakeDeps({
+      getSites: async () => ({
+        sites: [...base, ...added.map((host) => ({ host, enabled: true, builtin: false, active: false }))],
+        activeHost: 'claude.ai',
+      }),
+      addSite: async (input: string) => { calls.add.push(input); added.push(input); return { ok: true }; },
+    });
+    await renderPopup(document, deps);
+    const input = document.getElementById('s-sites-input') as HTMLInputElement;
+    input.value = 'newsite.example';
+    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual(['newsite.example']);
+    expect(document.getElementById('sites-list')?.textContent).toContain('newsite.example');
+  });
+  it('allowlist entries migrate into sites as disabled unique rows', async () => {
+    skeleton();
+    const { deps } = fakeDeps({
+      getUiSettings: async () => ({
+        autodetect: true, clipboard: false, network: true, blur: true, notif: true,
+        sensitivity: 'low', style: 'realistic',
+        allowlist: ['example.com', 'example.com ', 'claude.ai'],
+      }),
+    });
+    await renderPopup(document, deps);
+    const list = document.getElementById('sites-list') as HTMLElement;
+    const rows = [...list.querySelectorAll('.setting-row')];
+    const migrated = rows.filter((r) => r.textContent?.includes('example.com'));
+    expect(migrated).toHaveLength(1);
+    expect((migrated[0].querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(false);
+    // builtin overlap stays a single row
+    expect(rows.filter((r) => r.textContent?.includes('claude.ai'))).toHaveLength(1);
+  });
+  it('exactly one sites add-input row in DOM (no JS duplicate)', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    expect(document.querySelectorAll('#s-sites-add')).toHaveLength(1);
+    expect(document.querySelectorAll('#s-sites-input')).toHaveLength(1);
   });
   it('toggle fallback preserves scheme through to the permission pattern', () => {
     const user = upsertCustomSite({ custom: [], disabled: [] }, 'example.com:8443', true, 'https');

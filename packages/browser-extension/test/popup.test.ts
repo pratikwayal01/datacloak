@@ -49,8 +49,14 @@ const skeleton = (): void => {
       <button class="risk-btn" data-risk="medium">Med</button>
       <button class="risk-btn" data-risk="high">High</button>
       <select id="s-style"><option value="realistic">Realistic</option><option value="token">Token</option></select>
-      <input id="s-allowlist-input" type="text"><button id="s-allowlist-add">Add</button>
-      <div id="allowlist-tags"></div>
+      <div class="setting-desc" id="sites-active">This site: (unknown)</div>
+      <div id="sites-list"></div>
+      <div class="allowlist-wrap">
+        <div class="allowlist-input-row">
+          <input class="allowlist-input" id="s-sites-input" type="text" placeholder="duck.ai or http://nas:3000">
+          <button class="btn-sm accent" id="s-sites-add" type="button">Add</button>
+        </div>
+      </div>
       <div class="footer"><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
     </div>
     <div class="panel" id="panel-dev">
@@ -267,18 +273,14 @@ describe('settings + dev panels', () => {
     expect(state.sent.some((r) => r.kind === 'settings.set')).toBe(true);
     expect(state.flags.secrets).toBe(false);
   });
-  it('sensitivity + allowlist + save persist ui settings', async () => {
+  it('sensitivity + save persist ui settings', async () => {
     skeleton();
     const { deps, state } = fakeDeps();
     await renderPopup(document, deps);
     (document.querySelector('.risk-btn[data-risk="high"]') as HTMLElement).click();
-    const input = document.getElementById('s-allowlist-input') as HTMLInputElement;
-    input.value = 'example.com';
-    (document.getElementById('s-allowlist-add') as HTMLButtonElement).click();
     (document.getElementById('s-save') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.sensitivity).toBe('high');
-    expect(state.ui.allowlist).toContain('example.com');
   });
   it('network panel renders oplog with honest label; empty state otherwise', async () => {
     skeleton();
@@ -318,7 +320,7 @@ describe('settings + dev panels', () => {
     expect((document.getElementById('s-style') as HTMLSelectElement).value).toBe('realistic');
     expect((document.getElementById('s-theme') as HTMLSelectElement).value).toBe('system');
     expect(document.querySelector('.risk-btn[data-risk="low"]')?.className).toContain('active-low');
-    expect(document.getElementById('allowlist-tags')?.children).toHaveLength(0);
+    expect(document.getElementById('s-allowlist-add')).toBeNull();
     expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, sensitivity: 'low', style: 'realistic', allowlist: [] });
     // toggle once after reset → single state flip (no stacked listeners)
     const blur = document.getElementById('s-blur') as HTMLInputElement;

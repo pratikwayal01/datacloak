@@ -288,7 +288,6 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     if (style) style.value = ui.style;
     const theme = doc.getElementById('s-theme') as HTMLSelectElement | null;
     if (theme) theme.value = themePref;
-    renderAllowlist();
   };
   // ponytail: one-time bind guarded by dataset.bound; paintSettings owns all state→DOM
   const bindCheck = (id: string, onChange: (v: boolean) => void): void => {
@@ -349,76 +348,16 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     else footer?.before(row);
   }
 
-  const renderAllowlist = (): void => {
-    const tags = doc.getElementById('allowlist-tags');
-    if (!tags) return;
-    tags.replaceChildren();
-    for (const domain of ui.allowlist) {
-      const tag = doc.createElement('span');
-      tag.className = 'allowlist-tag';
-      tag.textContent = `${domain} `;
-      const x = doc.createElement('button');
-      x.type = 'button';
-      x.title = 'Remove';
-      x.textContent = '×';
-      x.addEventListener('click', () => {
-        ui.allowlist = ui.allowlist.filter((d) => d !== domain);
-        renderAllowlist();
-      });
-      tag.appendChild(x);
-      tags.appendChild(tag);
-    }
-  };
-  renderAllowlist();
   paintSettings();
-  const allowAdd = doc.getElementById('s-allowlist-add');
-  if (allowAdd && !(allowAdd as HTMLElement).dataset.bound) {
-    (allowAdd as HTMLElement).dataset.bound = '1';
-    allowAdd.addEventListener('click', () => {
-      const input = doc.getElementById('s-allowlist-input') as HTMLInputElement | null;
-      const val = input?.value.trim() ?? '';
-      if (!val || ui.allowlist.includes(val)) return;
-      ui.allowlist = [...ui.allowlist, val];
-      if (input) input.value = '';
-      renderAllowlist();
-    });
-  }
-  // ── Sites section (settings tab; dynamic so test skeletons work, reuses
-  // static #sites-* markup from popup.html when present) ──
+
+  // ── Sites section (settings tab; static #sites-* markup in popup.html
+  // is the single implementation — allowlist entries surface here as
+  // disabled custom rows, see paintSites) ──
   if (deps.getSites) {
     const ensureSitesSection = (): { list: HTMLElement; active: HTMLElement } | null => {
-      let list = doc.getElementById('sites-list') as HTMLElement | null;
-      let active = doc.getElementById('sites-active') as HTMLElement | null;
-      if (list && active) return { list, active };
-      const settingsBody = doc.querySelector('#panel-settings .settings-body') ?? doc.getElementById('panel-settings');
-      if (!settingsBody) return null;
-      const label = doc.createElement('div');
-      label.className = 'settings-group-label';
-      label.style.marginTop = '6px';
-      label.textContent = 'Sites';
-      active = active ?? doc.createElement('div');
-      active.id = 'sites-active';
-      active.className = 'setting-desc';
-      list = list ?? doc.createElement('div');
-      list.id = 'sites-list';
-      const inputRow = doc.createElement('div');
-      inputRow.className = 'allowlist-input-row';
-      const input = doc.createElement('input');
-      input.className = 'allowlist-input';
-      input.id = 's-sites-input';
-      input.type = 'text';
-      input.placeholder = 'duck.ai or http://nas:3000';
-      const add = doc.createElement('button');
-      add.className = 'btn-sm accent';
-      add.id = 's-sites-add';
-      add.type = 'button';
-      add.textContent = 'Add';
-      inputRow.append(input, add);
-      const wrap = doc.createElement('div');
-      wrap.className = 'allowlist-wrap';
-      wrap.append(inputRow);
-      const footer = doc.getElementById('s-save')?.closest('.footer');
-      (footer ?? settingsBody).before(label, active, list, wrap);
+      const list = doc.getElementById('sites-list') as HTMLElement | null;
+      const active = doc.getElementById('sites-active') as HTMLElement | null;
+      if (!list || !active) return null;
       return { list, active };
     };
     const section = ensureSitesSection();
@@ -429,6 +368,14 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         try {
           ({ sites, activeHost } = await deps.getSites!());
         } catch { /* stays empty */ }
+        // Legacy Domain allowlist → disabled custom rows, deduped by host.
+        const seen = new Set(sites.map((s) => s.host));
+        for (const host of new Set((ui.allowlist ?? []).map((d) => d.trim()).filter(Boolean))) {
+          if (!seen.has(host)) {
+            sites.push({ host, enabled: false, builtin: false, active: host === activeHost });
+            seen.add(host);
+          }
+        }
         section.active.textContent = activeHost ? `This site: ${activeHost}` : 'This site: (unknown)';
         section.list.replaceChildren();
         for (const s of sites) {
@@ -480,17 +427,25 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         }
       };
       await paintSites();
+      const submitSite = (): void => {
+        const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
+        const val = input?.value.trim() ?? '';
+        if (!val) return;
+        void deps.addSite!(val).then((r) => {
+          if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
+          else toast(doc, r.error ?? 'Could not add site');
+        }).catch(() => {});
+      };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
         (addBtn as HTMLElement).dataset.bound = '1';
-        addBtn.addEventListener('click', () => {
-          const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
-          const val = input?.value.trim() ?? '';
-          if (!val) return;
-          void deps.addSite!(val).then((r) => {
-            if (r.ok) { if (input) input.value = ''; void paintSites(); }
-            else toast(doc, r.error ?? 'Could not add site');
-          }).catch(() => {});
+        addBtn.addEventListener('click', submitSite);
+      }
+      const sitesInput = doc.getElementById('s-sites-input') as HTMLInputElement | null;
+      if (sitesInput && !sitesInput.dataset.bound) {
+        sitesInput.dataset.bound = '1';
+        sitesInput.addEventListener('keydown', (ev) => {
+          if ((ev as KeyboardEvent).key === 'Enter') submitSite();
         });
       }
     }
