@@ -20,7 +20,7 @@ const skeleton = (): void => {
       <div class="setting-desc" id="sites-active"></div>
       <div id="sites-list"></div>
       <div id="custom-list"></div>
-      <input id="c-name" type="text"><input id="c-pattern" type="text">
+      <textarea id="c-name"></textarea><textarea id="c-pattern"></textarea>
       <input id="c-category" type="text">
       <select id="c-type"><option value="pii">pii</option><option value="secret">secret</option></select>
       <input id="c-synth" type="text">
@@ -115,15 +115,30 @@ describe('popup custom entities', () => {
 });
 
 describe('popup custom entities save paths', () => {
-  it('Enter in a custom input submits', async () => {
+  it('Enter in a single-line custom input submits', async () => {
     skeleton();
     const store = { patterns: [] as CustomPattern[] };
     await renderPopup(document, fakeDeps(store));
     await flush();
-    (document.getElementById('c-name') as HTMLInputElement).value = 'Ticket';
-    (document.getElementById('c-pattern') as HTMLInputElement).value = 'TCK-[0-9]+';
+    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ticket';
+    (document.getElementById('c-pattern') as HTMLTextAreaElement).value = 'TCK-[0-9]+';
     (document.getElementById('c-category') as HTMLInputElement).value = 'TICKET';
-    document.getElementById('c-pattern')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    document.getElementById('c-synth')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+    expect(store.patterns).toHaveLength(1);
+  });
+  it('Ctrl+Enter submits from a textarea, plain Enter does not', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLTextAreaElement).value = 'Ticket';
+    document.getElementById('c-name')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+    expect(store.patterns).toHaveLength(0);
+    const ctrl = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+    Object.defineProperty(ctrl, 'ctrlKey', { value: true });
+    document.getElementById('c-name')?.dispatchEvent(ctrl);
     await flush();
     expect(store.patterns).toHaveLength(1);
   });
@@ -173,7 +188,21 @@ describe('popup full page', () => {
 });
 
 describe('popup custom validation', () => {
-  it('partial fill rings the empty fields and names them', async () => {
+  it('empty value and regex rings both and saves nothing', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-category') as HTMLInputElement).value = 'X';
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(document.getElementById('c-name')?.classList.contains('invalid')).toBe(true);
+    expect(document.getElementById('c-pattern')?.classList.contains('invalid')).toBe(true);
+    expect(document.getElementById('toast')?.textContent).toMatch(/value or a regex/);
+    expect(store.patterns).toHaveLength(0);
+  });
+
+  it('bare value saves as a literal with auto category', async () => {
     skeleton();
     const store = { patterns: [] as CustomPattern[] };
     await renderPopup(document, fakeDeps(store));
@@ -181,11 +210,51 @@ describe('popup custom validation', () => {
     (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh';
     document.getElementById('c-add')?.dispatchEvent(new Event('click'));
     await flush();
-    expect(document.getElementById('c-pattern')?.classList.contains('invalid')).toBe(true);
-    expect(document.getElementById('c-category')?.classList.contains('invalid')).toBe(true);
-    expect(document.getElementById('c-name')?.classList.contains('invalid')).toBe(false);
-    expect(document.getElementById('toast')?.textContent).toMatch(/Regex \+ Category required/);
-    expect(store.patterns).toHaveLength(0);
+    expect(store.patterns).toEqual([
+      expect.objectContaining({ name: 'Ramesh', pattern: 'Ramesh', category: 'RAMESH', type: 'pii' }),
+    ]);
+    expect(document.getElementById('toast')?.textContent).toMatch(/Ramesh added/);
+  });
+
+  it('one value per line becomes one entry each', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh\nEMP-001234';
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(store.patterns).toHaveLength(2);
+    expect(store.patterns.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
+    expect(document.getElementById('toast')?.textContent).toMatch(/2 values added/);
+  });
+
+  it('regex mode labels the entry and escapes nothing', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Employee ID';
+    (document.getElementById('c-pattern') as HTMLInputElement).value = 'EMP-[0-9]{6}';
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(store.patterns).toEqual([
+      expect.objectContaining({ name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID' }),
+    ]);
+  });
+
+  it('category stays sticky for batch entry', async () => {
+    skeleton();
+    const store = { patterns: [] as CustomPattern[] };
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    (document.getElementById('c-name') as HTMLInputElement).value = 'Ramesh';
+    (document.getElementById('c-category') as HTMLInputElement).value = 'PERSON_NAME';
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(store.patterns[0].category).toBe('PERSON_NAME');
+    expect((document.getElementById('c-category') as HTMLInputElement).value).toBe('PERSON_NAME');
+    expect((document.getElementById('c-name') as HTMLInputElement).value).toBe('');
   });
 
   it('saved rows show pattern, fake and category', async () => {

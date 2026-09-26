@@ -53,6 +53,26 @@ export interface Chromeish {
 
 const scriptId = (host: string): string => `dc-${host}`;
 
+/**
+ * Best-effort registration: if the grant is already held, make sure the
+ * content script is registered (heals a popup that died mid-add).
+ * Never prompts — returns false when there is no grant to work with.
+ */
+export async function ensureRegistered(host: string, chromeish: Chromeish, scheme?: Scheme): Promise<boolean> {
+  const pattern = toOriginPattern(host, scheme);
+  try {
+    if (!await chromeish.permissions.contains({ origins: [pattern] })) return false;
+    await chromeish.scripting.registerContentScripts([{
+      id: scriptId(host),
+      matches: [pattern],
+      js: ['dist/content.js'],
+    }]);
+  } catch {
+    // Duplicate id or revoked mid-flight — steady state wins.
+  }
+  return true;
+}
+
 export async function requestSite(host: string, chromeish: Chromeish, scheme?: Scheme): Promise<boolean> {
   const pattern = toOriginPattern(host, scheme);
   // Already granted (e.g. retried Add) → skip the native dialog entirely.

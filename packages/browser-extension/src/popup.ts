@@ -1,7 +1,7 @@
 import { toCsv } from './exporters.js';
 import { runConsoleCmd } from './console-cmd.js';
 import { SITE_SELECTORS } from './sites.js';
-import { ensureSiteAccess, isEnabled, loadUserSites, parseHost, removeSite, requestSite, upsertCustomSite, type Scheme, type SitesStorage, type UserSites } from './site-store.js';
+import { ensureRegistered, ensureSiteAccess, isEnabled, loadUserSites, parseHost, removeSite, requestSite, upsertCustomSite, type Scheme, type SitesStorage, type UserSites } from './site-store.js';
 import type { BgRequest, BgResponse } from './protocol.js';
 import type { CustomPattern } from '@pratikw/detect';
 
@@ -548,36 +548,40 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       list.appendChild(row);
     }
   };
-  const val = (id: string): string => (doc.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
+  const val = (id: string): string => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? '';
+  const rawVal = (id: string): string => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? '';
   const submitCustom = (): void => {
-    const name = val('c-name');
-    const pattern = val('c-pattern');
-    const category = val('c-category');
-    // Per-field errors: ring the empty fields and name them, instead of a
-    // silent all-or-nothing reject.
-    const missing: string[] = [];
-    for (const [label, id] of [['Name', 'c-name'], ['Regex', 'c-pattern'], ['Category', 'c-category']] as const) {
-      const empty = !val(id);
-      doc.getElementById(id)?.classList.toggle('invalid', empty);
-      if (empty) missing.push(label);
-    }
-    if (missing.length > 0) { toast(doc, `${missing.join(' + ')} required — nothing saved`); return; }
-    const entry: CustomPattern = {
-      name, pattern, category,
-      type: ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'],
-    };
+    const nameLines = rawVal('c-name').split('\n').map((s) => s.trim()).filter(Boolean);
+    const patternLines = rawVal('c-pattern').split('\n').map((s) => s.trim()).filter(Boolean);
+    const givenCategory = val('c-category');
+    // Literal-first: a bare value becomes an exact-match entry — no regex needed.
+    const empty = nameLines.length === 0 && patternLines.length === 0;
+    doc.getElementById('c-name')?.classList.toggle('invalid', empty);
+    doc.getElementById('c-pattern')?.classList.toggle('invalid', empty);
+    if (empty) { toast(doc, 'Give a value or a regex — nothing saved'); return; }
+    const autoCat = (n: string): string =>
+      n.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'CUSTOM';
+    const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const type = ((doc.getElementById('c-type') as HTMLSelectElement | null)?.value ?? 'pii') as CustomPattern['type'];
     const synth = val('c-synth');
-    if (synth) entry.synthesizer = synth;
-    const next = [...custom.filter((c) => c.name !== name), entry];
+    const mk = (n: string, p: string): CustomPattern => ({
+      name: n, pattern: p, category: givenCategory || autoCat(n), type,
+      ...(synth ? { synthesizer: synth } : {}),
+    });
+    const entries = patternLines.length > 0
+      ? [mk(nameLines[0] ?? givenCategory ?? 'Custom', patternLines.length > 1 ? `(?:${patternLines.join('|')})` : patternLines[0])]
+      : nameLines.map((n) => mk(n, escapeRe(n)));
+    const next = [...custom.filter((c) => !entries.some((e) => e.name === c.name)), ...entries];
     void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
       if ('error' in res && res.error) { toast(doc, res.error); return; }
       custom = next;
-      for (const id of ['c-name', 'c-pattern', 'c-category', 'c-synth']) {
-        const el = doc.getElementById(id) as HTMLInputElement | null;
-        if (el) el.value = '';
+      // Category + type stay sticky for rapid batch entry.
+      for (const id of ['c-name', 'c-pattern', 'c-synth']) {
+        const el = doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+        if (el) { el.value = ''; el.classList.remove('invalid'); }
       }
       paintCustom();
-      toast(doc, `${name} added`);
+      toast(doc, entries.length > 1 ? `${entries.length} values added` : `${entries[0].name} added`);
     }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
   };
   const addBtn = doc.getElementById('c-add');
@@ -586,12 +590,14 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     addBtn.addEventListener('click', submitCustom);
   }
   for (const id of ['c-name', 'c-pattern', 'c-category', 'c-synth']) {
-    const el = doc.getElementById(id) as HTMLInputElement | null;
+    const el = doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
     if (el && !el.dataset.bound) {
       el.dataset.bound = '1';
       el.addEventListener('input', () => el.classList.remove('invalid'));
       el.addEventListener('keydown', (ev) => {
-        if ((ev as KeyboardEvent).key === 'Enter') submitCustom();
+        // Plain Enter in a textarea means newline; Ctrl+Enter always submits.
+        const ke = ev as KeyboardEvent;
+        if (ke.key === 'Enter' && (ke.ctrlKey || ke.metaKey || el.tagName !== 'TEXTAREA')) submitCustom();
       });
     }
   }
@@ -604,9 +610,9 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
   });
   doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
-    // Footer Save also flushes a fully-filled custom entity row — users
+    // Footer Save also flushes a half-filled custom entity row — users
     // expect it to save everything on the page, not just UI settings.
-    if (val('c-name') && val('c-pattern') && val('c-category')) submitCustom();
+    if (val('c-name') || val('c-pattern')) submitCustom();
   });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
@@ -847,7 +853,7 @@ const syncSites: SitesStorage = {
 
 // Scheme threads from parseHost into requestSite/removeSite: bare host:port
 // defaults http, remote https-with-port needs the explicit scheme.
-function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
+export function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
   const chromeish = {
     permissions: {
       contains: (p: { origins: string[] }) => chrome!.permissions.contains(p),
@@ -870,6 +876,9 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
   return {
     getSites: async () => {
       const user = await loadSites();
+      // Heal half-finished adds: the native grant dialog closes the popup,
+      // which can orphan an enabled site without its content script.
+      await Promise.all(user.custom.filter((c) => c.enabled).map((c) => ensureRegistered(c.host, chromeish, c.scheme)));
       const host = await activeHost();
       const sites: SiteRow[] = [
         ...BUILTINS.map((h) => ({
@@ -887,9 +896,16 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
       // Thread scheme only when the input stated it explicitly; bare
       // host:port keeps the colon-rule http default (see site-store).
       const explicit = input.includes('://') ? parsed.scheme : undefined;
+      // Persist FIRST: the native grant dialog closes the popup, killing
+      // this chain mid-flight — the site must already be stored on reopen.
+      await saveSites(upsertCustomSite(await loadSites(), parsed.host, true, explicit));
       const user = await loadSites();
       const r = await ensureSiteAccess(user, parsed.host, explicit, chromeish, SITE_SELECTORS);
-      if (!r.ok) return { ok: false, error: 'Permission denied' };
+      if (!r.ok) {
+        // Denied: leave the entry in place but disabled, so toggle retries.
+        await saveSites(upsertCustomSite(await loadSites(), parsed.host, false, explicit));
+        return { ok: false, error: 'Permission denied' };
+      }
       await saveSites(r.user);
       return { ok: true };
     },

@@ -218,29 +218,33 @@
     </div>
 
     <div class="settings-group-label" style="margin-top:6px">Custom entities</div>
-    <div class="setting-desc">Your own regex patterns, cloaked like built-ins. Fake template is optional, e.g. <code>EMP-{{string.numeric(6)}}</code>.</div>
+    <div class="setting-desc">Exact values or regex patterns, cloaked like built-ins.</div>
     <div id="custom-list"></div>
     <div class="allowlist-wrap">
+      <label class="fld-label" for="c-name">Values to cloak — one per line</label>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-name" type="text" placeholder="e.g. Employee ID">
+        <textarea class="allowlist-input" id="c-name" rows="2" placeholder="Ramesh&#10;EMP-001234" spellcheck="false"></textarea>
       </div>
+      <label class="fld-label" for="c-pattern">Regex — only if you need pattern matching</label>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-pattern" type="text" placeholder="e.g. EMP-[0-9]{6}" spellcheck="false">
+        <textarea class="allowlist-input" id="c-pattern" rows="2" placeholder="EMP-[0-9]{6}" spellcheck="false"></textarea>
       </div>
+      <label class="fld-label" for="c-category">Category — auto from name if empty</label>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-category" type="text" placeholder="e.g. EMPLOYEE_ID" spellcheck="false">
+        <input class="allowlist-input" id="c-category" type="text" placeholder="EMPLOYEE_ID" spellcheck="false">
         <select class="setting-select" id="c-type" aria-label="Entity type">
           <option value="pii">pii</option>
           <option value="secret">secret</option>
           <option value="credential">credential</option>
         </select>
       </div>
+      <label class="fld-label" for="c-synth">Fake replacement — optional</label>
       <div class="allowlist-input-row">
-        <input class="allowlist-input" id="c-synth" type="text" placeholder="Fake template (optional)" spellcheck="false">
+        <input class="allowlist-input" id="c-synth" type="text" placeholder="e.g. EMP-{{string.numeric(6)}}" spellcheck="false">
         <button class="btn-sm accent" id="c-add" type="button">Add</button>
       </div>
     </div>
-    <div class="setting-desc">Name, regex and category are all required — empty fields will not save.</div>
+    <div class="setting-desc">Just values? Fill the first box and hit Add — each line becomes its own cloaked value. Ctrl+Enter submits from any box.</div>
 
   </div>
 

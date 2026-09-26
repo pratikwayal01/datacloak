@@ -143,3 +143,20 @@ describe('ensureSiteAccess/loadUserSites', () => {
     expect(await loadUserSites({ load: async () => good, save: async () => {} })).toBe(good);
   });
 });
+
+describe('ensureRegistered', () => {
+  it('skips registration without a grant (never prompts)', async () => {
+    const { ensureRegistered } = await import('../src/site-store.js');
+    const c = chromeish();
+    c.permissions.contains.mockResolvedValueOnce(false);
+    expect(await ensureRegistered('duck.ai', c)).toBe(false);
+    expect(c.scripting.registerContentScripts).not.toHaveBeenCalled();
+  });
+  it('treats duplicate registration as settled', async () => {
+    const { ensureRegistered } = await import('../src/site-store.js');
+    const c = chromeish();
+    c.permissions.contains.mockResolvedValueOnce(true);
+    c.scripting.registerContentScripts.mockRejectedValueOnce(new Error('duplicate'));
+    expect(await ensureRegistered('duck.ai', c)).toBe(true);
+  });
+});
