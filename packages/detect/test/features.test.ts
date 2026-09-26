@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DataCloakEngine } from '../src/engine.js';
+import { cloakFile } from '../src/files.js';
 
 describe('audit', () => {
   it('previews without vault writes', () => {
@@ -37,5 +41,44 @@ describe('cloakJson', () => {
     const r = e.cloakJson(outer);
     expect((r.value as Record<string, Record<string, string>>).nested.email).not.toContain('john.doe@acme.com');
     expect(r.substitutions.length).toBe(1);
+  });
+});
+
+describe('cloakFile', () => {
+  it('.txt round-trip via restore', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cloak-'));
+    const p = join(dir, 'a.txt');
+    writeFileSync(p, 'mail john.doe@acme.com');
+    const e = new DataCloakEngine();
+    const r = await cloakFile(e, p);
+    expect(r.text).not.toContain('john.doe@acme.com');
+    expect(r.substitutions.length).toBe(1);
+    expect(e.restore(r.text).text).toContain('john.doe@acme.com');
+  });
+  it('.json preserves shape + restore', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cloak-'));
+    const p = join(dir, 'a.json');
+    writeFileSync(p, JSON.stringify({ email: 'john.doe@acme.com', n: 1 }));
+    const e = new DataCloakEngine();
+    const r = await cloakFile(e, p);
+    const parsed = JSON.parse(r.text) as { email: string; n: number };
+    expect(parsed.n).toBe(1);
+    expect(parsed.email).not.toContain('john.doe@acme.com');
+    expect(e.restore(parsed.email).text).toContain('john.doe@acme.com');
+  });
+  it('.csv handles quoted commas', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cloak-'));
+    const p = join(dir, 'a.csv');
+    writeFileSync(p, 'name,email\n"doe, john",john.doe@acme.com');
+    const e = new DataCloakEngine();
+    const r = await cloakFile(e, p);
+    expect(r.text).not.toContain('john.doe@acme.com');
+    expect(r.text.split('\n')[1]).toMatch(/^"[^"]*,[^"]*",[^,]+$/);
+  });
+  it('.pdf throws fail-closed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cloak-'));
+    const p = join(dir, 'a.pdf');
+    writeFileSync(p, 'x');
+    await expect(cloakFile(new DataCloakEngine(), p)).rejects.toThrow(/unsupported extension/);
   });
 });
