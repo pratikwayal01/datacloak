@@ -1,7 +1,7 @@
 import { toCsv } from './exporters.js';
 import { runConsoleCmd } from './console-cmd.js';
 import { SITE_SELECTORS } from './sites.js';
-import { isEnabled, parseHost, requestSite, removeSite, type Scheme, type UserSites } from './site-store.js';
+import { ensureSiteAccess, isEnabled, loadUserSites, parseHost, removeSite, requestSite, upsertCustomSite, type Scheme, type SitesStorage, type UserSites } from './site-store.js';
 import type { BgRequest, BgResponse } from './protocol.js';
 import type { CustomPattern } from '@pratikw/detect';
 
@@ -88,6 +88,7 @@ export interface PopupDeps {
   addSite?: (input: string) => Promise<{ ok: boolean; error?: string }>;
   toggleSite?: (host: string, enabled: boolean, scheme?: Scheme) => Promise<boolean>;
   removeSite?: (host: string, scheme?: Scheme) => Promise<void>;
+  openConfirmPage?: (query: string) => Promise<void>;
 }
 
 const toast = (doc: Document, msg: string): void => {
@@ -428,42 +429,19 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         }
       };
       await paintSites();
-      // Our rationale prompt BEFORE Chrome's native grant dialog (which we
-      // cannot replace — permissions.request always shows the browser UI).
-      const confirmSiteAccess = (host: string, onAllow: () => void): void => {
-        doc.querySelector('.dc-site-confirm')?.remove();
-        const panel = doc.createElement('div');
-        panel.className = 'dc-review-panel dc-site-confirm';
-        panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:280px');
-        const title = doc.createElement('div');
-        title.setAttribute('style', 'font-weight:600;margin-bottom:4px');
-        title.textContent = `Allow access to ${host}?`;
-        const body = doc.createElement('div');
-        body.textContent = 'DataCloak will cloak what you type and restore replies for display. Vault stays on this device. Chrome shows its own grant dialog next.';
-        const row = doc.createElement('div');
-        row.setAttribute('style', 'margin-top:8px;display:flex;gap:8px;justify-content:flex-end');
-        const cancel = doc.createElement('button');
-        cancel.textContent = 'Cancel';
-        cancel.addEventListener('click', () => panel.remove());
-        const allow = doc.createElement('button');
-        allow.textContent = 'Allow';
-        allow.addEventListener('click', () => { panel.remove(); onAllow(); });
-        row.append(cancel, allow);
-        panel.append(title, body, row);
-        doc.body.appendChild(panel);
-        allow.focus();
-      };
+      // Allow confirms on a full tab (confirm.html): the popup is too small
+      // for an access decision, and Chrome's native grant dialog follows
+      // Allow there — it cannot be replaced, only preceded.
       const submitSite = (): void => {
         const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
         const val = input?.value.trim() ?? '';
         if (!val) return;
-        const host = parseHost(val)?.host ?? val;
-        confirmSiteAccess(host, () => {
-          void deps.addSite!(val).then((r) => {
-            if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
-            else toast(doc, r.error ?? 'Could not add site');
-          }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
-        });
+        const parsed = parseHost(val);
+        if (!parsed) { toast(doc, 'Unrecognized host — try duck.ai or http://nas:3000'); return; }
+        const explicit = val.includes('://') ? parsed.scheme : '';
+        const q = `action=allow-site&host=${encodeURIComponent(parsed.host)}&scheme=${explicit}`;
+        if (input) input.value = '';
+        void deps.openConfirmPage?.(q).catch((e: unknown) => toast(doc, `Cannot open confirm page: ${(e as Error)?.message ?? e}`));
       };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
@@ -511,13 +489,11 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       rm.textContent = 'Remove';
       rm.setAttribute('aria-label', `Remove ${p.name}`);
       rm.addEventListener('click', () => {
-        const next = custom.filter((c) => c.name !== p.name);
-        void deps.send({ kind: 'patterns.set', patterns: next }).then((res) => {
-          if ('error' in res && res.error) { toast(doc, res.error); return; }
-          custom = next;
-          paintCustom();
-          toast(doc, `${p.name} removed`);
-        }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+        // Removal confirms on a full tab — the popup is too small for a
+        // decision with consequences. Confirm page does the actual delete.
+        void deps.openConfirmPage?.(
+          `action=remove-pattern&name=${encodeURIComponent(p.name)}`,
+        ).catch((e: unknown) => toast(doc, `Cannot open confirm page: ${(e as Error)?.message ?? e}`));
       });
       row.append(info, rm);
       list.appendChild(row);
@@ -723,12 +699,13 @@ declare const chrome: {
   runtime: {
     sendMessage: (msg: BgRequest) => Promise<BgResponse>;
     getManifest?: () => { version?: string };
+    getURL: (path: string) => string;
   };
   storage: {
     sync: { get(k: string | null): Promise<Record<string, unknown>>; set(o: Record<string, unknown>): Promise<void> };
     session: { get(k: string | null): Promise<Record<string, unknown>>; remove(k: string): Promise<void> };
   };
-  tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]> };
+  tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]>; create: (p: { url: string }) => Promise<unknown> };
   permissions: { request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
   scripting: {
     registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => Promise<void>;
@@ -791,18 +768,22 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
+    openConfirmPage: async (q) => { await chrome!.tabs.create({ url: chrome!.runtime.getURL(`confirm.html?${q}`) }); },
     ...prodSites(),
   };
 }
 
-export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {
-  const idx = user.custom.findIndex((c) => c.host === host);
-  if (idx >= 0) return { ...user, custom: user.custom.map((c, i) => i === idx ? { ...c, enabled } : c) };
-  return { ...user, custom: [...user.custom, { host, enabled, ...(scheme ? { scheme } : {}) }] };
-}
-
 const SITES_KEY = 'dc-sites';
 const BUILTINS = Object.keys(SITE_SELECTORS);
+
+const syncSites: SitesStorage = {
+  load: async () => {
+    try {
+      return (await chrome!.storage.sync.get(SITES_KEY))[SITES_KEY] as UserSites | undefined;
+    } catch { return undefined; }
+  },
+  save: async (u) => { await chrome!.storage.sync.set({ [SITES_KEY]: u }); },
+};
 
 // Scheme threads from parseHost into requestSite/removeSite: bare host:port
 // defaults http, remote https-with-port needs the explicit scheme.
@@ -817,17 +798,8 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
       unregisterContentScripts: (f: { ids: string[] }) => chrome!.scripting.unregisterContentScripts(f),
     },
   };
-  const loadSites = async (): Promise<UserSites> => {
-    try {
-      const got = await chrome!.storage.sync.get(SITES_KEY);
-      const v = got[SITES_KEY] as UserSites | undefined;
-      if (v && Array.isArray(v.custom) && Array.isArray(v.disabled)) return v;
-    } catch { /* defaults */ }
-    return { custom: [], disabled: [] };
-  };
-  const saveSites = async (u: UserSites): Promise<void> => {
-    await chrome!.storage.sync.set({ [SITES_KEY]: u });
-  };
+  const loadSites = async (): Promise<UserSites> => loadUserSites(syncSites);
+  const saveSites = async (u: UserSites): Promise<void> => { await chrome!.storage.sync.set({ [SITES_KEY]: u }); };
   const activeHost = async (): Promise<string | null> => {
     try {
       const [tab] = await chrome!.tabs.query({ active: true, currentWindow: true });
@@ -851,21 +823,13 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
     addSite: async (input) => {
       const parsed = parseHost(input);
       if (!parsed) return { ok: false, error: 'Unrecognized host — try duck.ai or http://nas:3000' };
-      const { host, scheme } = parsed;
       // Thread scheme only when the input stated it explicitly; bare
       // host:port keeps the colon-rule http default (see site-store).
-      const explicit = input.includes('://') ? scheme : undefined;
+      const explicit = input.includes('://') ? parsed.scheme : undefined;
       const user = await loadSites();
-      if (!(host in SITE_SELECTORS) && !user.custom.some((c) => c.host === host)) {
-        if (!await requestSite(host, chromeish, explicit)) return { ok: false, error: 'Permission denied' };
-        user.custom.push({ host, enabled: true, ...(explicit ? { scheme: explicit } : {}) });
-      } else {
-        user.disabled = user.disabled.filter((d) => d !== host);
-        user.custom = user.custom.map((c) => c.host === host ? { ...c, enabled: true } : c);
-        const known = user.custom.find((c) => c.host === host)?.scheme ?? explicit;
-        if (!await requestSite(host, chromeish, known)) return { ok: false, error: 'Permission denied' };
-      }
-      await saveSites(user);
+      const r = await ensureSiteAccess(user, parsed.host, explicit, chromeish, SITE_SELECTORS);
+      if (!r.ok) return { ok: false, error: 'Permission denied' };
+      await saveSites(r.user);
       return { ok: true };
     },
     toggleSite: async (host, enabled, scheme) => {

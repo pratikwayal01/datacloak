@@ -140,3 +140,18 @@ describe('popup custom entities save paths', () => {
     expect(store.patterns).toHaveLength(1);
   });
 });
+
+describe('popup custom entity remove', () => {
+  it('remove opens the fullscreen confirm page, deletes nothing inline', async () => {
+    skeleton();
+    const opened: string[] = [];
+    const store = { patterns: [{ name: 'Ramesh', pattern: 'ramesh', category: 'PERSON_NAME', type: 'pii' as const }] };
+    await renderPopup(document, fakeDeps(store, { openConfirmPage: async (q: string) => { opened.push(q); } }));
+    await flush();
+    const btn = [...document.querySelectorAll('#custom-list button')].find((b) => b.textContent === 'Remove') as HTMLButtonElement;
+    btn.click();
+    await flush();
+    expect(opened).toEqual(['action=remove-pattern&name=Ramesh']);
+    expect(store.patterns).toHaveLength(1);
+  });
+});

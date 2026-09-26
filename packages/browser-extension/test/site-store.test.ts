@@ -79,3 +79,42 @@ describe('requestSite/removeSite', () => {
     expect(c.scripting.unregisterContentScripts).toHaveBeenCalledWith({ ids: ['dc-duck.ai'] });
   });
 });
+
+describe('ensureSiteAccess/loadUserSites', () => {
+  const chromeishOk = () => ({
+    permissions: { request: vi.fn(async () => true), remove: vi.fn(async () => true) },
+    scripting: { registerContentScripts: vi.fn(async () => {}), unregisterContentScripts: vi.fn(async () => {}) },
+  });
+  it('new custom host registers and stores', async () => {
+    const { ensureSiteAccess } = await import('../src/site-store.js');
+    const c = chromeishOk();
+    const r = await ensureSiteAccess({ custom: [], disabled: [] }, 'duck.ai', undefined, c, {});
+    expect(r.ok).toBe(true);
+    expect(r.user.custom).toEqual([{ host: 'duck.ai', enabled: true }]);
+    expect(c.scripting.registerContentScripts).toHaveBeenCalledWith([{
+      id: 'dc-duck.ai', matches: ['https://duck.ai/*'], js: ['dist/content.js'],
+    }]);
+  });
+  it('denied grant keeps store untouched', async () => {
+    const { ensureSiteAccess } = await import('../src/site-store.js');
+    const c = chromeishOk();
+    c.permissions.request.mockResolvedValueOnce(false);
+    const before = { custom: [], disabled: [] };
+    const r = await ensureSiteAccess(before, 'duck.ai', undefined, c, {});
+    expect(r.ok).toBe(false);
+    expect(r.user).toBe(before);
+  });
+  it('builtin re-enable drops the disabled flag', async () => {
+    const { ensureSiteAccess } = await import('../src/site-store.js');
+    const r = await ensureSiteAccess({ custom: [], disabled: ['claude.ai'] }, 'claude.ai', undefined, chromeishOk(), { 'claude.ai': ['textarea'] });
+    expect(r.ok).toBe(true);
+    expect(r.user.disabled).toEqual([]);
+  });
+  it('loadUserSites falls back on corrupt storage', async () => {
+    const { loadUserSites } = await import('../src/site-store.js');
+    expect(await loadUserSites({ load: async () => undefined, save: async () => {} })).toEqual({ custom: [], disabled: [] });
+    expect(await loadUserSites({ load: async () => { throw new Error('x'); }, save: async () => {} })).toEqual({ custom: [], disabled: [] });
+    const good = { custom: [{ host: 'a', enabled: true }], disabled: [] };
+    expect(await loadUserSites({ load: async () => good, save: async () => {} })).toBe(good);
+  });
+});

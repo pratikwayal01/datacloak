@@ -275,7 +275,10 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
 
 // Production wiring (no-op under test — chrome undefined there)
 declare const chrome: {
-  runtime: { onMessage: { addListener: (fn: (msg: BgRequest, sender: { tab?: { id?: number; url?: string } }) => Promise<BgResponse>) => void } };
+  runtime: {
+    onMessage: { addListener: (fn: (msg: BgRequest, sender: { tab?: { id?: number; url?: string } }) => Promise<BgResponse>) => void };
+    setUninstallURL?: (url: string) => void;
+  };
   storage: {
     session: { get: (k: string) => Promise<Record<string, unknown>>; set: (o: Record<string, unknown>) => Promise<void>; remove: (k: string) => Promise<void> };
     sync: { get: (k: string) => Promise<Record<string, unknown>>; set: (o: Record<string, unknown>) => Promise<void> };
@@ -310,4 +313,6 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     engines.delete(tabId);
     void store.removeTab(tabId);
   });
+  // Uninstall feedback goes to GitHub issues.
+  try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues'); } catch { /* older chrome */ }
 }

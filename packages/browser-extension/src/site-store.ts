@@ -28,8 +28,7 @@ export function toOriginPattern(host: string, scheme?: Scheme): string {
   return `${s}://${host}/*`;
 }
 
-export function isEnabled(
-  host: string,
+export function isEnabled(  host: string,
   builtins: Record<string, unknown> | readonly string[],
   user: UserSites,
 ): boolean {
@@ -69,4 +68,47 @@ export async function removeSite(host: string, chromeish: Chromeish, scheme?: Sc
   const pattern = toOriginPattern(host, scheme);
   await chromeish.permissions.remove({ origins: [pattern] });
   await chromeish.scripting.unregisterContentScripts({ ids: [scriptId(host)] });
+}
+
+export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {
+  const idx = user.custom.findIndex((c) => c.host === host);
+  if (idx >= 0) return { ...user, custom: user.custom.map((c, i) => i === idx ? { ...c, enabled } : c) };
+  return { ...user, custom: [...user.custom, { host, enabled, ...(scheme ? { scheme } : {}) }] };
+}
+
+export interface SitesStorage {
+  load(): Promise<UserSites | undefined>;
+  save(u: UserSites): Promise<void>;
+}
+
+export async function loadUserSites(s: SitesStorage): Promise<UserSites> {
+  try {
+    const v = await s.load();
+    if (v && Array.isArray(v.custom) && Array.isArray(v.disabled)) return v;
+  } catch { /* corrupt storage → defaults */ }
+  return { custom: [], disabled: [] };
+}
+
+/** Shared add/enable flow: permission + script registration, then store update. */
+export async function ensureSiteAccess(
+  user: UserSites,
+  host: string,
+  scheme: Scheme | undefined,
+  chromeish: Chromeish,
+  builtins: Record<string, unknown> | readonly string[],
+): Promise<{ user: UserSites; ok: boolean }> {
+  const isBuiltin = Array.isArray(builtins) ? builtins.includes(host) : host in builtins;
+  if (!isBuiltin && !user.custom.some((c) => c.host === host)) {
+    if (!await requestSite(host, chromeish, scheme)) return { user, ok: false };
+    return { user: upsertCustomSite(user, host, true, scheme), ok: true };
+  }
+  const known = user.custom.find((c) => c.host === host)?.scheme ?? scheme;
+  if (!await requestSite(host, chromeish, known)) return { user, ok: false };
+  return {
+    user: {
+      custom: user.custom.map((c) => c.host === host ? { ...c, enabled: true } : c),
+      disabled: user.disabled.filter((d) => d !== host),
+    },
+    ok: true,
+  };
 }
