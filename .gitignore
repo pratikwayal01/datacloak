@@ -14,3 +14,4 @@ packages/ner/README.md
 packages/ner/LICENSE
 __pycache__/
 site/
+docs/design/
