@@ -14,6 +14,7 @@ export interface NerLike {
 export interface DataCloakConfig {
   detection: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean; entropyThreshold: number };
   vault: { maxEntries: number };
+  locale?: string;
   customPatterns?: CustomPattern[];
   ner?: NerLike;
 }

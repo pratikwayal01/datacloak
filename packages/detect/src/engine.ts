@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult } from './types.js';
+import type { CloakResult, CustomPattern, DataCloakConfig, Detection, RestoreResult, Substitution, VaultEntry } from './types.js';
 import { defaultConfig } from './types.js';
 import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
@@ -7,6 +7,7 @@ import { synthesize } from './synthesizers/index.js';
 import { synthesizeDsn } from './synthesizers/credentials.js';
 import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
+import { exportVaultJson, importVaultJson } from './vault-crypto.js';
 
 export class DataCloakEngine {
   readonly vault: Vault;
@@ -68,7 +69,7 @@ export class DataCloakEngine {
   private makeSynthetic(det: Detection, fullText: string): string {
     if (det.category === 'ENV_VAR') return this.synthEnvValue(det.value);
     for (let attempt = 0; attempt < 3; attempt++) {
-      const s = synthesize(det.category, det.value) ?? opaqueToken(det.category);
+      const s = synthesize(det.category, det.value, this.config.locale) ?? opaqueToken(det.category);
       if (!fullText.includes(s)) return s;
     }
     return opaqueToken(det.category);
@@ -91,7 +92,7 @@ export class DataCloakEngine {
       return s;
     }
     // Otherwise cloak secrets/pii/entropy inside the value, offset by quote (handled by caller via full-string replace below)
-    const inner = new DataCloakEngine({ detection: { secrets: true, envVars: false, pii: true, entropy: true, entropyThreshold: this.config.detection.entropyThreshold }, vault: { maxEntries: this.config.vault.maxEntries } });
+    const inner = new DataCloakEngine({ detection: { secrets: true, envVars: false, pii: true, entropy: true, entropyThreshold: this.config.detection.entropyThreshold }, vault: { maxEntries: this.config.vault.maxEntries }, locale: this.config.locale });
     inner.vaultImport(this.vault);
     const r = inner.cloak(value);
     this.vaultAbsorb(inner.vault);
@@ -103,6 +104,42 @@ export class DataCloakEngine {
   private vaultAbsorb(other: Vault): void {
     for (const e of other.list()) this.vault.set(e);
   }
+  audit(text: string): { detections: Detection[]; preview: string } {
+    const detections = this.detect(text);
+    let preview = text;
+    const sorted = [...detections].sort((a, b) => b.start - a.start);
+    sorted.forEach((d) => {
+      const n = detections.indexOf(d) + 1;
+      preview = preview.slice(0, d.start) + `[${d.category}_${n}]` + preview.slice(d.end);
+    });
+    return { detections, preview };
+  }
+  cloakJson(value: unknown, seen = new Map<unknown, unknown>()): { value: unknown; substitutions: Substitution[] } {
+    const subs: Substitution[] = [];
+    const walk = (v: unknown): unknown => {
+      if (typeof v === 'string') {
+        const r = this.cloak(v);
+        subs.push(...r.substitutions);
+        return r.text;
+      }
+      if (Array.isArray(v)) {
+        if (seen.has(v)) return seen.get(v);
+        const out: unknown[] = [];
+        seen.set(v, out);
+        for (const item of v) out.push(walk(item));
+        return out;
+      }
+      if (v !== null && typeof v === 'object' && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null)) {
+        if (seen.has(v)) return seen.get(v);
+        const o: Record<string, unknown> = {};
+        seen.set(v, o);
+        for (const [k, val] of Object.entries(v)) o[k] = walk(val);
+        return o;
+      }
+      return v;
+    };
+    return { value: walk(value), substitutions: subs };
+  }
   restore(text: string): RestoreResult {
     const entries = this.vault.list().sort((a, b) => b.synthetic.length - a.synthetic.length);
     let result = text;
@@ -113,6 +150,21 @@ export class DataCloakEngine {
       restored++;
     }
     return { text: result, restored };
+  }
+  async exportVault(pass: string): Promise<string> {
+    return exportVaultJson(JSON.stringify(this.vault.list()), pass);
+  }
+  async importVault(blob: string, pass: string): Promise<number> {
+    const json = await importVaultJson(blob, pass);
+    const parsed: unknown = JSON.parse(json);
+    if (!Array.isArray(parsed)) throw new Error('datacloak: wrong passphrase or corrupt vault export');
+    for (const e of parsed) {
+      if (typeof e !== 'object' || e === null || typeof (e as Record<string, unknown>).original !== 'string' || typeof (e as Record<string, unknown>).synthetic !== 'string' || typeof (e as Record<string, unknown>).category !== 'string') {
+        throw new Error('datacloak: wrong passphrase or corrupt vault export');
+      }
+    }
+    for (const e of parsed) this.vault.set(e as VaultEntry);
+    return parsed.length;
   }
 }
 export type { CustomPattern };
