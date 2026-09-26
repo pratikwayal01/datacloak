@@ -1,6 +1,6 @@
 {
   "name": "@pratikw/detect-ner",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DataCloak NER: person names, street addresses and DOB detection (heuristics + ONNX loader).",
   "files": [
     "dist",

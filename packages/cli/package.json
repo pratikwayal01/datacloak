@@ -1,6 +1,6 @@
 {
   "name": "@pratikw/datacloak",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "datacloak CLI: cloak/restore/scan/guard plus shell integration and hooks for 11 coding agents.",
   "files": [
     "dist",
