@@ -39,3 +39,29 @@ jobs:
         run: npm publish --workspace ${{ matrix.workspace }} --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  extension-asset:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test --workspace packages/browser-extension
+      - name: manifest version must match tag
+        run: |
+          MANIFEST="v$(node -p "require('./packages/browser-extension/manifest.json').version")"
+          test "${{ github.ref_name }}" = "$MANIFEST" || { echo "tag ${{ github.ref_name }} != manifest@$MANIFEST"; exit 1; }
+      - run: npm run package --workspace packages/browser-extension
+      - name: upload extension zip to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          ZIP="packages/browser-extension/datacloak-extension-${TAG#v}.zip"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" "$ZIP" --clobber

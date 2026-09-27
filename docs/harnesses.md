@@ -112,10 +112,22 @@ landing. Optional `.aider.conf.yml` loop: `test-cmd: pre-commit run`.
 
 ## OpenCode
 
-Plugin built (`packages/opencode-plugin`), npm publish pending. Until then,
-run from source — see `packages/opencode-plugin` README section in the main
-README. Covers: prompt+system cloak, env-dump block, output redact,
+```jsonc
+// opencode.json
+{ "plugin": ["@pratikw/opencode-plugin"] }
+```
+
+Covers: prompt+system cloak, env-dump block, output redact,
 write-path restore. Fully automatic, no commands.
+
+Pair with [`envsitter-guard`](https://github.com/boxpositron/envsitter-guard/tree/main)
+for safe `.env` inspection: DataCloak blocks secret reads, envsitter-guard
+adds value-free tools (key lists, fingerprints, shape matching) so agents
+can work with env files without ever seeing values.
+
+```jsonc
+{ "plugin": ["@pratikw/opencode-plugin", "envsitter-guard@latest"] }
+```
 
 ## Any other terminal (backstop)
 
