@@ -331,11 +331,16 @@ describe('settings + dev panels', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.blur).toBe(false);
   });
-  it('clear vault empties rows + badge', async () => {
+  it('clear vault asks confirm first, then empties rows + badge', async () => {
     skeleton();
     const { deps, state } = fakeDeps();
     await renderPopup(document, deps);
     (document.getElementById('dc-clear') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    // Irreversible wipe waits on the same-page confirm — nothing cleared yet.
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('Clear the whole vault');
+    expect(state.vault.length).toBeGreaterThan(0);
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(state.vault).toEqual([]);
     expect(document.getElementById('vault-badge')?.textContent).toBe('0');

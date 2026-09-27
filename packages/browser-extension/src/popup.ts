@@ -340,12 +340,21 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     });
   });
   (doc.getElementById('dc-clear') as HTMLButtonElement).addEventListener('click', () => {
-    deps.clearVault().then(() => {
-      entries = [];
-      revealed.clear();
-      renderVault();
-      toast(doc, 'Vault cleared');
-    }).catch(() => {});
+    // Global wipe can't be undone — same-page confirm, like entity/site removes.
+    confirmAction(
+      doc,
+      'Clear the whole vault?',
+      'This forgets every mapping on every site, including backups. Sent messages keep their fakes.',
+      'Clear everything',
+      () => {
+        deps.clearVault().then(() => {
+          entries = [];
+          revealed.clear();
+          renderVault();
+          toast(doc, 'Vault cleared');
+        }).catch(() => {});
+      },
+    );
   });
   (doc.getElementById('dc-copy-all') as HTMLButtonElement).addEventListener('click', () => {
     const map = Object.fromEntries(entries.map((e) => [e.synthetic, e.original]));
