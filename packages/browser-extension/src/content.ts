@@ -50,6 +50,7 @@ const CARD_CSS = [
   ':host{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(5,7,12,.55);font:13px \'Inter\',system-ui,sans-serif}',
   '.dc-card{background:#0F1117;color:#E4E8F0;border:1px solid #2A3050;border-radius:14px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.5);width:min(520px,92vw);max-height:80vh;overflow:auto}',
   '.dc-head{font-weight:700;font-size:14px;margin-bottom:10px}',
+  '.dc-hint{font-size:11px;color:#8B95A6;margin-bottom:4px}',
   '.dc-item{border:1px solid #2A3050;border-radius:10px;padding:10px 12px;margin:8px 0;background:#1C2033}',
   '.dc-item[data-state="revealed"]{border-color:#FFB547}',
   '.dc-pill{display:inline-block;background:#252B42;color:#00D4AA;border-radius:4px;padding:1px 7px;font-size:11px;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px}',
@@ -96,6 +97,10 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
   head.className = 'dc-head';
   head.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) — review each value:`;
   panel.appendChild(head);
+  const hint = doc.createElement('div');
+  hint.className = 'dc-hint';
+  hint.textContent = 'Confirmed once — the same text sends without asking again.';
+  panel.appendChild(hint);
   // Every detected value gets a row (not just uncertain ones): Keep sends the
   // synthetic, Reveal swaps it back to the original in the outgoing text.
   const items = (res.subs?.length ? res.subs : (res.uncertain ?? [])).map((s, i) => ({ id: i, ...s }));
@@ -181,6 +186,17 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   const d = doc as unknown as { __dcArm?: { disarm(): void } };
   try { d.__dcArm?.disarm(); } catch { /* stale handle */ }
   let proceeding = false;
+  // Confirmed texts skip repeat prompts: same original + same cloak result
+  // (or a prior full dismiss) sends without re-asking. Re-cloak still runs
+  // every time, so vault changes surface the panel again. Page-lifetime only.
+  const confirmed = new Map<string, { final: string; dismissedAll: boolean }>();
+  const remember = (original: string, final: string): void => {
+    if (confirmed.size >= 20) {
+      const oldest = confirmed.keys().next();
+      if (!oldest.done) confirmed.delete(oldest.value);
+    }
+    confirmed.set(original, { final, dismissedAll: final === original });
+  };
   // Page badge is user-hideable (Settings → Page badge); review panel is unaffected.
   const showBadge = opts.badge !== false;
   const badgeText = (t: string): void => { if (showBadge) ensureBadge(doc).textContent = t; };
@@ -219,7 +235,17 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
       proceed(field);
       return;
     }
+    // Already resolved this exact text: same cloak result (or a prior full
+    // dismiss) goes straight through instead of nagging again.
+    const known = confirmed.get(text);
+    if (known !== undefined && (known.dismissedAll || known.final === cloak.text)) {
+      if (!known.dismissedAll) setFieldText(field, cloak.text);
+      badgeCount(cloak.count, uncertainCount);
+      proceed(field);
+      return;
+    }
     renderReviewPanel(doc, cloak, (finalText) => {
+      remember(text, finalText);
       setFieldText(field, finalText);
       badgeCount(cloak.count, uncertainCount);
       proceed(field);

@@ -308,3 +308,67 @@ describe('page badge flag', () => {
     disarm();
   });
 });
+
+describe('review repeat sends', () => {
+  const stableSend = async (req: BgRequest): Promise<BgResponse> => {
+    if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+    return {
+      text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
+      uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+      subs: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+    };
+  };
+  const pressEnter = (): void => {
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  };
+  it('same text sends without re-asking after confirm', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, stableSend, { mode: 'review' });
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelector('.dc-review-panel')).not.toBeNull();
+    (document.querySelector('.dc-review-panel')?.shadowRoot?.querySelector('.dc-send') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(submitted).toBe(1);
+    // Same original text back in the box (user re-sends / site kept it): no second panel.
+    (document.getElementById('p') as HTMLTextAreaElement).value = 'hi ramesh bye';
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    expect(submitted).toBe(2);
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi XXX bye');
+    disarm();
+  });
+
+  it('changed cloak result re-asks (vault changed underneath)', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    let first = true;
+    const shifting = async (req: BgRequest): Promise<BgResponse> => {
+      if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+      const fake = first ? 'XXX' : 'YYY';
+      first = false;
+      return {
+        text: `hi ${fake} bye`, count: 1, categories: ['PERSON_NAME'],
+        uncertain: [{ original: 'ramesh', synthetic: fake, category: 'PERSON_NAME' }],
+        subs: [{ original: 'ramesh', synthetic: fake, category: 'PERSON_NAME' }],
+      };
+    };
+    const { disarm } = armComposer(document, shifting, { mode: 'review' });
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    (document.querySelector('.dc-review-panel')?.shadowRoot?.querySelector('.dc-send') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(submitted).toBe(1);
+    (document.getElementById('p') as HTMLTextAreaElement).value = 'hi ramesh bye';
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    // New fake → panel again, not a silent send.
+    expect(document.querySelector('.dc-review-panel')).not.toBeNull();
+    expect(submitted).toBe(1);
+    disarm();
+  });
+});
