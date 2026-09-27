@@ -295,6 +295,16 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     return { patterns: req.patterns };
   }
   if (req.kind === 'lastCloak.get') return { record: lastCloak.get(tabId) ?? null };
+  if (req.kind === 'vault.clear') {
+    // Total wipe: session keys are cleared popup-side; here drop live engines,
+    // per-tab diffs, and the origin persistent store so nothing resurrects.
+    engines.clear();
+    lastCloak.clear();
+    if (vault) {
+      try { await vault.backend.save({ origins: {} }); } catch { /* best-effort */ }
+    }
+    return { cleared: true };
+  }
   const engine = await engineFor(tabId, store, sync, vault);
   if (req.kind === 'cloak') {
     const start = Date.now();

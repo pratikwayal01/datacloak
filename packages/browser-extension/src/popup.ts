@@ -963,6 +963,9 @@ function prodDeps(): PopupDeps {
       const all = await chrome!.storage.session.get(null);
       await Promise.all(Object.keys(all).filter((k) => k.startsWith('vault:'))
         .map((k) => chrome!.storage.session.remove(k)));
+      // Background drops live engines + origin store; otherwise cleared
+      // entries resurrect on the next cloak or new tab.
+      try { await chrome!.runtime.sendMessage({ kind: 'vault.clear' }); } catch { /* background unreachable */ }
     },
     getMode: () => syncGet<Mode>('dc-mode', 'auto'),
     setMode: async (m) => { await chrome!.storage.sync.set({ 'dc-mode': m }); },

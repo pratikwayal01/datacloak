@@ -357,3 +357,24 @@ describe('origin-scoped restore fallback', () => {
     expect(r.text).toContain('hi ramesh bye');
   });
 });
+
+describe('vault.clear is total', () => {
+  it('wipes engines, origin store and diffs so nothing resurrects', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    const c = (await bg.handleRequest(91, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s, undefined, vctx)) as { text: string };
+    expect((await backend.load()).origins['chatgpt.com']?.entries.length).toBeGreaterThan(0);
+    const cleared = (await bg.handleRequest(91, { kind: 'vault.clear' }, s, undefined, vctx)) as { cleared: boolean };
+    expect(cleared).toEqual({ cleared: true });
+    expect((await backend.load()).origins).toEqual({});
+    // Old fakes no longer restore (fresh engine, no rehydration)…
+    const stale = (await bg.handleRequest(92, { kind: 'restore', text: c.text }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(stale.restored).toBe(0);
+    // …and the diff record is gone too.
+    const diff = (await bg.handleRequest(91, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(diff.record).toBeNull();
+  });
+});

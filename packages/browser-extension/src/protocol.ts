@@ -13,9 +13,11 @@ export interface SettingsSetResponse { flags: { secrets: boolean; envVars: boole
 export interface PatternsGetRequest { kind: 'patterns.get'; }
 export interface PatternsSetRequest { kind: 'patterns.set'; patterns: CustomPattern[]; }
 export interface LastCloakRequest { kind: 'lastCloak.get'; }
+export interface VaultClearRequest { kind: 'vault.clear'; }
+export interface VaultClearResponse { cleared: boolean; }
 export interface CloakSpan { original: string; synthetic: string; category: string; start: number; end: number; }
 export interface LastCloakResponse { record: { original: string; cloaked: string; subs: CloakSpan[]; ts: number } | null; }
 export interface PatternsGetResponse { patterns: CustomPattern[]; }
 export interface PatternsSetResponse { patterns: CustomPattern[]; error?: string; }
-export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest;
-export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse | LastCloakResponse;
+export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest | VaultClearRequest;
+export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse | LastCloakResponse | VaultClearResponse;
