@@ -39,11 +39,11 @@ describe('content', () => {
   it('bootstrap skips arm on disabled host, arms on enabled host', async () => {
     const host = window.location.host.toLowerCase();
     const g = globalThis as unknown as { chrome?: unknown };
-    const bootWith = async (sites: unknown): Promise<void> => {
+    const bootWith = async (sites: unknown, review = false): Promise<void> => {
       document.body.innerHTML = `<form id="f"><textarea id="p">hi</textarea><button type="submit" id="s">send</button></form>`;
       g.chrome = {
         runtime: { sendMessage: async (req: BgRequest): Promise<BgResponse> => ({ text: req.text, restored: 0 }) },
-        storage: { sync: { get: async (_keys: string[]) => ({ 'dc-sites': sites }) } },
+        storage: { sync: { get: async (_keys: string[]) => ({ 'dc-sites': sites, 'dc-settings': { review } }) } },
       };
       vi.resetModules();
       await import('../src/content.js');
@@ -57,6 +57,32 @@ describe('content', () => {
       document.querySelector('.dc-badge')?.remove();
     } finally {
       delete g.chrome;
+    }
+  });
+  it('review flag arms review mode: cloaked send pauses with panel', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const g = globalThis as unknown as { chrome?: unknown };
+    g.chrome = {
+      runtime: { sendMessage: async (req: BgRequest): Promise<BgResponse> =>
+        req.kind === 'cloak'
+          ? { text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'], uncertain: [] }
+          : { text: (req as unknown as { text: string }).text, restored: 0 } },
+      storage: { sync: { get: async () => ({ 'dc-settings': { review: true } }) } },
+    };
+    try {
+      vi.resetModules();
+      await import('../src/content.js');
+      await new Promise((r) => setTimeout(r, 10));
+      document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.querySelector('.dc-review-panel')).not.toBeNull();
+      expect(submitted).toBe(0);
+    } finally {
+      delete g.chrome;
+      document.querySelector('.dc-review-panel')?.remove();
+      document.querySelector('.dc-badge')?.remove();
     }
   });
 });

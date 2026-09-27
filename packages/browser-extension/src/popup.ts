@@ -29,12 +29,12 @@ export function applyTheme(doc: Document, theme: ResolvedTheme): void {
 // ── UI settings (chrome.storage.sync `dc-settings`) ──
 export interface UiSettings {
   autodetect: boolean; clipboard: boolean; network: boolean;
-  blur: boolean; notif: boolean;
+  blur: boolean; notif: boolean; review: boolean;
   sensitivity: 'low' | 'medium' | 'high'; style: string; allowlist: string[];
 }
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   autodetect: true, clipboard: false, network: true,
-  blur: true, notif: true,
+  blur: true, notif: true, review: false,
   sensitivity: 'low', style: 'realistic', allowlist: [],
 };
 
@@ -375,7 +375,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   const paintSettings = (): void => {
     for (const [id, val] of [
       ['s-autodetect', ui.autodetect], ['s-clipboard', ui.clipboard], ['s-network', ui.network],
-      ['s-blur', ui.blur], ['s-notif', ui.notif],
+      ['s-blur', ui.blur], ['s-notif', ui.notif], ['s-review', ui.review],
     ] as const) {
       const el = doc.getElementById(id) as HTMLInputElement | null;
       if (el) el.checked = val;
@@ -398,6 +398,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   bindCheck('s-network', (v) => { ui.network = v; });
   bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); });
   bindCheck('s-notif', (v) => { ui.notif = v; });
+  bindCheck('s-review', (v) => { ui.review = v; });
   doc.querySelectorAll('.risk-btn').forEach((btn) => {
     if ((btn as HTMLElement).dataset.bound) return;
     (btn as HTMLElement).dataset.bound = '1';

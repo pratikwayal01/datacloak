@@ -361,10 +361,12 @@ declare const chrome: {
 
 if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.storage?.sync) {
   const send: SendFn = (req) => chrome.runtime.sendMessage(req);
-  void chrome.storage.sync.get(['dc-mode', 'dc-sites']).then((vals) => {
+  void chrome.storage.sync.get(['dc-mode', 'dc-sites', 'dc-settings']).then((vals) => {
     const host = typeof location !== 'undefined' ? location.host.toLowerCase() : '';
     if (host && !shouldArmForSite(host, (vals['dc-sites'] as UserSitesShape | undefined) ?? undefined)) return;
-    const mode = vals['dc-mode'] === 'review' ? 'review' : 'auto';
+    // Review toggle lives in Settings (dc-settings); legacy dc-mode 'review' still honored.
+    const review = (vals['dc-settings'] as { review?: boolean } | undefined)?.review === true;
+    const mode = vals['dc-mode'] === 'review' || review ? 'review' : 'auto';
     armComposer(document, send, { mode });
     if (document.body) observeResponses(document.body, send);
   }).catch(() => {
