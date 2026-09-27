@@ -44,7 +44,7 @@ const skeleton = (): void => {
 
 const fakeDeps = (store: { patterns: CustomPattern[] }, over: Partial<PopupDeps> = {}): PopupDeps => ({
   send: async (req) => {
-    if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [] };
+    if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [], lifetime: { cloaked: 0, restored: 0 } };
     if (req.kind === 'settings.get') return { flags: { secrets: true, envVars: true, pii: true, entropy: true } };
     if (req.kind === 'patterns.get') return { patterns: store.patterns };
     if (req.kind === 'patterns.set') {

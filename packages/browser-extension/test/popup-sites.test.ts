@@ -62,7 +62,7 @@ const fakeDeps = (over: Partial<PopupDeps> = {}): { deps: PopupDeps; calls: { to
   const calls: { toggle: [string, boolean][]; add: string[]; remove: string[] } = { toggle: [], add: [], remove: [] };
   const deps: PopupDeps = {
     send: async (req) => {
-      if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [] };
+      if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [], lifetime: { cloaked: 0, restored: 0 } };
       if (req.kind === 'settings.get') return { flags: { secrets: true, envVars: true, pii: true, entropy: true } };
       return { text: '', count: 0, categories: [] } as BgResponse;
     },

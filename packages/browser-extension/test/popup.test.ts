@@ -107,7 +107,7 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
     send: async (req) => {
       state.sent.push(req);
       if (req.kind === 'stats') {
-        return { counts: { cloaked: 2, restored: 0 }, byCategory: { EMAIL: 1 }, oplog: state.oplog };
+        return { counts: { cloaked: 2, restored: 0 }, byCategory: { EMAIL: 1 }, oplog: state.oplog, lifetime: { cloaked: 7, restored: 1 } };
       }
       if (req.kind === 'settings.get') return { flags: { ...state.flags } };
       if (req.kind === 'settings.set') { state.flags = { ...req.flags }; return { flags: { ...state.flags } }; };

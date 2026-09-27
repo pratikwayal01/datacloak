@@ -385,6 +385,18 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   };
   renderVault();
 
+  // Lifetime total (never reset by Clear) — rendered only where the
+  // full-page sidebar provides #stat-lifetime; popup has no such element.
+  const renderLifetime = async (): Promise<void> => {
+    const el = doc.getElementById('stat-lifetime');
+    if (!el) return;
+    try {
+      const res = await deps.send({ kind: 'stats' });
+      if ('lifetime' in res) el.textContent = String(res.lifetime.cloaked);
+    } catch { /* keeps last value */ }
+  };
+  void renderLifetime();
+
   (doc.getElementById('dc-search') as HTMLInputElement).addEventListener('input', (ev) => {
     query = (ev.target as HTMLInputElement).value.toLowerCase();
     renderVault();
@@ -409,6 +421,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
           entries = [];
           revealed.clear();
           renderVault();
+          void renderLifetime();
           toast(doc, 'Vault cleared');
         }).catch(() => {});
       },

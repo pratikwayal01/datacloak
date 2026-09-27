@@ -218,6 +218,7 @@ describe('selection capture', () => {
   const memSync = (patterns: CustomPattern[] = []) => {
     let p = patterns;
     let ps: { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: object }[] } | undefined;
+    let lifetime: { cloaked: number; restored: number } | undefined;
     return {
       getFlags: async () => undefined,
       setFlags: async () => {},
@@ -225,6 +226,8 @@ describe('selection capture', () => {
       setPatterns: async (next: CustomPattern[]) => { p = next; },
       getProfiles: async () => ps,
       setProfiles: async (next: NonNullable<typeof ps>) => { ps = next; },
+      getLifetime: async () => lifetime,
+      setLifetime: async (c: NonNullable<typeof lifetime>) => { lifetime = c; },
     };
   };
   it('saves inferred kind rows expanded', async () => {
@@ -304,6 +307,24 @@ describe('lastCloak record', () => {
     };
     expect(set.error).toBeUndefined();
     expect(set.patterns[0]).toMatchObject({ name: 'Ramesh', category: 'PERSON_NAME', kind: 'name' });
+  });
+});
+
+describe('lifetime counters', () => {
+  it('accumulates across calls and survives drops + vault.clear', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const base = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    await bg.handleRequest(95, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s);
+    await bg.handleRequest(95, { kind: 'restore', text: 'nothing here' }, s);
+    const mid = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    expect(mid.cloaked - base.cloaked).toBe(1);
+    expect(mid.restored - base.restored).toBe(0);
+    await bg.handleRequest(95, { kind: 'vault.clear' }, s);
+    bg.__dropEnginesForTest();
+    const after = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    expect(after).toEqual(mid);
   });
 });
 
@@ -427,6 +448,7 @@ describe('profiles', () => {
     let patterns: CustomPattern[] = [{ name: 'Ramesh', pattern: '[Rr][Aa][Mm][Ee][Ss][Hh]', category: 'RAMESH', type: 'pii' as const }];
     let flags = { secrets: true, envVars: true, pii: true, entropy: true };
     let profiles: undefined | { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: typeof flags }[] };
+    let lifetime: { cloaked: number; restored: number } | undefined;
     return {
       getFlags: async () => flags,
       setFlags: async (f: typeof flags) => { flags = f; },
@@ -434,6 +456,8 @@ describe('profiles', () => {
       setPatterns: async (p: CustomPattern[]) => { patterns = p; },
       getProfiles: async () => profiles,
       setProfiles: async (p: NonNullable<typeof profiles>) => { profiles = p; },
+      getLifetime: async () => lifetime,
+      setLifetime: async (c: NonNullable<typeof lifetime>) => { lifetime = c; },
     };
   };
   type ProfilesRes = { activeId: string; profiles: { id: string; name: string; patterns: number }[]; error?: string };

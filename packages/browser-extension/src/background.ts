@@ -23,6 +23,8 @@ export interface SyncStore {
   setPatterns(patterns: CustomPattern[]): Promise<void>;
   getProfiles(): Promise<ProfileStore | undefined>;
   setProfiles(ps: ProfileStore): Promise<void>;
+  getLifetime(): Promise<{ cloaked: number; restored: number } | undefined>;
+  setLifetime(c: { cloaked: number; restored: number }): Promise<void>;
 }
 
 export interface EntityProfile { id: string; name: string; patterns: CustomPattern[]; flags: DetectorFlags; }
@@ -48,6 +50,7 @@ const oplog: OpEntry[] = [];
 let memoryFlags: DetectorFlags | undefined;
 let memoryPatterns: CustomPattern[] | undefined;
 let memoryProfiles: ProfileStore | undefined;
+let memoryLifetime: { cloaked: number; restored: number } | undefined;
 
 const defaultSync: SyncStore = {
   getFlags: async () => memoryFlags,
@@ -56,6 +59,8 @@ const defaultSync: SyncStore = {
   setPatterns: async (p) => { memoryPatterns = p; },
   getProfiles: async () => memoryProfiles,
   setProfiles: async (p) => { memoryProfiles = p; },
+  getLifetime: async () => memoryLifetime,
+  setLifetime: async (c) => { memoryLifetime = c; },
 };
 
 export function __dropEnginesForTest(): void {  engines.clear();
@@ -64,7 +69,7 @@ export function __dropEnginesForTest(): void {  engines.clear();
   memoryFlags = undefined;
   memoryPatterns = undefined;
   memoryProfiles = undefined;
-}
+};
 
 // ── Vault v2: origin-scoped persistent vault (see vault-store.ts) ──
 // Origin is derived from sender.tab.url in prod wiring — never message body.
@@ -218,7 +223,20 @@ function record(entry: OpEntry): void {
   if (oplog.length > OPLOG_CAP) oplog.splice(0, oplog.length - OPLOG_CAP);
 }
 
-function stats(): StatsResponse {
+// Lifetime totals: cumulative across sessions/restarts, never reset by
+// vault.clear (separate key, separate concern).
+async function bumpLifetime(sync: SyncStore, key: 'cloaked' | 'restored', by: number): Promise<void> {
+  if (by <= 0) return;
+  try {
+    const cur = (await sync.getLifetime()) ?? { cloaked: 0, restored: 0 };
+    await sync.setLifetime({
+      cloaked: cur.cloaked + (key === 'cloaked' ? by : 0),
+      restored: cur.restored + (key === 'restored' ? by : 0),
+    });
+  } catch { /* counters never break cloak/restore */ }
+}
+
+async function stats(sync: SyncStore): Promise<StatsResponse> {
   let cloaked = 0;
   let restored = 0;
   const byCategory: Record<string, number> = {};
@@ -230,7 +248,8 @@ function stats(): StatsResponse {
       restored += e.count;
     }
   }
-  return { counts: { cloaked, restored }, byCategory, oplog: [...oplog] };
+  const lifetime = (await sync.getLifetime().catch(() => undefined)) ?? { cloaked: 0, restored: 0 };
+  return { counts: { cloaked, restored }, byCategory, oplog: [...oplog], lifetime };
 }
 
 const PATTERN_TYPES = new Set(['pii', 'secret', 'credential']);
@@ -330,7 +349,7 @@ function profileList(ps: ProfileStore): { activeId: string; profiles: { id: stri
   return { activeId: ps.activeId, profiles: ps.profiles.map((p) => ({ id: p.id, name: p.name, patterns: p.patterns.length })) };
 }
 
-export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats();
+export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats(sync);
   if (req.kind === 'settings.get') return { flags: (await activeProfile(sync)).flags };
   if (req.kind === 'settings.set') {
     const updated = await writeActive(sync, (p) => ({ ...p, flags: { ...req.flags } }));
@@ -403,6 +422,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
       .filter((s) => s.confidence !== 'high')
       .map((s) => ({ original: s.original, synthetic: s.synthetic, category: s.category }));
     record({ ts: Date.now(), tabId, kind: 'cloak', ms: Date.now() - start, count: r.substitutions.length, categories: r.substitutions.map((s) => s.category), origin: vault?.origin });
+    await bumpLifetime(sync, 'cloaked', r.substitutions.length);
     lastCloak.set(tabId, {
       original: req.text,
       cloaked: r.text,
@@ -436,6 +456,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     } catch { /* fallback is best-effort */ }
   }
   record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [], origin: vault?.origin });
+  await bumpLifetime(sync, 'restored', r.restored);
   // Recased hits: expose one hit per distinct found form so the content
   // script locates each span exactly (LLMs recase fakes mid-reply).
   // Originals stay verbatim — never reshaped to the found case.
@@ -493,6 +514,8 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     setPatterns: async (p) => { await chrome.storage.sync.set({ 'dc-patterns': p }); },
     getProfiles: async () => (await chrome.storage.sync.get('dc-profiles'))['dc-profiles'] as ProfileStore | undefined,
     setProfiles: async (p) => { await chrome.storage.sync.set({ 'dc-profiles': p }); },
+    getLifetime: async () => (await chrome.storage.sync.get('dc-lifetime'))['dc-lifetime'] as { cloaked: number; restored: number } | undefined,
+    setLifetime: async (c) => { await chrome.storage.sync.set({ 'dc-lifetime': c }); },
   };
   // Encrypted origin vault in chrome.storage.local; startup prune is the
   // TTL guarantee (no chrome.alarms — service-worker lifecycle makes it unreliable).

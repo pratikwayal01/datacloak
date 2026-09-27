@@ -29,6 +29,7 @@ const skeleton = (withDiff: boolean): void => {
     <button id="fp-fold" type="button" style="display:none">fold</button>
     <div class="fp-brand" id="fp-logo" title="Fold sidebar" role="button" tabindex="0"><svg></svg><div><div class="fp-name">DataCloak</div></div></div>
     ${withDiff ? '<div id="diff-wrap"></div>' : ''}
+    <div id="stat-lifetime">0</div>
     <div id="toast"></div>`;
 };
 
@@ -36,7 +37,7 @@ interface Store { patterns: CustomPattern[]; record: unknown; sets: unknown[][];
 
 const fakeDeps = (store: Store): PopupDeps => ({
   send: async (req) => {
-    if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [] };
+    if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [], lifetime: { cloaked: 42, restored: 3 } };
     if (req.kind === 'settings.get') return { flags: { secrets: true, envVars: true, pii: true, entropy: true } };
     if (req.kind === 'patterns.get') return { patterns: store.patterns };
     if (req.kind === 'patterns.set') {
@@ -114,6 +115,14 @@ describe('popup diff view', () => {
     await renderPopup(document, fakeDeps(store));
     await flush();
     expect(document.getElementById('diff-wrap')?.childNodes).toHaveLength(0);
+  });
+
+  it('lifetime total renders where the sidebar provides it', async () => {
+    skeleton(true);
+    const store: Store = { patterns: [], record: null, sets: [] };
+    await renderPopup(document, fakeDeps(store), { fullPage: true });
+    await flush();
+    expect(document.getElementById('stat-lifetime')?.textContent).toBe('42');
   });
 });
 
