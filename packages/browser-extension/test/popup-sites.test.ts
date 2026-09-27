@@ -74,7 +74,7 @@ const fakeDeps = (over: Partial<PopupDeps> = {}): { deps: PopupDeps; calls: { to
     setTheme: async () => {},
     systemIsLight: () => false,
     onSystemThemeChange: () => {},
-    getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, sensitivity: 'low', style: 'realistic', allowlist: [] }),
+    getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, sensitivity: 'low', style: 'realistic', allowlist: [] }),
     setUiSettings: async () => {},
     estimateStorage: async () => null,
     listStorage: async () => [],

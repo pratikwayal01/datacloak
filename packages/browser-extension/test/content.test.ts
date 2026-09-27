@@ -269,3 +269,18 @@ describe('review dismiss all', () => {
     disarm();
   });
 });
+
+describe('page badge flag', () => {
+  it('badge:false sends without ever creating a badge', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">john.doe@acme.com</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, fakeSend(() => 'CLOAKED@x.net'), { mode: 'auto', badge: false });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('CLOAKED@x.net');
+    expect(submitted).toBe(1);
+    expect(document.querySelector('.dc-badge')).toBeNull();
+    disarm();
+  });
+});

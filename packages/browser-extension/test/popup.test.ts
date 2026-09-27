@@ -45,6 +45,7 @@ const skeleton = (): void => {
       <input type="checkbox" id="s-autodetect"><input type="checkbox" id="s-clipboard">
       <input type="checkbox" id="s-network"><input type="checkbox" id="s-blur">
       <input type="checkbox" id="s-notif"><input type="checkbox" id="s-review">
+      <input type="checkbox" id="s-pagebadge">
       <button class="risk-btn" data-risk="low">Low</button>
       <button class="risk-btn" data-risk="medium">Med</button>
       <button class="risk-btn" data-risk="high">High</button>
@@ -315,14 +316,14 @@ describe('settings + dev panels', () => {
     expect((document.getElementById('s-clipboard') as HTMLInputElement).checked).toBe(true);
     (document.getElementById('s-reset') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
-    for (const [id, val] of [['s-autodetect', true], ['s-clipboard', false], ['s-network', true], ['s-blur', true], ['s-notif', true], ['s-review', false]] as const) {
+    for (const [id, val] of [['s-autodetect', true], ['s-clipboard', false], ['s-network', true], ['s-blur', true], ['s-notif', true], ['s-review', false], ['s-pagebadge', true]] as const) {
       expect((document.getElementById(id) as HTMLInputElement).checked).toBe(val);
     }
     expect((document.getElementById('s-style') as HTMLSelectElement).value).toBe('realistic');
     expect((document.getElementById('s-theme') as HTMLSelectElement).value).toBe('system');
     expect(document.querySelector('.risk-btn[data-risk="low"]')?.className).toContain('active-low');
     expect(document.getElementById('s-allowlist-add')).toBeNull();
-    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, sensitivity: 'low', style: 'realistic', allowlist: [] });
+    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, sensitivity: 'low', style: 'realistic', allowlist: [] });
     // toggle once after reset → single state flip (no stacked listeners)
     const blur = document.getElementById('s-blur') as HTMLInputElement;
     blur.checked = false;
@@ -342,6 +343,18 @@ describe('settings + dev panels', () => {
     (document.getElementById('s-save') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.review).toBe(true);
+  });
+  it('page badge toggle persists on save', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    expect((document.getElementById('s-pagebadge') as HTMLInputElement).checked).toBe(true);
+    const badge = document.getElementById('s-pagebadge') as HTMLInputElement;
+    badge.checked = false;
+    badge.dispatchEvent(new Event('change', { bubbles: true }));
+    (document.getElementById('s-save') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.pageBadge).toBe(false);
   });
   it('clear vault asks confirm first, then empties rows + badge', async () => {
     skeleton();

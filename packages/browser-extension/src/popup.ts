@@ -29,12 +29,12 @@ export function applyTheme(doc: Document, theme: ResolvedTheme): void {
 // ── UI settings (chrome.storage.sync `dc-settings`) ──
 export interface UiSettings {
   autodetect: boolean; clipboard: boolean; network: boolean;
-  blur: boolean; notif: boolean; review: boolean;
+  blur: boolean; notif: boolean; review: boolean; pageBadge: boolean;
   sensitivity: 'low' | 'medium' | 'high'; style: string; allowlist: string[];
 }
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   autodetect: true, clipboard: false, network: true,
-  blur: true, notif: true, review: false,
+  blur: true, notif: true, review: false, pageBadge: true,
   sensitivity: 'low', style: 'realistic', allowlist: [],
 };
 
@@ -375,7 +375,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   const paintSettings = (): void => {
     for (const [id, val] of [
       ['s-autodetect', ui.autodetect], ['s-clipboard', ui.clipboard], ['s-network', ui.network],
-      ['s-blur', ui.blur], ['s-notif', ui.notif], ['s-review', ui.review],
+      ['s-blur', ui.blur], ['s-notif', ui.notif], ['s-review', ui.review], ['s-pagebadge', ui.pageBadge],
     ] as const) {
       const el = doc.getElementById(id) as HTMLInputElement | null;
       if (el) el.checked = val;
@@ -399,6 +399,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); });
   bindCheck('s-notif', (v) => { ui.notif = v; });
   bindCheck('s-review', (v) => { ui.review = v; });
+  bindCheck('s-pagebadge', (v) => { ui.pageBadge = v; });
   doc.querySelectorAll('.risk-btn').forEach((btn) => {
     if ((btn as HTMLElement).dataset.bound) return;
     (btn as HTMLElement).dataset.bound = '1';

@@ -2,7 +2,7 @@ import { findComposer, findSendButton, getFieldText, setFieldText } from './site
 import type { BgRequest, BgResponse, CloakResponse } from './protocol.js';
 
 export type SendFn = (req: BgRequest) => Promise<BgResponse>;
-export interface ArmOpts { mode: 'auto' | 'review'; }
+export interface ArmOpts { mode: 'auto' | 'review'; badge?: boolean; }
 
 /** Synchronously swap known synthetics for originals (split/join: no regex-escaping hazards). */
 export function restoreCached(text: string, cache: Map<string, string>): string {
@@ -115,8 +115,11 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   const d = doc as unknown as { __dcArm?: { disarm(): void } };
   try { d.__dcArm?.disarm(); } catch { /* stale handle */ }
   let proceeding = false;
-  const badge = ensureBadge(doc);
-  badge.textContent = 'DataCloak active';
+  // Page badge is user-hideable (Settings → Page badge); review panel is unaffected.
+  const showBadge = opts.badge !== false;
+  const badgeText = (t: string): void => { if (showBadge) ensureBadge(doc).textContent = t; };
+  const badgeCount = (count: number, uncertain = 0): void => { if (showBadge) setBadge(doc, count, uncertain); };
+  if (showBadge) ensureBadge(doc).textContent = 'DataCloak active';
 
   const proceed = (field: HTMLElement): void => {
     proceeding = true;
@@ -137,22 +140,22 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
       res = await send({ kind: 'cloak', text });
     } catch {
       // Stale content script (extension reloaded): fail closed — never send raw.
-      ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
+      badgeText('DataCloak disconnected — refresh the page');
       return;
     }
-    if (!('count' in res) || res.count === 0) { setBadge(doc, 0); proceed(field); return; }
+    if (!('count' in res) || res.count === 0) { badgeCount(0); proceed(field); return; }
     const cloak = res as CloakResponse;
     const uncertainCount = cloak.uncertain?.length ?? 0;
     if (opts.mode === 'auto') {
       // Auto mode: badge count only — no panel, no intercept change.
       setFieldText(field, cloak.text);
-      setBadge(doc, cloak.count, uncertainCount);
+      badgeCount(cloak.count, uncertainCount);
       proceed(field);
       return;
     }
     renderReviewPanel(doc, cloak, (finalText) => {
       setFieldText(field, finalText);
-      setBadge(doc, cloak.count, uncertainCount);
+      badgeCount(cloak.count, uncertainCount);
       proceed(field);
     });
   };
@@ -209,7 +212,7 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   return handle;
 }
 
-export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string, string> = new Map()): MutationObserver {
+export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string, string> = new Map(), showBadge = true): MutationObserver {
   const doc = logRoot.ownerDocument ?? (logRoot as Document);
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Map a char offset in the concatenated group text to its (node, inner offset).
@@ -281,7 +284,7 @@ export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string,
         // Stale content script (extension reloaded): stop observing so the
         // dead sendMessage doesn't spam errors every batch.
         obs.disconnect();
-        ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
+        if (showBadge) ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
         return;
       }
       if (!('restored' in res) || res.restored === 0) continue;
@@ -377,10 +380,12 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.sto
     const host = typeof location !== 'undefined' ? location.host.toLowerCase() : '';
     if (host && !shouldArmForSite(host, (vals['dc-sites'] as UserSitesShape | undefined) ?? undefined)) return;
     // Review toggle lives in Settings (dc-settings); legacy dc-mode 'review' still honored.
-    const review = (vals['dc-settings'] as { review?: boolean } | undefined)?.review === true;
+    const uiSettings = vals['dc-settings'] as { review?: boolean; pageBadge?: boolean } | undefined;
+    const review = uiSettings?.review === true;
+    const showBadge = uiSettings?.pageBadge ?? true;
     const mode = vals['dc-mode'] === 'review' || review ? 'review' : 'auto';
-    armComposer(document, send, { mode });
-    if (document.body) observeResponses(document.body, send);
+    armComposer(document, send, { mode, badge: showBadge });
+    if (document.body) observeResponses(document.body, send, new Map(), showBadge);
   }).catch(() => {
     // Reload raced the initial read — the orphaned script stays inert.
   });
