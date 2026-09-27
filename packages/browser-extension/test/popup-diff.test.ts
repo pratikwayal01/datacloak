@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderPopup, type PopupDeps } from '../src/popup.js';
 import type { BgResponse } from '../src/protocol.js';
 import type { CustomPattern, VaultEntry } from '@pratikw/detect';
@@ -215,5 +217,19 @@ describe('fullpage shell memory', () => {
     await flush();
     expect(document.getElementById('panel-vault')?.classList.contains('active')).toBe(true);
     localStorage.clear();
+  });
+});
+
+describe('fullpage shell static contract', () => {
+  const html = (): string => readFileSync(join(process.cwd(), 'fullpage.html'), 'utf8');
+  it('nav uses inline SVG (no CDN), about mirrors popup', () => {
+    const h = html();
+    expect(h).not.toMatch(/cdnjs|cloudflare|tabler-icons/);
+    expect(h.match(/<button class="tab(?: active)?"/g)?.length).toBe(4);
+    expect(h).toContain('fp-nav-label');
+    expect(h).toContain('about-hero');
+    expect(h).toContain('id="fp-fold"');
+    expect(h).toContain('dist/popup.js');
+    expect(h).not.toContain('popup.css');
   });
 });

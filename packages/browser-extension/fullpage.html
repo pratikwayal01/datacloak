@@ -29,10 +29,10 @@
   </button>
 
   <nav class="fp-nav">
-    <button class="tab active" data-tab="vault" type="button"><span class="fp-nav-label">Vault</span> <span class="tab-badge" id="vault-badge">0</span></button>
-    <button class="tab" data-tab="settings" type="button"><span class="fp-nav-label">Settings</span></button>
-    <button class="tab" data-tab="dev" type="button"><span class="fp-nav-label">Dev Tools</span></button>
-    <button class="tab" data-tab="about" type="button"><span class="fp-nav-label">About</span></button>
+    <button class="tab active" data-tab="vault" type="button"><svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="2.5" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 2.5V2a2 2 0 014 0v.5" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/></svg> <span class="fp-nav-label">Vault</span> <span class="tab-badge" id="vault-badge">0</span></button>
+    <button class="tab" data-tab="settings" type="button"><svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1.2M6 9.8V11M1 6h1.2M9.8 6H11M2.3 2.3l.84.84M8.86 8.86l.84.84M9.7 2.3l-.84.84M3.14 8.86l-.84.84" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> <span class="fp-nav-label">Settings</span></button>
+    <button class="tab" data-tab="dev" type="button"><svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M4 4L1.5 6 4 8M8 4l2.5 2L8 8M6.5 3l-1 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="fp-nav-label">Dev Tools</span></button>
+    <button class="tab" data-tab="about" type="button"><svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 5.5v3M6 3.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg> <span class="fp-nav-label">About</span></button>
   </nav>
   <button class="fp-fold" id="fp-fold" type="button" title="Fold sidebar">⇤</button>
 
@@ -192,17 +192,64 @@
 
   <section class="panel" id="panel-about">
     <h2 class="fp-h">About</h2>
+    <div class="about-hero">
+      <div class="about-icon">
+        <svg width="26" height="28" viewBox="0 0 18 20" fill="none">
+          <path d="M9 1L1 4.5V9.5C1 13.7 4.4 17.7 9 19C13.6 17.7 17 13.7 17 9.5V4.5L9 1Z"
+                fill="rgba(0,212,170,.15)" stroke="#00D4AA" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 10L8 12L12 8" stroke="#00D4AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="about-name">DataCloak</div>
+      <div class="about-version">v0.2.0 — chrome extension</div>
+    </div>
     <div class="about-links">
-      <a class="about-link" href="https://github.com/pratikwayal01/datacloak/blob/master/docs/changelog.md" target="_blank" rel="noopener">Changelog</a>
-      <a class="about-link" href="https://pratikwayal01.github.io/datacloak/" target="_blank" rel="noopener">Documentation</a>
-      <a class="about-link" href="https://github.com/pratikwayal01/datacloak" target="_blank" rel="noopener">GitHub</a>
-      <a class="about-link" href="https://github.com/pratikwayal01/datacloak/issues/new" target="_blank" rel="noopener">Send feedback</a>
-      <a class="about-link" href="https://pratikwayal01.github.io/datacloak/privacy/" target="_blank" rel="noopener">Privacy policy</a>
+      <a class="about-link" href="https://github.com/pratikwayal01/datacloak/blob/master/docs/changelog.md" target="_blank" rel="noopener" id="link-changelog">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2h10v10H2z" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 5h5M4.5 7h5M4.5 9h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+          Changelog
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="https://pratikwayal01.github.io/datacloak/" target="_blank" rel="noopener" id="link-docs">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 5v4M7 3.5v.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+          Documentation
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="https://github.com/pratikwayal01/datacloak" target="_blank" rel="noopener" id="link-github">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5C3.96 1.5 1.5 3.96 1.5 7c0 2.43 1.57 4.49 3.75 5.22.27.05.37-.12.37-.26v-.92c-1.52.33-1.84-.73-1.84-.73-.25-.63-.61-.8-.61-.8-.5-.34.04-.33.04-.33.55.04.84.56.84.56.49.84 1.28.6 1.6.46.05-.36.19-.6.35-.73-1.21-.14-2.49-.6-2.49-2.69 0-.59.21-1.08.56-1.46-.06-.14-.24-.69.05-1.44 0 0 .46-.15 1.5.56A5.2 5.2 0 017 4.89c.46.002.93.062 1.36.18 1.04-.7 1.5-.56 1.5-.56.29.75.11 1.3.05 1.44.35.38.56.87.56 1.46 0 2.09-1.28 2.55-2.5 2.68.2.17.37.5.37 1.01v1.5c0 .14.1.31.38.26A5.508 5.508 0 0012.5 7C12.5 3.96 10.04 1.5 7 1.5z" fill="currentColor"/></svg></span>
+          GitHub
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="https://github.com/pratikwayal01/datacloak/issues/new" target="_blank" rel="noopener" id="link-feedback">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2.5h10a.5.5 0 01.5.5v6a.5.5 0 01-.5.5H4.5L2 11.5V3a.5.5 0 01.5-.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></span>
+          Send feedback
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
+      <a class="about-link" href="https://pratikwayal01.github.io/datacloak/privacy/" target="_blank" rel="noopener" id="link-privacy">
+        <div class="about-link-left">
+          <span class="about-link-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5l4.5 1.7v3.3c0 2.8-1.9 4.7-4.5 5.7-2.6-1-4.5-2.9-4.5-5.7V3.2L7 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg></span>
+          Privacy policy
+        </div>
+        <span class="about-link-arrow"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+      </a>
     </div>
     <div class="permission-list">
       <div class="permission-list-label">Permissions used</div>
-      <div class="perm-row"><div><div>storage</div><div class="perm-desc">Persist your vault and settings locally</div></div></div>
-      <div class="perm-row"><div><div>host permissions</div><div class="perm-desc">Run on supported AI chat sites only</div></div></div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="3" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4 3V2a2.5 2.5 0 015 0v1" stroke="currentColor" stroke-width="1.1"/></svg></span>
+        <div><div>storage</div><div class="perm-desc">Persist your vault and settings locally</div></div>
+      </div>
+      <div class="perm-row">
+        <span class="perm-icon"><svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M4 6.5h5M7 4.5l2 2-2 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div><div>host permissions</div><div class="perm-desc">Run on supported AI chat sites only</div></div>
+      </div>
     </div>
   </section>
 

@@ -39,8 +39,8 @@ body {
   font-size: 14px;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 .fp-nav .tab:hover { background: var(--surface2); }
 .fp-nav .tab.active {
@@ -58,6 +58,7 @@ body.fp-folded .fp-nav .tab-badge,
 body.fp-folded .fp-stats,
 body.fp-folded #dc-mode-toggle span:last-child { display: none; }
 body.fp-folded .fp-nav .tab { justify-content: center; padding: 10px 0; }
+body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
 .fp-fold {
   background: transparent;
   border: 1px solid var(--border);
@@ -229,8 +230,29 @@ body.fp-folded .fp-nav .tab { justify-content: center; padding: 10px 0; }
 .storage-meta, .storage-table { font-size: 12px; color: var(--muted); }
 .storage-table th, .storage-table td { padding: 6px 10px; text-align: left; }
 .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 0 6px; }
-.about-links { display: flex; flex-direction: column; gap: 4px; }
-.about-link { color: var(--accent); text-decoration: none; padding: 6px 0; }
+.about-links { display: flex; flex-direction: column; gap: 6px; max-width: 560px; }
+.about-link {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  text-decoration: none; color: var(--text); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background .12s, border-color .12s;
+}
+.about-link:hover { background: var(--surface2); border-color: var(--accent); }
+.about-link-left { display: flex; align-items: center; gap: 10px; }
+.about-link-icon { color: var(--muted); display: flex; }
+.about-link-arrow { color: var(--muted); display: flex; }
+.about-hero { text-align: left; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; max-width: 560px; display: flex; gap: 14px; align-items: center; }
+.about-icon {
+  width: 52px; height: 52px; flex-shrink: 0;
+  background: var(--accent-dim);
+  border: 1px solid rgba(0,212,170,.2);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.about-name { font-size: 17px; font-weight: 600; }
+.about-version { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.permission-list { margin-top: 16px; max-width: 560px; }
 .perm-desc { color: var(--muted); font-size: 12px; }
 .perm-row { padding: 6px 0; }
 .shortcut-display kbd { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); }
