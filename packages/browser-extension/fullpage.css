@@ -215,6 +215,9 @@ body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
 .toggle-wrap input:checked + .toggle-track::after { transform: translateX(16px); background: var(--accent); }
 .risk-row { display: flex; gap: 6px; }
 .risk-btn { flex: 1; background: var(--chip-bg); border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+.risk-btn.active-low    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.risk-btn.active-medium { border-color: var(--warn);   color: var(--warn);   background: rgba(255,181,71,.1); }
+.risk-btn.active-high   { border-color: var(--danger); color: var(--danger); background: rgba(255,94,94,.1); }
 .cat-btn { flex-shrink: 0; background: var(--chip-bg); border: 1px solid transparent; color: var(--muted); border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all .12s; }
 .cat-btn:hover { border-color: var(--border); color: var(--text); }
 .cat-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
