@@ -3,7 +3,7 @@ import { armComposer, observeResponses, restoreCached, shouldArmForSite } from '
 import type { BgRequest, BgResponse } from '../src/protocol.js';
 
 const fakeSend = (map: (t: string) => string) => async (req: BgRequest): Promise<BgResponse> => {
-  if (req.kind === 'cloak') return { text: map(req.text), count: req.text === map(req.text) ? 0 : 1, categories: ['EMAIL'], uncertain: [] };
+  if (req.kind === 'cloak') return { text: map(req.text), count: req.text === map(req.text) ? 0 : 1, categories: ['EMAIL'], uncertain: [], subs: [] };
   return { text: req.text, restored: 0 };
 };
 
@@ -67,7 +67,7 @@ describe('content', () => {
     g.chrome = {
       runtime: { sendMessage: async (req: BgRequest): Promise<BgResponse> =>
         req.kind === 'cloak'
-          ? { text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'], uncertain: [] }
+          ? { text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'], uncertain: [], subs: [] }
           : { text: (req as unknown as { text: string }).text, restored: 0 } },
       storage: { sync: { get: async () => ({ 'dc-settings': { review: true } }) } },
     };
@@ -171,8 +171,12 @@ describe('review uncertain rows', () => {
   const uncertainSend = async (req: BgRequest): Promise<BgResponse> => {
     if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
     return {
-      text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
+      text: 'hi XXX, mail YYY', count: 2, categories: ['PERSON_NAME', 'EMAIL'],
       uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+      subs: [
+        { original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' },
+        { original: 'ramesh@gmail.com', synthetic: 'YYY', category: 'EMAIL' },
+      ],
     };
   };
   const armReview = (): { disarm: () => void; submitted: () => number } => {
@@ -183,25 +187,27 @@ describe('review uncertain rows', () => {
     document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     return { disarm, submitted: () => submitted };
   };
+  const panelHost = (): HTMLElement | null => document.querySelector('.dc-review-panel');
   const panelButtons = (): HTMLButtonElement[] =>
-    [...document.querySelectorAll('.dc-review-panel button')] as HTMLButtonElement[];
+    [...(panelHost()?.shadowRoot?.querySelectorAll('button') ?? [])] as HTMLButtonElement[];
+  const panelText = (): string => panelHost()?.shadowRoot?.textContent ?? '';
 
-  it('renders one row per uncertain item', async () => {
+  it('renders one row per detected value, not just uncertain ones', async () => {
     const { disarm } = armReview();
     await new Promise((r) => setTimeout(r, 20));
-    const panel = document.querySelector('.dc-review-panel')?.textContent ?? '';
-    expect(panel).toContain('PERSON_NAME');
-    expect(panel).toContain('ramesh → XXX');
+    expect(panelText()).toContain('PERSON_NAME');
+    expect(panelText()).toContain('EMAIL');
+    expect(panelHost()?.shadowRoot?.querySelectorAll('.item')).toHaveLength(2);
     disarm();
   });
 
-  it('Dismiss reverts that sub to the original on send', async () => {
+  it('Reveal reverts that sub to the original on send', async () => {
     const t = armReview();
     await new Promise((r) => setTimeout(r, 20));
-    panelButtons().find((b) => b.textContent === 'Dismiss')!.click();
-    panelButtons().find((b) => b.textContent === 'Cloak all & send')!.click();
+    panelButtons().find((b) => b.textContent === 'Reveal')!.click();
+    panelButtons().find((b) => b.textContent === 'Send cloaked →')!.click();
     await new Promise((r) => setTimeout(r, 20));
-    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh bye');
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh, mail YYY');
     expect(t.submitted()).toBe(1);
     t.disarm();
   });
@@ -209,9 +215,9 @@ describe('review uncertain rows', () => {
   it('Keep (default) retains the synthetic on send', async () => {
     const t = armReview();
     await new Promise((r) => setTimeout(r, 20));
-    panelButtons().find((b) => b.textContent === 'Cloak all & send')!.click();
+    panelButtons().find((b) => b.textContent === 'Send cloaked →')!.click();
     await new Promise((r) => setTimeout(r, 20));
-    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi XXX bye');
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi XXX, mail YYY');
     expect(t.submitted()).toBe(1);
     t.disarm();
   });
@@ -224,7 +230,7 @@ describe('review uncertain rows', () => {
     document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     await new Promise((r) => setTimeout(r, 20));
     expect(document.querySelector('.dc-review-panel')).toBeNull();
-    expect(document.querySelector('.dc-badge')?.textContent).toBe('🔒 1 cloaked ⚠️ 1 uncertain');
+    expect(document.querySelector('.dc-badge')?.textContent).toBe('🔒 2 cloaked ⚠️ 1 uncertain');
     expect(submitted).toBe(1);
     disarm();
   });
@@ -245,8 +251,8 @@ describe('single armed instance', () => {
   });
 });
 
-describe('review dismiss all', () => {
-  it('Dismiss all sends the fully original text', async () => {
+describe('review send original', () => {
+  const armOriginal = (): { disarm: () => void; submitted: () => number } => {
     document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
     let submitted = 0;
     document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
@@ -255,18 +261,36 @@ describe('review dismiss all', () => {
       return {
         text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
         uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+        subs: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
       };
     };
     const { disarm } = armComposer(document, send, { mode: 'review' });
     document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    return { disarm, submitted: () => submitted };
+  };
+  const shadowButtons = (): HTMLButtonElement[] =>
+    [...(document.querySelector('.dc-review-panel')?.shadowRoot?.querySelectorAll('button') ?? [])] as HTMLButtonElement[];
+
+  it('✗ Send original submits the unmodified text', async () => {
+    const t = armOriginal();
     await new Promise((r) => setTimeout(r, 20));
-    const btns = [...document.querySelectorAll('.dc-review-panel button')] as HTMLButtonElement[];
-    btns.find((b) => b.textContent === 'Dismiss all')!.click();
+    shadowButtons().find((b) => b.textContent === '✗ Send original')!.click();
     await new Promise((r) => setTimeout(r, 20));
     expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh bye');
-    expect(submitted).toBe(1);
+    expect(t.submitted()).toBe(1);
     expect(document.querySelector('.dc-review-panel')).toBeNull();
-    disarm();
+    t.disarm();
+  });
+
+  it('scrim click cancels the same way', async () => {
+    const t = armOriginal();
+    await new Promise((r) => setTimeout(r, 20));
+    (document.querySelector('.dc-review-panel') as HTMLElement).click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh bye');
+    expect(t.submitted()).toBe(1);
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    t.disarm();
   });
 });
 

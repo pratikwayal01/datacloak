@@ -246,7 +246,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
       .map((e, i) => ({ e, i }))
       .filter(({ e }) =>
         (activeCat === 'all' || e.category.toLowerCase() === activeCat) &&
-        (!query || e.synthetic.toLowerCase().includes(query) || e.category.toLowerCase().includes(query)));
+        (!query || e.synthetic.toLowerCase().includes(query) || e.original.toLowerCase().includes(query) || e.category.toLowerCase().includes(query)));
 
   const paintEmpty = (empty: HTMLElement, isEmpty: boolean): void => {
     empty.style.display = isEmpty ? '' : 'none';

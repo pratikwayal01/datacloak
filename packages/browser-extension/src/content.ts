@@ -46,66 +46,132 @@ const setBadge = (doc: Document, count: number, uncertain = 0): void => {
 
 // ponytail: review MVP = uncertain rows over the Cloak-all button; per-item
 // Accept/Skip lives here now that confidence rides the cloak response.
+const CARD_CSS = [
+  ':host{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(5,7,12,.55);font:13px \'Inter\',system-ui,sans-serif}',
+  '.dc-card{background:#0F1117;color:#E4E8F0;border:1px solid #2A3050;border-radius:14px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.5);width:min(520px,92vw);max-height:80vh;overflow:auto}',
+  '.dc-head{font-weight:700;font-size:14px;margin-bottom:10px}',
+  '.dc-item{border:1px solid #2A3050;border-radius:10px;padding:10px 12px;margin:8px 0;background:#1C2033}',
+  '.dc-item[data-state="revealed"]{border-color:#FFB547}',
+  '.dc-pill{display:inline-block;background:#252B42;color:#00D4AA;border-radius:4px;padding:1px 7px;font-size:11px;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px}',
+  '.dc-orig{font-family:\'JetBrains Mono\',monospace;font-size:12px;color:#8B95A6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '.dc-synth{font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:#E4E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 8px}',
+  '.dc-toggle{display:flex;gap:8px}',
+  '.dc-btn{font:inherit;color:#E4E8F0;background:#222640;border:1px solid #2A3050;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer}',
+  '.dc-btn.kept{border-color:#00D4AA;color:#00D4AA}',
+  '.dc-btn.revealed{border-color:#FFB547;color:#FFB547}',
+  '.dc-foot{display:flex;gap:8px;margin-top:12px}',
+  '.dc-send{flex:1;background:rgba(0,212,170,.12);border:1px solid #00D4AA;color:#00D4AA;font-weight:700;border-radius:8px;padding:8px;font-size:13px;cursor:pointer;font:inherit}',
+  '.dc-cancel{background:transparent;border:1px solid #2A3050;color:#8B95A6;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font:inherit}',
+].join('\n');
+
+/** Shadow card: page author CSS can't restyle our buttons; adopted sheets
+ *  (constructable stylesheets bypass style-src) with a plain <style>
+ *  fallback for older engines. A <style> in shadow still obeys page CSP —
+ *  shadow DOM buys isolation, not exemption. */
 const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalText: string) => void): void => {
   doc.querySelector('.dc-review-panel')?.remove();
+  const host = doc.createElement('div');
+  host.className = 'dc-review-panel';
+  const sh = host.attachShadow({ mode: 'open' });
+  let styled = false;
+  try {
+    const Ctor = (globalThis as unknown as { CSSStyleSheet?: new () => { replaceSync(c: string): void } }).CSSStyleSheet;
+    if (Ctor && 'adoptedStyleSheets' in sh) {
+      const sheet = new Ctor();
+      sheet.replaceSync(CARD_CSS);
+      (sh as unknown as { adoptedStyleSheets: unknown[] }).adoptedStyleSheets = [sheet];
+      styled = true;
+    }
+  } catch { /* fall through to <style> */ }
+  if (!styled) {
+    const style = doc.createElement('style');
+    style.textContent = CARD_CSS;
+    sh.appendChild(style);
+  }
   const panel = doc.createElement('div');
-  panel.className = 'dc-review-panel';
-  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:340px');
+  panel.className = 'dc-card';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Review cloaked values');
   const head = doc.createElement('div');
-  head.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) `;
+  head.className = 'dc-head';
+  head.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) — review each value:`;
   panel.appendChild(head);
-  // Uncertain rows resolve before Send: Dismiss reverts that sub to its
-  // original in the outgoing text; Keep (default) leaves the synthetic.
-  const uncertain = res.uncertain ?? [];
-  const dismissed = new Set<number>();
-  const revertDismissed = (text: string, ids: Set<number> = dismissed): string => {
+  // Every detected value gets a row (not just uncertain ones): Keep sends the
+  // synthetic, Reveal swaps it back to the original in the outgoing text.
+  const items = (res.subs?.length ? res.subs : (res.uncertain ?? [])).map((s, i) => ({ id: i, ...s }));
+  const states = new Map<number, 'kept' | 'revealed'>(items.map((s) => [s.id, 'kept']));
+  const revertRevealed = (text: string, ids?: Set<number>): string => {
     let out = text;
-    for (const [idx, u] of uncertain.entries()) {
-      if (ids.has(idx) && u.synthetic) out = out.split(u.synthetic).join(u.original);
+    const targets = [...items]
+      .filter((s) => (ids ? ids.has(s.id) : states.get(s.id) === 'revealed'))
+      .sort((a, b) => b.synthetic.length - a.synthetic.length);
+    for (const s of targets) {
+      if (s.synthetic) out = out.split(s.synthetic).join(s.original);
     }
     return out;
   };
-  for (const [idx, u] of uncertain.entries()) {
-    const row = doc.createElement('div');
-    row.setAttribute('style', 'display:flex;gap:6px;align-items:center;margin:6px 0');
+  for (const sub of items) {
+    const div = doc.createElement('div');
+    div.className = 'item';
+    div.dataset.id = String(sub.id);
+    div.dataset.state = 'kept';
     const pill = doc.createElement('span');
-    pill.textContent = u.category;
-    pill.setAttribute('style', 'background:#eee;border-radius:4px;padding:0 6px;font-size:11px');
-    const vals = doc.createElement('span');
-    vals.textContent = `${u.original} → ${u.synthetic}`;
+    pill.className = 'dc-pill';
+    pill.textContent = sub.category;
+    const orig = doc.createElement('div');
+    orig.className = 'dc-orig';
+    orig.textContent = sub.original;
+    const synth = doc.createElement('div');
+    synth.className = 'dc-synth';
+    synth.textContent = `→ ${sub.synthetic}`;
+    const toggle = doc.createElement('div');
+    toggle.className = 'dc-toggle';
     const keep = doc.createElement('button');
+    keep.className = 'dc-btn kept';
     keep.textContent = 'Keep';
-    const dismiss = doc.createElement('button');
-    dismiss.textContent = 'Dismiss';
+    keep.setAttribute('data-action', 'keep');
+    const reveal = doc.createElement('button');
+    reveal.className = 'dc-btn';
+    reveal.textContent = 'Reveal';
+    reveal.setAttribute('data-action', 'reveal');
     const paint = (): void => {
-      row.style.opacity = dismissed.has(idx) ? '.55' : '1';
-      keep.disabled = !dismissed.has(idx);
-      dismiss.disabled = dismissed.has(idx);
+      const st = states.get(sub.id) ?? 'kept';
+      div.dataset.state = st;
+      keep.classList.toggle('kept', st === 'kept');
+      reveal.classList.toggle('revealed', st === 'revealed');
     };
-    keep.addEventListener('click', () => { dismissed.delete(idx); paint(); });
-    dismiss.addEventListener('click', () => { dismissed.add(idx); paint(); });
-    paint();
-    row.append(pill, vals, keep, dismiss);
-    panel.appendChild(row);
+    keep.addEventListener('click', () => { states.set(sub.id, 'kept'); paint(); });
+    reveal.addEventListener('click', () => { states.set(sub.id, 'revealed'); paint(); });
+    toggle.append(keep, reveal);
+    div.append(pill, orig, synth, toggle);
+    panel.appendChild(div);
   }
-  const btn = doc.createElement('button');
-  btn.textContent = 'Cloak all & send';
-  btn.addEventListener('click', () => {
-    panel.remove();
-    onConfirm(revertDismissed(res.text));
+  const foot = doc.createElement('div');
+  foot.className = 'dc-foot';
+  const send = doc.createElement('button');
+  send.className = 'dc-send';
+  send.textContent = 'Send cloaked →';
+  send.addEventListener('click', () => {
+    host.remove();
+    onConfirm(revertRevealed(res.text));
   });
-  panel.appendChild(btn);
-  if (uncertain.length > 0) {
-    const all = doc.createElement('button');
-    all.textContent = 'Dismiss all';
-    all.addEventListener('click', () => {
-      panel.remove();
-      onConfirm(revertDismissed(res.text, new Set(uncertain.keys())));
-    });
-    panel.appendChild(all);
-  }
-  doc.body.appendChild(panel);
-  (btn as HTMLButtonElement).focus();
+  const cancel = doc.createElement('button');
+  cancel.className = 'dc-cancel';
+  cancel.textContent = '✗ Send original';
+  const sendOriginal = (): void => {
+    host.remove();
+    onConfirm(revertRevealed(res.text, new Set(items.map((s) => s.id))));
+  };
+  cancel.addEventListener('click', sendOriginal);
+  foot.append(send, cancel);
+  panel.appendChild(foot);
+  sh.appendChild(panel);
+  // Scrim click cancels the same way "Send original" does.
+  host.addEventListener('click', (ev) => {
+    if (ev.target === host) sendOriginal();
+  });
+  doc.body.appendChild(host);
+  send.focus();
 };
 
 export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disarm(): void } {

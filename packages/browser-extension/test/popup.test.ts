@@ -191,6 +191,11 @@ describe('popup tabs + vault', () => {
     expect(document.querySelectorAll('#dc-vault .vault-row')).toHaveLength(1);
     expect(document.getElementById('stat-total')?.textContent).toBe('2');
     expect(document.getElementById('vault-badge')?.textContent).toBe('2');
+    // Original values are searchable too — the query stays local.
+    search.value = 'alice.real';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(document.querySelectorAll('#dc-vault .vault-row')).toHaveLength(1);
+    expect(document.querySelector('#dc-vault .vault-row')?.textContent).toContain('alice.synth@example.net');
   });
   it('copy buttons copy the synthetic, copy-map copies JSON map', async () => {
     skeleton();
@@ -239,6 +244,16 @@ describe('popup tabs + vault', () => {
     expect(out).not.toContain('sk-live-abcdef123456');
     expect(out).toMatch(/vault: 2 entries/);
     expect(out).toMatch(/unknown command/);
+  });
+  it('dev Clear log empties the console output', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    const input = document.getElementById('console-input') as HTMLInputElement;
+    pressEnter(input, 'help');
+    expect(document.getElementById('console-out')?.childNodes.length).toBeGreaterThan(0);
+    (document.getElementById('dev-clear-log') as HTMLButtonElement).click();
+    expect(document.getElementById('console-out')?.childNodes.length).toBe(0);
   });
   it('mode toggle flips auto/off and persists', async () => {
     skeleton();

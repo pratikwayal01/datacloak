@@ -328,7 +328,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
         await persistToVault(vault.backend, vault.origin, r.substitutions.map((s) => ({ synthetic: s.synthetic, original: s.original, category: s.category })));
       } catch { /* persistent vault is best-effort; session persist above already landed */ }
     }
-    return { text: r.text, count: r.substitutions.length, categories, uncertain };
+    return { text: r.text, count: r.substitutions.length, categories, uncertain, subs: r.substitutions.map((s) => ({ original: s.original, synthetic: s.synthetic, category: s.category })) };
   }
   const start = Date.now();
   let r = engine.restore(req.text);
