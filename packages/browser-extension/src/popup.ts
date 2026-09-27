@@ -232,6 +232,8 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
 
   // ── First-run tour: one overlay, dismissed forever via ui flag ──
   if (!ui.tourSeen) {
+    // Never stack: a second init (restored tab, double boot) replaces, not adds.
+    doc.querySelectorAll('.tour-overlay').forEach((n) => n.remove());
     const tour = doc.createElement('div');
     tour.className = 'tour-overlay';
     const title = doc.createElement('div');
@@ -255,7 +257,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     got.addEventListener('click', () => {
       ui.tourSeen = true;
       deps.setUiSettings({ ...ui }).catch(() => {});
-      tour.remove();
+      doc.querySelectorAll('.tour-overlay').forEach((n) => n.remove());
     });
     tour.append(title, list, got);
     doc.body.appendChild(tour);
@@ -479,6 +481,8 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     btn.addEventListener('click', () => {
       ui.sensitivity = ((btn as HTMLElement).dataset.risk ?? 'low') as UiSettings['sensitivity'];
       paintRisk();
+      // Radio-like control: persist immediately, not on footer Save.
+      deps.setUiSettings({ ...ui }).catch(() => {});
     });
   });
 

@@ -379,6 +379,24 @@ describe('settings + dev panels', () => {
     await renderPopup(document, deps);
     expect(document.querySelector('.tour-overlay')).toBeNull();
   });
+  it('double init never stacks tour overlays', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    await renderPopup(document, deps);
+    expect(document.querySelectorAll('.tour-overlay')).toHaveLength(1);
+  });
+  it('sensitivity buttons update state when reachable', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    // Dismiss the tour first — it covers Settings until gone (the reported trap).
+    (document.querySelector('.tour-overlay .btn') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    (document.querySelector('.risk-btn[data-risk="medium"]') as HTMLElement).click();
+    expect(state.ui.sensitivity).toBe('medium');
+    expect(document.querySelector('.risk-btn[data-risk="medium"]')?.className).toContain('active-medium');
+  });
   it('page badge toggle persists on save', async () => {    skeleton();
     const { deps, state } = fakeDeps();
     await renderPopup(document, deps);
