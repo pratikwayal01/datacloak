@@ -3,6 +3,7 @@ import { DataCloakEngine } from '../src/engine.js';
 import {
   ENTITY_KINDS,
   expandEntityPattern,
+  inferEntityKind,
   isEntityKind,
   matchPattern,
   synthesizeEntity,
@@ -148,5 +149,26 @@ describe('engine kind branch', () => {
     expect(r.substitutions).toHaveLength(2);
     for (const s of r.substitutions.map((x) => x.synthetic)) expect(s).toMatch(/^EMP-\d{6}$/);
     expect(e.restore(r.text).text).toContain('EMP-001234');
+  });
+});
+
+describe('inferEntityKind', () => {
+  it('routes shapes to kinds in order', () => {
+    expect(inferEntityKind('Ramesh@Acme.com')).toBe('email');
+    expect(inferEntityKind('EMP-001234')).toBe('employee_id');
+    expect(inferEntityKind('+91 98765 43210')).toBe('phone');
+    expect(inferEntityKind('Ramesh')).toBe('name');
+    expect(inferEntityKind('Mary Jane')).toBe('name');
+    expect(inferEntityKind("O'Brien")).toBe('name');
+    expect(inferEntityKind('sk-fweufuwae;ude')).toBe('other');
+  });
+
+  it('order traps stay put', () => {
+    // Prefix+digits is an ID, not a phone number.
+    expect(inferEntityKind('EMP-001234')).toBe('employee_id');
+    // Digit-heavy separator string is a phone, not a name.
+    expect(inferEntityKind('+1 (555) 123-4567')).toBe('phone');
+    // Five-word string exceeds the name shape.
+    expect(inferEntityKind('Mary Jane Watson Smith Junior')).toBe('other');
   });
 });

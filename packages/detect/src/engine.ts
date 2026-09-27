@@ -217,5 +217,5 @@ export class DataCloakEngine {
 }
 export type { CustomPattern };
 export { defaultConfig } from './types.js';
-export { ENTITY_KINDS, expandEntityPattern, isEntityKind, matchPattern, synthesizeEntity } from './entity-types.js';
+export { ENTITY_KINDS, expandEntityPattern, inferEntityKind, isEntityKind, matchPattern, synthesizeEntity } from './entity-types.js';
 export type { EntityKind } from './types.js';

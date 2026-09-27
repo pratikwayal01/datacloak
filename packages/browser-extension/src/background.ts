@@ -1,5 +1,5 @@
-import { DataCloakEngine, defaultConfig, expandEntityPattern, isEntityKind } from '@pratikw/detect';
-import type { CustomPattern } from '@pratikw/detect';
+import { DataCloakEngine, defaultConfig, expandEntityPattern, inferEntityKind, isEntityKind } from '@pratikw/detect';
+import type { CustomPattern, EntityKind } from '@pratikw/detect';
 import type { BgRequest, BgResponse, StatsResponse } from './protocol.js';
 import { decryptVault, encryptVault, loadOrCreateDek, MAX_ENTRIES, migrateSession, pruneStore, type StoredEntry, type StoredVault } from './vault-store.js';
 
@@ -244,6 +244,26 @@ export function validatePatterns(patterns: CustomPattern[]): string | null {
   return null;
 }
 
+// ── Context-menu capture ("Add to DataCloak") ──
+// Pure against SyncStore: saves the selection as a kind-inferred row.
+// Direct save, no confirm — the row is visible next popup open.
+export async function addSelectedEntity(
+  selectionText: string,
+  sync: SyncStore,
+): Promise<{ added: boolean; kind?: EntityKind; reason?: 'empty' | 'too-long' | 'duplicate' | 'invalid' }> {
+  const value = selectionText.trim();
+  if (!value) return { added: false, reason: 'empty' };
+  if ([...value].length > 200) return { added: false, reason: 'too-long' };
+  const kind = inferEntityKind(value);
+  const existing = (await sync.getPatterns()) ?? [];
+  if (existing.some((p) => p.name === value)) return { added: false, reason: 'duplicate' };
+  const next = [...existing, expandEntityPattern(value, kind)];
+  if (validatePatterns(next)) return { added: false, reason: 'invalid' };
+  await sync.setPatterns(next);
+  engines.clear();
+  return { added: true, kind };
+}
+
 export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats();
   if (req.kind === 'settings.get') return { flags: (await sync.getFlags()) ?? { ...DEFAULT_FLAGS } };
   if (req.kind === 'settings.set') {
@@ -251,8 +271,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     engines.clear();
     return { flags: req.flags };
   }
-  if (req.kind === 'patterns.get') return { patterns: (await sync.getPatterns()) ?? [] };
-  if (req.kind === 'patterns.set') {
+  if (req.kind === 'patterns.get') return { patterns: (await sync.getPatterns()) ?? [] };  if (req.kind === 'patterns.set') {
     const error = validatePatterns(req.patterns);
     if (error) return { patterns: (await sync.getPatterns()) ?? [], error };
     try {
@@ -290,7 +309,13 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
 declare const chrome: {
   runtime: {
     onMessage: { addListener: (fn: (msg: BgRequest, sender: { tab?: { id?: number; url?: string } }) => Promise<BgResponse>) => void };
+    onInstalled?: { addListener: (fn: () => void) => void };
     setUninstallURL?: (url: string) => void;
+  };
+  contextMenus?: {
+    create: (o: { id: string; title: string; contexts: string[] }) => void;
+    remove: (id: string) => unknown;
+    onClicked: { addListener: (fn: (info: { menuItemId: string; selectionText?: string }) => void) => void };
   };
   storage: {
     session: { get: (k: string) => Promise<Record<string, unknown>>; set: (o: Record<string, unknown>) => Promise<void>; remove: (k: string) => Promise<void> };
@@ -328,4 +353,22 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
   });
   // Uninstall feedback goes to a new GitHub issue.
   try { chrome.runtime.setUninstallURL?.('https://github.com/pratikwayal01/datacloak/issues/new?template=uninstall-feedback.yml'); } catch { /* older chrome */ }
+  // Selection capture: idempotent setup (module re-runs per SW start;
+  // onInstalled refires on reload/update within one lifetime — flag guards it).
+  let menuWired = false;
+  const setupSelectionMenu = (): void => {
+    try {
+      const menus = chrome?.contextMenus;
+      if (!menus || menuWired) return;
+      menuWired = true;
+      try { void Promise.resolve(menus.remove('dc-add')).catch(() => {}); } catch { /* not yet created */ }
+      menus.create({ id: 'dc-add', title: 'Add to DataCloak', contexts: ['selection'] });
+      menus.onClicked.addListener((info) => {
+        if (info.menuItemId !== 'dc-add' || !info.selectionText) return;
+        void addSelectedEntity(info.selectionText, sync).catch(() => {});
+      });
+    } catch { /* older chrome */ }
+  };
+  setupSelectionMenu();
+  try { chrome.runtime.onInstalled?.addListener(setupSelectionMenu); } catch { /* older chrome */ }
 }

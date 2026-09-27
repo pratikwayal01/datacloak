@@ -98,3 +98,18 @@ export function expandEntityPattern(value: string, kind: EntityKind): CustomPatt
   const def = ENTITY_KINDS[kind];
   return { name: value, pattern: matchPattern(kind, value), category: def.category, type: def.type, kind };
 }
+
+/**
+ * Infer the kind for a user-selected value. Order matters: unambiguous
+ * shapes first (email), prefix+digits before bare digit counting so IDs
+ * don't fall through to phone.
+ */
+export function inferEntityKind(value: string): EntityKind {
+  const v = value.trim();
+  if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(v)) return 'email';
+  if (/^[A-Za-z]{2,}[-_ ]?\d{3,}$/.test(v)) return 'employee_id';
+  const digits = (v.match(/\d/g) ?? []).length;
+  if (digits >= 9 && /^[+\d\s\-.()]+$/.test(v)) return 'phone';
+  if (/^[A-Za-z][A-Za-z\s\-']*$/.test(v) && v.split(/\s+/).length <= 4) return 'name';
+  return 'other';
+}

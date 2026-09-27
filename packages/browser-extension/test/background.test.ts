@@ -213,3 +213,34 @@ describe('oplog origin attribution', () => {
     expect(stats.oplog.find((o) => o.kind === 'cloak')?.origin).toBeUndefined();
   });
 });
+
+describe('selection capture', () => {
+  const memSync = (patterns: CustomPattern[] = []) => {
+    let p = patterns;
+    return {
+      getFlags: async () => undefined,
+      setFlags: async () => {},
+      getPatterns: async () => p,
+      setPatterns: async (next: CustomPattern[]) => { p = next; },
+    };
+  };
+  it('saves inferred kind rows expanded', async () => {
+    const { addSelectedEntity } = await import('../src/background.js');
+    const sync = memSync();
+    expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: true, kind: 'name' });
+    expect(await addSelectedEntity('EMP-001234', sync)).toEqual({ added: true, kind: 'employee_id' });
+    const stored = (await sync.getPatterns()) ?? [];
+    expect(stored.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
+    expect(stored[0]).toMatchObject({ category: 'PERSON_NAME', kind: 'name' });
+    expect(stored[0].pattern).toContain('[Rr]');
+  });
+  it('rejects empty, too-long and duplicates', async () => {
+    const { addSelectedEntity } = await import('../src/background.js');
+    const sync = memSync();
+    expect(await addSelectedEntity('   ', sync)).toEqual({ added: false, reason: 'empty' });
+    expect(await addSelectedEntity('x'.repeat(201), sync)).toEqual({ added: false, reason: 'too-long' });
+    await addSelectedEntity('Ramesh', sync);
+    expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: false, reason: 'duplicate' });
+    expect(((await sync.getPatterns()) ?? [])).toHaveLength(1);
+  });
+});
