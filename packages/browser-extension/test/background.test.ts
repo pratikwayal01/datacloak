@@ -378,3 +378,18 @@ describe('vault.clear is total', () => {
     expect(diff.record).toBeNull();
   });
 });
+
+describe('vault.clear from an origin-less sender', () => {
+  it('wipes the persistent store without VaultCtx origin (popup path)', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend({
+      origins: { 'chatgpt.com': { updatedAt: Date.now(), entries: [{ synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }] } },
+    });
+    // Popup/fullpage senders carry backend but no origin — same as prod wiring.
+    const cleared = (await bg.handleRequest(93, { kind: 'vault.clear' }, s, undefined, { backend })) as { cleared: boolean };
+    expect(cleared).toEqual({ cleared: true });
+    expect((await backend.load()).origins).toEqual({});
+  });
+});

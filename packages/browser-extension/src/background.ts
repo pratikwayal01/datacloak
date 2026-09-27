@@ -408,7 +408,10 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     const tabId = sender.tab?.id ?? 0;
     // Origin from sender tab URL — never trust message body for namespacing.
     const origin = originFromUrl(sender.tab?.url) ?? undefined;
-    return handleRequest(tabId, msg, store, sync, origin ? { backend: vaultBackend, origin } : undefined);
+    // Backend always travels (origin only when the sender is an http(s) tab):
+    // popup/fullpage senders have no origin, but vault.clear must still
+    // reach the persistent store or cleared entries resurrect on next cloak.
+    return handleRequest(tabId, msg, store, sync, { backend: vaultBackend, ...(origin ? { origin } : {}) });
   });
   chrome.tabs.onRemoved.addListener((tabId) => {
     engines.delete(tabId);
