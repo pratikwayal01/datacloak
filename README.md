@@ -80,6 +80,19 @@ DeepSeek — auto-cloak on send, restore in responses, popup viewer on the
 toolbar. Firefox: `about:debugging → This Firefox → Load Temporary Add-on`
 with `manifest.json` (untested, expected-compatible).
 
+### Extension highlights (v0.3.0)
+
+- **Typed entities, no regex** — value + type rows (Name, Employee ID,
+  Email, Phone, Other) with same-length/case/format fakes; right-click
+  any selection to capture it with auto-inferred kind.
+- **Cloak profiles** — per-profile entities, detector flags, and UI prefs.
+- **Review mode** — centered overlay with per-row Keep/Reveal, same text
+  never asks twice; auto mode shows cloak counts on the page badge.
+- **Full-page tab** — vault table, last-cloak side-by-side diff with
+  one-click entity capture, Dev Tools network log with per-site origins.
+- **Robustness** — recase-tolerant restore, copy-matches-display,
+  confirmed global vault wipe, all-time cloaked counter, first-run tour.
+
 ## Coding agents
 
 One binary, eleven harnesses — full copy-paste steps in

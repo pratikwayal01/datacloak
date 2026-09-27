@@ -63,6 +63,10 @@ built in. `Ramesh` cloaks every case variant; `EMP-001234` cloaks any
 Upgrading: old literal entries become Name rows automatically; old manual
 regex entries are dropped (names logged to the console).
 
+Rows, detector flags, and UI prefs (blur, review, badge…) live inside
+cloak profiles — Default is seeded from your current setup on first load.
+Switching profiles repaints everything; site grants stay global.
+
 ## 3. CLI: `--config`
 
 ```bash
