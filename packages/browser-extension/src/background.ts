@@ -310,6 +310,11 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     const start = Date.now();
     const r = engine.cloak(req.text);
     const categories = [...new Set(r.substitutions.map((s) => s.category))];
+    // Review-mode confidence UX: medium-confidence hits ride along for
+    // inline Keep/Dismiss. count stays total (includes uncertain).
+    const uncertain = r.substitutions
+      .filter((s) => s.confidence !== 'high')
+      .map((s) => ({ original: s.original, synthetic: s.synthetic, category: s.category }));
     record({ ts: Date.now(), tabId, kind: 'cloak', ms: Date.now() - start, count: r.substitutions.length, categories: r.substitutions.map((s) => s.category), origin: vault?.origin });
     lastCloak.set(tabId, {
       original: req.text,
@@ -323,7 +328,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
         await persistToVault(vault.backend, vault.origin, r.substitutions.map((s) => ({ synthetic: s.synthetic, original: s.original, category: s.category })));
       } catch { /* persistent vault is best-effort; session persist above already landed */ }
     }
-    return { text: r.text, count: r.substitutions.length, categories };
+    return { text: r.text, count: r.substitutions.length, categories, uncertain };
   }
   const start = Date.now();
   let r = engine.restore(req.text);

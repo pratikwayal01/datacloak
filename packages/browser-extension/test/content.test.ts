@@ -3,7 +3,7 @@ import { armComposer, observeResponses, restoreCached, shouldArmForSite } from '
 import type { BgRequest, BgResponse } from '../src/protocol.js';
 
 const fakeSend = (map: (t: string) => string) => async (req: BgRequest): Promise<BgResponse> => {
-  if (req.kind === 'cloak') return { text: map(req.text), count: req.text === map(req.text) ? 0 : 1, categories: ['EMAIL'] };
+  if (req.kind === 'cloak') return { text: map(req.text), count: req.text === map(req.text) ? 0 : 1, categories: ['EMAIL'], uncertain: [] };
   return { text: req.text, restored: 0 };
 };
 
@@ -138,5 +138,83 @@ describe('copy matches display', () => {
     } finally {
       obs.disconnect();
     }
+  });
+});
+
+describe('review uncertain rows', () => {
+  const uncertainSend = async (req: BgRequest): Promise<BgResponse> => {
+    if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+    return {
+      text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
+      uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+    };
+  };
+  const armReview = (): { disarm: () => void; submitted: () => number } => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, uncertainSend, { mode: 'review' });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    return { disarm, submitted: () => submitted };
+  };
+  const panelButtons = (): HTMLButtonElement[] =>
+    [...document.querySelectorAll('.dc-review-panel button')] as HTMLButtonElement[];
+
+  it('renders one row per uncertain item', async () => {
+    const { disarm } = armReview();
+    await new Promise((r) => setTimeout(r, 20));
+    const panel = document.querySelector('.dc-review-panel')?.textContent ?? '';
+    expect(panel).toContain('PERSON_NAME');
+    expect(panel).toContain('ramesh → XXX');
+    disarm();
+  });
+
+  it('Dismiss reverts that sub to the original on send', async () => {
+    const t = armReview();
+    await new Promise((r) => setTimeout(r, 20));
+    panelButtons().find((b) => b.textContent === 'Dismiss')!.click();
+    panelButtons().find((b) => b.textContent === 'Cloak all & send')!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh bye');
+    expect(t.submitted()).toBe(1);
+    t.disarm();
+  });
+
+  it('Keep (default) retains the synthetic on send', async () => {
+    const t = armReview();
+    await new Promise((r) => setTimeout(r, 20));
+    panelButtons().find((b) => b.textContent === 'Cloak all & send')!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi XXX bye');
+    expect(t.submitted()).toBe(1);
+    t.disarm();
+  });
+
+  it('auto mode never shows a panel, badge carries the count', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, uncertainSend, { mode: 'auto' });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    expect(document.querySelector('.dc-badge')?.textContent).toBe('🔒 1 cloaked ⚠️ 1 uncertain');
+    expect(submitted).toBe(1);
+    disarm();
+  });
+});
+
+describe('single armed instance', () => {
+  it('re-arm disarms the previous instance (one submit, not two)', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hello world</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const first = armComposer(document, fakeSend((t) => t), { mode: 'auto' });
+    const second = armComposer(document, fakeSend((t) => t), { mode: 'auto' });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(submitted).toBe(1);
+    first.disarm();
+    second.disarm();
   });
 });

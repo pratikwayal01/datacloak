@@ -169,3 +169,12 @@ describe('substitution offsets', () => {
     expect('mail kloe36@gmail.com end'.slice(s.start, s.end)).toBe(s.original);
   });
 });
+
+describe('substitution confidence', () => {
+  it('carries detection confidence (medium for entropy)', () => {
+    const e = new DataCloakEngine({});
+    const r = e.cloak('mail kloe36@gmail.com end');
+    expect(r.substitutions).toHaveLength(1);
+    expect(r.substitutions[0].confidence).toBe('high');
+  });
+});

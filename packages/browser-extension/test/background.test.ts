@@ -393,3 +393,23 @@ describe('vault.clear from an origin-less sender', () => {
     expect((await backend.load()).origins).toEqual({});
   });
 });
+
+describe('uncertain split', () => {
+  it('medium-confidence subs ride along, count stays total', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    await bg.handleRequest(84, { kind: 'patterns.set', patterns: [{ name: 'ramesh', kind: 'name' }] }, s);
+    const c1 = (await bg.handleRequest(84, { kind: 'cloak', text: 'hi ramesh bye' }, s)) as {
+      text: string; count: number; uncertain: { original: string; synthetic: string; category: string }[];
+    };
+    expect(c1.count).toBe(1);
+    expect(c1.uncertain).toHaveLength(1);
+    expect(c1.uncertain[0]).toMatchObject({ original: 'ramesh', category: 'PERSON_NAME' });
+    const c2 = (await bg.handleRequest(84, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s)) as {
+      count: number; uncertain: unknown[];
+    };
+    expect(c2.count).toBe(1);
+    expect(c2.uncertain).toEqual([]);
+  });
+});

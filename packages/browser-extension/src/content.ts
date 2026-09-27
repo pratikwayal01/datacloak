@@ -36,26 +36,72 @@ const ensureBadge = (doc: Document): HTMLElement => {
   return b;
 };
 
-const setBadge = (doc: Document, count: number): void => {
+const setBadge = (doc: Document, count: number, uncertain = 0): void => {
+  if (uncertain > 0) {
+    ensureBadge(doc).textContent = `🔒 ${count} cloaked ⚠️ ${uncertain} uncertain`;
+    return;
+  }
   ensureBadge(doc).textContent = count > 0 ? `DataCloak: ${count} cloaked` : 'DataCloak active';
 };
 
-// ponytail: review MVP = one Cloak-all button over categories list; per-item Accept/Skip when Task 4 needs it.
-const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: () => void): void => {
+// ponytail: review MVP = uncertain rows over the Cloak-all button; per-item
+// Accept/Skip lives here now that confidence rides the cloak response.
+const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalText: string) => void): void => {
   doc.querySelector('.dc-review-panel')?.remove();
   const panel = doc.createElement('div');
   panel.className = 'dc-review-panel';
-  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2)');
-  panel.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) `;
+  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:340px');
+  const head = doc.createElement('div');
+  head.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) `;
+  panel.appendChild(head);
+  // Uncertain rows resolve before Send: Dismiss reverts that sub to its
+  // original in the outgoing text; Keep (default) leaves the synthetic.
+  const uncertain = res.uncertain ?? [];
+  const dismissed = new Set<number>();
+  for (const [idx, u] of uncertain.entries()) {
+    const row = doc.createElement('div');
+    row.setAttribute('style', 'display:flex;gap:6px;align-items:center;margin:6px 0');
+    const pill = doc.createElement('span');
+    pill.textContent = u.category;
+    pill.setAttribute('style', 'background:#eee;border-radius:4px;padding:0 6px;font-size:11px');
+    const vals = doc.createElement('span');
+    vals.textContent = `${u.original} → ${u.synthetic}`;
+    const keep = doc.createElement('button');
+    keep.textContent = 'Keep';
+    const dismiss = doc.createElement('button');
+    dismiss.textContent = 'Dismiss';
+    const paint = (): void => {
+      row.style.opacity = dismissed.has(idx) ? '.55' : '1';
+      keep.disabled = !dismissed.has(idx);
+      dismiss.disabled = dismissed.has(idx);
+    };
+    keep.addEventListener('click', () => { dismissed.delete(idx); paint(); });
+    dismiss.addEventListener('click', () => { dismissed.add(idx); paint(); });
+    paint();
+    row.append(pill, vals, keep, dismiss);
+    panel.appendChild(row);
+  }
   const btn = doc.createElement('button');
   btn.textContent = 'Cloak all & send';
-  btn.addEventListener('click', () => { panel.remove(); onConfirm(); });
+  btn.addEventListener('click', () => {
+    let finalText = res.text;
+    for (const [idx, u] of uncertain.entries()) {
+      if (dismissed.has(idx) && u.synthetic) finalText = finalText.split(u.synthetic).join(u.original);
+    }
+    panel.remove();
+    onConfirm(finalText);
+  });
   panel.appendChild(btn);
   doc.body.appendChild(panel);
   (btn as HTMLButtonElement).focus();
 };
 
 export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disarm(): void } {
+  // Single armed instance per document: a previous arm (stale test module,
+  // double bootstrap) would otherwise swallow submits via stopPropagation.
+  // The marker lives on the document so it works across module instances.
+  const d = doc as unknown as { __dcArm?: { disarm(): void } };
+  try { d.__dcArm?.disarm(); } catch { /* stale handle */ }
   let proceeding = false;
   const badge = ensureBadge(doc);
   badge.textContent = 'DataCloak active';
@@ -84,15 +130,17 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
     }
     if (!('count' in res) || res.count === 0) { setBadge(doc, 0); proceed(field); return; }
     const cloak = res as CloakResponse;
+    const uncertainCount = cloak.uncertain?.length ?? 0;
     if (opts.mode === 'auto') {
+      // Auto mode: badge count only — no panel, no intercept change.
       setFieldText(field, cloak.text);
-      setBadge(doc, cloak.count);
+      setBadge(doc, cloak.count, uncertainCount);
       proceed(field);
       return;
     }
-    renderReviewPanel(doc, cloak, () => {
-      setFieldText(field, cloak.text);
-      setBadge(doc, cloak.count);
+    renderReviewPanel(doc, cloak, (finalText) => {
+      setFieldText(field, finalText);
+      setBadge(doc, cloak.count, uncertainCount);
       proceed(field);
     });
   };
@@ -135,15 +183,18 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('submit', onSubmit, true);
 
-  return {
+  const handle = {
     disarm(): void {
       doc.removeEventListener('keydown', onKeydown, true);
       doc.removeEventListener('click', onClick, true);
       doc.removeEventListener('submit', onSubmit, true);
       doc.querySelector('.dc-review-panel')?.remove();
       doc.querySelector('.dc-badge')?.remove();
+      if (d.__dcArm === handle) delete d.__dcArm;
     },
   };
+  d.__dcArm = handle;
+  return handle;
 }
 
 export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string, string> = new Map()): MutationObserver {
