@@ -20,6 +20,11 @@ const skeleton = (withDiff: boolean): void => {
     <table id="storage-table"><tbody></tbody></table>
     <div id="patterns-list"></div>
     <div id="custom-list"></div>
+    <button class="tab active" data-tab="vault" type="button">V</button>
+    <button class="tab" data-tab="settings" type="button">S</button>
+    <div class="panel active" id="panel-vault"></div>
+    <div class="panel" id="panel-settings"></div>
+    <button id="fp-fold" type="button">fold</button>
     ${withDiff ? '<div id="diff-wrap"></div>' : ''}
     <div id="toast"></div>`;
 };
@@ -168,5 +173,47 @@ describe('fullpage vault table', () => {
     await flush();
     expect(document.querySelectorAll('#vault-table-body tr')).toHaveLength(0);
     expect(document.getElementById('dc-empty')?.style.display).not.toBe('none');
+  });
+});
+
+describe('fullpage shell memory', () => {
+  it('fold toggles the sidebar and persists', async () => {
+    localStorage.clear();
+    skeleton(true);
+    const store: Store = { patterns: [], record: null, sets: [] };
+    await renderPopup(document, fakeDeps(store), { fullPage: true });
+    await flush();
+    expect(document.body.classList.contains('fp-folded')).toBe(false);
+    (document.getElementById('fp-fold') as HTMLButtonElement).click();
+    expect(document.body.classList.contains('fp-folded')).toBe(true);
+    expect(localStorage.getItem('fp-folded')).toBe('1');
+
+    skeleton(true);
+    await renderPopup(document, fakeDeps(store), { fullPage: true });
+    await flush();
+    expect(document.body.classList.contains('fp-folded')).toBe(true);
+    localStorage.clear();
+    document.body.classList.remove('fp-folded');
+  });
+
+  it('restores the last panel on reload, popup always opens Vault', async () => {
+    localStorage.clear();
+    skeleton(true);
+    const store: Store = { patterns: [], record: null, sets: [] };
+    await renderPopup(document, fakeDeps(store), { fullPage: true });
+    await flush();
+    [...document.querySelectorAll('.tab')].find((t) => (t as HTMLElement).dataset.tab === 'settings')!.dispatchEvent(new Event('click'));
+    expect(localStorage.getItem('fp-panel')).toBe('settings');
+
+    skeleton(true);
+    await renderPopup(document, fakeDeps(store), { fullPage: true });
+    await flush();
+    expect(document.getElementById('panel-settings')?.classList.contains('active')).toBe(true);
+
+    skeleton(true);
+    await renderPopup(document, fakeDeps(store));
+    await flush();
+    expect(document.getElementById('panel-vault')?.classList.contains('active')).toBe(true);
+    localStorage.clear();
   });
 });

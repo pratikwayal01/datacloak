@@ -168,6 +168,10 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
       doc.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
       btn.classList.add('active');
       doc.getElementById(`panel-${(btn as HTMLElement).dataset.tab}`)?.classList.add('active');
+      // Full page remembers its panel across refreshes; popup always opens on Vault.
+      if (fullPage) {
+        try { localStorage.setItem('fp-panel', (btn as HTMLElement).dataset.tab ?? 'vault'); } catch { /* private mode */ }
+      }
     });
   });
   doc.querySelectorAll('.dev-tab').forEach((btn) => {
@@ -178,6 +182,28 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
       doc.getElementById(`dpanel-${(btn as HTMLElement).dataset.dtab}`)?.classList.add('active');
     });
   });
+
+  // ── Full-page extras: foldable sidebar + remembered panel ──
+  if (fullPage) {
+    let kept: Storage | null = null;
+    try { kept = localStorage; } catch { /* unavailable */ }
+    const foldBtn = doc.getElementById('fp-fold') as HTMLElement | null;
+    const paintFold = (): void => {
+      if (foldBtn) foldBtn.textContent = doc.body.classList.contains('fp-folded') ? '⇥' : '⇤';
+    };
+    if (kept?.getItem('fp-folded') === '1') doc.body.classList.add('fp-folded');
+    paintFold();
+    foldBtn?.addEventListener('click', () => {
+      const folded = doc.body.classList.toggle('fp-folded');
+      try { kept?.setItem('fp-folded', folded ? '1' : '0'); } catch { /* private mode */ }
+      paintFold();
+    });
+    const savedPanel = kept?.getItem('fp-panel');
+    if (savedPanel && doc.getElementById(`panel-${savedPanel}`)) {
+      doc.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', (t as HTMLElement).dataset.tab === savedPanel));
+      doc.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${savedPanel}`));
+    }
+  }
 
   // ── Mode toggle ──
   let mode: Mode = 'auto';
