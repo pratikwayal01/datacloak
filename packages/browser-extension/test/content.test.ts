@@ -244,3 +244,28 @@ describe('single armed instance', () => {
     second.disarm();
   });
 });
+
+describe('review dismiss all', () => {
+  it('Dismiss all sends the fully original text', async () => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const send = async (req: BgRequest): Promise<BgResponse> => {
+      if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+      return {
+        text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
+        uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+      };
+    };
+    const { disarm } = armComposer(document, send, { mode: 'review' });
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    const btns = [...document.querySelectorAll('.dc-review-panel button')] as HTMLButtonElement[];
+    btns.find((b) => b.textContent === 'Dismiss all')!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi ramesh bye');
+    expect(submitted).toBe(1);
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    disarm();
+  });
+});

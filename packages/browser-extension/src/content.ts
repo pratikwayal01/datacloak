@@ -58,6 +58,13 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
   // original in the outgoing text; Keep (default) leaves the synthetic.
   const uncertain = res.uncertain ?? [];
   const dismissed = new Set<number>();
+  const revertDismissed = (text: string, ids: Set<number> = dismissed): string => {
+    let out = text;
+    for (const [idx, u] of uncertain.entries()) {
+      if (ids.has(idx) && u.synthetic) out = out.split(u.synthetic).join(u.original);
+    }
+    return out;
+  };
   for (const [idx, u] of uncertain.entries()) {
     const row = doc.createElement('div');
     row.setAttribute('style', 'display:flex;gap:6px;align-items:center;margin:6px 0');
@@ -84,14 +91,19 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
   const btn = doc.createElement('button');
   btn.textContent = 'Cloak all & send';
   btn.addEventListener('click', () => {
-    let finalText = res.text;
-    for (const [idx, u] of uncertain.entries()) {
-      if (dismissed.has(idx) && u.synthetic) finalText = finalText.split(u.synthetic).join(u.original);
-    }
     panel.remove();
-    onConfirm(finalText);
+    onConfirm(revertDismissed(res.text));
   });
   panel.appendChild(btn);
+  if (uncertain.length > 0) {
+    const all = doc.createElement('button');
+    all.textContent = 'Dismiss all';
+    all.addEventListener('click', () => {
+      panel.remove();
+      onConfirm(revertDismissed(res.text, new Set(uncertain.keys())));
+    });
+    panel.appendChild(all);
+  }
   doc.body.appendChild(panel);
   (btn as HTMLButtonElement).focus();
 };
