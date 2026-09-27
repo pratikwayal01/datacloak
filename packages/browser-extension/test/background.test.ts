@@ -217,11 +217,14 @@ describe('oplog origin attribution', () => {
 describe('selection capture', () => {
   const memSync = (patterns: CustomPattern[] = []) => {
     let p = patterns;
+    let ps: { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: object }[] } | undefined;
     return {
       getFlags: async () => undefined,
       setFlags: async () => {},
       getPatterns: async () => p,
       setPatterns: async (next: CustomPattern[]) => { p = next; },
+      getProfiles: async () => ps,
+      setProfiles: async (next: NonNullable<typeof ps>) => { ps = next; },
     };
   };
   it('saves inferred kind rows expanded', async () => {
@@ -229,10 +232,12 @@ describe('selection capture', () => {
     const sync = memSync();
     expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: true, kind: 'name' });
     expect(await addSelectedEntity('EMP-001234', sync)).toEqual({ added: true, kind: 'employee_id' });
-    const stored = (await sync.getPatterns()) ?? [];
-    expect(stored.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
-    expect(stored[0]).toMatchObject({ category: 'PERSON_NAME', kind: 'name' });
-    expect(stored[0].pattern).toContain('[Rr]');
+    const s = fakeStore();
+    const { handleRequest } = await import('../src/background.js');
+    const got = (await handleRequest(40, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(got.patterns.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
+    expect(got.patterns[0]).toMatchObject({ category: 'PERSON_NAME', kind: 'name' });
+    expect(got.patterns[0].pattern).toContain('[Rr]');
   });
   it('rejects empty, too-long and duplicates', async () => {
     const { addSelectedEntity } = await import('../src/background.js');
@@ -241,7 +246,10 @@ describe('selection capture', () => {
     expect(await addSelectedEntity('x'.repeat(201), sync)).toEqual({ added: false, reason: 'too-long' });
     await addSelectedEntity('Ramesh', sync);
     expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: false, reason: 'duplicate' });
-    expect(((await sync.getPatterns()) ?? [])).toHaveLength(1);
+    const s = fakeStore();
+    const { handleRequest } = await import('../src/background.js');
+    const got = (await handleRequest(40, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(got.patterns).toHaveLength(1);
   });
 });
 
@@ -411,5 +419,77 @@ describe('uncertain split', () => {
     };
     expect(c2.count).toBe(1);
     expect(c2.uncertain).toEqual([]);
+  });
+});
+
+describe('profiles', () => {
+  const legacySync = () => {
+    let patterns: CustomPattern[] = [{ name: 'Ramesh', pattern: '[Rr][Aa][Mm][Ee][Ss][Hh]', category: 'RAMESH', type: 'pii' as const }];
+    let flags = { secrets: true, envVars: true, pii: true, entropy: true };
+    let profiles: undefined | { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: typeof flags }[] };
+    return {
+      getFlags: async () => flags,
+      setFlags: async (f: typeof flags) => { flags = f; },
+      getPatterns: async () => patterns,
+      setPatterns: async (p: CustomPattern[]) => { patterns = p; },
+      getProfiles: async () => profiles,
+      setProfiles: async (p: NonNullable<typeof profiles>) => { profiles = p; },
+    };
+  };
+  type ProfilesRes = { activeId: string; profiles: { id: string; name: string; patterns: number }[]; error?: string };
+
+  it('migrates legacy keys into a Default profile', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    const got = (await bg.handleRequest(91, { kind: 'profiles.get' }, s, sync)) as ProfilesRes;
+    expect(got.error).toBeUndefined();
+    expect(got.activeId).toBe('default');
+    expect(got.profiles).toEqual([{ id: 'default', name: 'Default', patterns: 1 }]);
+    const rows = (await bg.handleRequest(91, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(rows.patterns.map((p) => p.name)).toEqual(['Ramesh']);
+  });
+
+  it('add/switch/delete with guards', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    expect(((await bg.handleRequest(92, { kind: 'profiles.add', name: '  ' }, s, sync)) as ProfilesRes).error).toMatch(/required/);
+    const added = (await bg.handleRequest(92, { kind: 'profiles.add', name: 'Work' }, s, sync)) as ProfilesRes;
+    expect(added.error).toBeUndefined();
+    expect(added.activeId).not.toBe('default');
+    const workId = added.activeId;
+    expect(((await bg.handleRequest(92, { kind: 'profiles.add', name: 'work' }, s, sync)) as ProfilesRes).error).toMatch(/exists/);
+    expect(((await bg.handleRequest(92, { kind: 'profiles.switch', id: 'nope' }, s, sync)) as ProfilesRes).error).toMatch(/Unknown/);
+    const back = (await bg.handleRequest(92, { kind: 'profiles.switch', id: 'default' }, s, sync)) as ProfilesRes;
+    expect(back.activeId).toBe('default');
+    // Deleting the active profile falls back to the first remaining.
+    const del = (await bg.handleRequest(92, { kind: 'profiles.delete', id: workId }, s, sync)) as ProfilesRes;
+    expect(del.error).toBeUndefined();
+    expect(del.profiles.map((p) => p.name)).toEqual(['Default']);
+    expect(((await bg.handleRequest(92, { kind: 'profiles.delete', id: 'default' }, s, sync)) as ProfilesRes).error).toMatch(/last profile/);
+  });
+
+  it('patterns, flags and cloak follow the active profile', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    const added = (await bg.handleRequest(93, { kind: 'profiles.add', name: 'Work' }, s, sync)) as ProfilesRes;
+    const workId = added.activeId;
+    // Default still has the migrated row; Work starts empty.
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: 'default' }, s, sync);
+    const c1 = (await bg.handleRequest(93, { kind: 'cloak', text: 'hi ramesh bye' }, s, sync)) as { count: number };
+    expect(c1.count).toBe(1);
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: workId }, s, sync);
+    const c2 = (await bg.handleRequest(93, { kind: 'cloak', text: 'hi ramesh bye' }, s, sync)) as { count: number };
+    expect(c2.count).toBe(0);
+    // Flags are per-profile too.
+    await bg.handleRequest(93, { kind: 'settings.set', flags: { secrets: false, envVars: true, pii: true, entropy: true } }, s, sync);
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: 'default' }, s, sync);
+    const f = (await bg.handleRequest(93, { kind: 'settings.get' }, s, sync)) as { flags: { secrets: boolean } };
+    expect(f.flags.secrets).toBe(true);
   });
 });

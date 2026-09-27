@@ -19,6 +19,8 @@ const skeleton = (): void => {
     <div class="panel" id="panel-settings">
       <div class="setting-desc" id="sites-active"></div>
       <div id="sites-list"></div>
+      <div id="s-profile-wrap"><select id="s-profile"></select><button id="s-profile-del">×</button><input id="s-profile-name" type="text"><button id="s-profile-add" type="button">Add</button></div>
+      <div id="patterns-list"></div>
       <div id="custom-list"></div>
       <button id="c-add" type="button">+ Add entity</button>
       <div class="footer"><button id="s-fullpage">Full</button><button id="s-reset">Reset</button><button id="s-save">Save</button></div>
@@ -192,5 +194,96 @@ describe('popup full page', () => {
     document.getElementById('s-fullpage')?.dispatchEvent(new Event('click'));
     await flush();
     expect(opened).toBe(1);
+  });
+});
+
+describe('popup profiles', () => {
+  interface Prof { id: string; name: string; rows: CustomPattern[]; secrets: boolean }
+  const profDeps = (state: { activeId: string; profiles: Prof[] }, store: { patterns: CustomPattern[] }) => {
+    const base = fakeDeps(store);
+    const active = (): Prof => state.profiles.find((p) => p.id === state.activeId) ?? state.profiles[0];
+    const shape = () => ({ activeId: state.activeId, profiles: state.profiles.map((p) => ({ id: p.id, name: p.name, patterns: p.rows.length })) });
+    return {
+      ...base,
+      send: (async (req: Parameters<PopupDeps['send']>[0]) => {
+        if (req.kind === 'profiles.get') return shape();
+        if (req.kind === 'profiles.add') {
+          if (state.profiles.some((p) => p.name === req.name)) return { ...shape(), error: 'exists' };
+          const id = `p${state.profiles.length + 1}`;
+          state.profiles.push({ id, name: req.name, rows: [], secrets: true });
+          state.activeId = id;
+          return shape();
+        }
+        if (req.kind === 'profiles.switch') {
+          if (!state.profiles.some((p) => p.id === req.id)) return { ...shape(), error: 'Unknown' };
+          state.activeId = req.id;
+          return shape();
+        }
+        if (req.kind === 'profiles.delete') {
+          if (state.profiles.length <= 1) return { ...shape(), error: 'last profile' };
+          state.profiles = state.profiles.filter((p) => p.id !== req.id);
+          if (state.activeId === req.id) state.activeId = state.profiles[0].id;
+          return shape();
+        }
+        if (req.kind === 'patterns.get') return { patterns: active().rows };
+        if (req.kind === 'patterns.set') {
+          active().rows = req.patterns;
+          return { patterns: active().rows };
+        }
+        if (req.kind === 'settings.get') return { flags: { secrets: active().secrets, envVars: true, pii: true, entropy: true } };
+        return base.send(req);
+      }) as PopupDeps['send'],
+    } as PopupDeps;
+  };
+  const sel = (): HTMLSelectElement => document.getElementById('s-profile') as HTMLSelectElement;
+  const rowValues = (): string[] =>
+    [...document.querySelectorAll('#custom-list input')].map((i) => (i as HTMLInputElement).value);
+
+  it('paints profiles with counts and switches reload rows', async () => {
+    skeleton();
+    const state = {
+      activeId: 'p1',
+      profiles: [
+        { id: 'p1', name: 'Default', rows: [{ name: 'Ramesh', kind: 'name' }] as CustomPattern[], secrets: true },
+        { id: 'p2', name: 'Work', rows: [] as CustomPattern[], secrets: false },
+      ],
+    };
+    await renderPopup(document, profDeps(state, { patterns: [] }));
+    await flush();
+    expect(sel().options.length).toBe(2);
+    expect(sel().selectedOptions[0].textContent).toBe('Default (1)');
+    expect(rowValues()).toEqual(['Ramesh']);
+    sel().value = 'p2';
+    sel().dispatchEvent(new Event('change'));
+    await flush();
+    expect(rowValues()).toEqual([]);
+    expect(document.getElementById('toast')?.textContent).toMatch(/switched/);
+  });
+
+  it('add creates and selects; delete confirms and guards the last', async () => {
+    skeleton();
+    const state = {
+      activeId: 'p1',
+      profiles: [{ id: 'p1', name: 'Default', rows: [] as CustomPattern[], secrets: true }],
+    };
+    await renderPopup(document, profDeps(state, { patterns: [] }));
+    await flush();
+    (document.getElementById('s-profile-name') as HTMLInputElement).value = 'Client X';
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(sel().selectedOptions[0].textContent).toBe('Client X (0)');
+    expect(document.getElementById('toast')?.textContent).toMatch(/added/);
+    document.getElementById('s-profile-del')?.click();
+    await flush();
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('Client X');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await flush();
+    expect(sel().options.length).toBe(1);
+    document.getElementById('s-profile-del')?.click();
+    await flush();
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await flush();
+    expect(document.getElementById('toast')?.textContent).toMatch(/last profile/);
+    expect(sel().options.length).toBe(1);
   });
 });

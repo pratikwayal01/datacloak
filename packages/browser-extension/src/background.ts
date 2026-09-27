@@ -21,7 +21,12 @@ export interface SyncStore {
   setFlags(flags: DetectorFlags): Promise<void>;
   getPatterns(): Promise<CustomPattern[] | undefined>;
   setPatterns(patterns: CustomPattern[]): Promise<void>;
+  getProfiles(): Promise<ProfileStore | undefined>;
+  setProfiles(ps: ProfileStore): Promise<void>;
 }
+
+export interface EntityProfile { id: string; name: string; patterns: CustomPattern[]; flags: DetectorFlags; }
+export interface ProfileStore { activeId: string; profiles: EntityProfile[]; }
 
 export interface OpEntry {
   ts: number;
@@ -42,18 +47,23 @@ const lastCloak = new Map<number, { original: string; cloaked: string; subs: { o
 const oplog: OpEntry[] = [];
 let memoryFlags: DetectorFlags | undefined;
 let memoryPatterns: CustomPattern[] | undefined;
+let memoryProfiles: ProfileStore | undefined;
 
 const defaultSync: SyncStore = {
   getFlags: async () => memoryFlags,
   setFlags: async (f) => { memoryFlags = f; },
   getPatterns: async () => memoryPatterns,
   setPatterns: async (p) => { memoryPatterns = p; },
+  getProfiles: async () => memoryProfiles,
+  setProfiles: async (p) => { memoryProfiles = p; },
 };
 
 export function __dropEnginesForTest(): void {  engines.clear();
+  lastCloak.clear();
   oplog.length = 0;
   memoryFlags = undefined;
   memoryPatterns = undefined;
+  memoryProfiles = undefined;
 }
 
 // ── Vault v2: origin-scoped persistent vault (see vault-store.ts) ──
@@ -161,10 +171,12 @@ export function __resetVaultWritesForTest(): void {
 async function engineFor(tabId: number, store: MemoryStore, sync: SyncStore, vault?: VaultCtx): Promise<DataCloakEngine> {
   const hit = engines.get(tabId);
   if (hit) return hit;
-  const flags = (await sync.getFlags()) ?? DEFAULT_FLAGS;
+  // Flags + patterns always come from the active profile (sites stay global).
+  const active = await activeProfile(sync);
+  const flags = active.flags;
   const engine = new DataCloakEngine({
     detection: { ...defaultConfig.detection, secrets: flags.secrets, envVars: flags.envVars, pii: flags.pii, entropy: flags.entropy },
-    customPatterns: (await sync.getPatterns()) ?? [],
+    customPatterns: active.patterns,
   });
   const saved = await store.getTab(tabId);
   for (const [synthetic, original, category] of saved?.vault ?? []) {
@@ -267,34 +279,109 @@ export async function addSelectedEntity(
   if (!value) return { added: false, reason: 'empty' };
   if ([...value].length > 200) return { added: false, reason: 'too-long' };
   const kind = inferEntityKind(value);
-  const existing = (await sync.getPatterns()) ?? [];
-  if (existing.some((p) => p.name === value)) return { added: false, reason: 'duplicate' };
-  const next = [...existing, expandEntityPattern(value, kind)];
+  const active = await activeProfile(sync);
+  if (active.patterns.some((p) => p.name === value)) return { added: false, reason: 'duplicate' };
+  const next = [...active.patterns, expandEntityPattern(value, kind)];
   if (validatePatterns(next)) return { added: false, reason: 'invalid' };
-  await sync.setPatterns(next);
-  engines.clear();
+  await writeActive(sync, (p) => ({ ...p, patterns: next }));
   return { added: true, kind };
 }
 
-export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats();
-  if (req.kind === 'settings.get') return { flags: (await sync.getFlags()) ?? { ...DEFAULT_FLAGS } };
-  if (req.kind === 'settings.set') {
-    await sync.setFlags(req.flags);
-    engines.clear();
-    return { flags: req.flags };
+// ── Profiles: named entity-list + flag sets, one active at a time ──
+// Site grants stay global (permission grants can't be per-profile).
+const MAX_PROFILES = 10;
+const newProfileId = (): string => `p_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+
+async function resolveProfiles(sync: SyncStore): Promise<ProfileStore> {
+  const stored = await sync.getProfiles();
+  if (stored && Array.isArray(stored.profiles) && stored.profiles.length > 0) {
+    const activeId = stored.profiles.some((p) => p.id === stored.activeId) ? stored.activeId : stored.profiles[0].id;
+    return { activeId, profiles: stored.profiles };
   }
-  if (req.kind === 'patterns.get') return { patterns: (await sync.getPatterns()) ?? [] };  if (req.kind === 'patterns.set') {
+  // Migrate legacy flat keys into a Default profile, once.
+  const migrated: ProfileStore = {
+    activeId: 'default',
+    profiles: [{
+      id: 'default',
+      name: 'Default',
+      patterns: (await sync.getPatterns()) ?? [],
+      flags: (await sync.getFlags()) ?? { ...DEFAULT_FLAGS },
+    }],
+  };
+  try { await sync.setProfiles(migrated); } catch { /* memory fallback keeps working */ }
+  return migrated;
+}
+
+async function activeProfile(sync: SyncStore): Promise<EntityProfile> {
+  const ps = await resolveProfiles(sync);
+  return ps.profiles.find((p) => p.id === ps.activeId) ?? ps.profiles[0];
+}
+
+/** Rewrite the active profile, clear engines (stale patterns must die). */
+async function writeActive(sync: SyncStore, update: (p: EntityProfile) => EntityProfile): Promise<EntityProfile> {
+  const ps = await resolveProfiles(sync);
+  const profiles = ps.profiles.map((p) => (p.id === ps.activeId ? update({ ...p }) : p));
+  await sync.setProfiles({ activeId: ps.activeId, profiles });
+  engines.clear();
+  return profiles.find((p) => p.id === ps.activeId) ?? profiles[0];
+}
+
+function profileList(ps: ProfileStore): { activeId: string; profiles: { id: string; name: string; patterns: number }[] } {
+  return { activeId: ps.activeId, profiles: ps.profiles.map((p) => ({ id: p.id, name: p.name, patterns: p.patterns.length })) };
+}
+
+export async function handleRequest(tabId: number, req: BgRequest, store: MemoryStore, sync: SyncStore = defaultSync, vault?: VaultCtx): Promise<BgResponse> {  if (req.kind === 'stats') return stats();
+  if (req.kind === 'settings.get') return { flags: (await activeProfile(sync)).flags };
+  if (req.kind === 'settings.set') {
+    const updated = await writeActive(sync, (p) => ({ ...p, flags: { ...req.flags } }));
+    return { flags: updated.flags };
+  }
+  if (req.kind === 'patterns.get') return { patterns: (await activeProfile(sync)).patterns };
+  if (req.kind === 'patterns.set') {
     const error = validatePatterns(req.patterns);
-    if (error) return { patterns: (await sync.getPatterns()) ?? [], error };
+    if (error) return { patterns: (await activeProfile(sync)).patterns, error };
     try {
-      await sync.setPatterns(req.patterns);
+      await writeActive(sync, (p) => ({ ...p, patterns: req.patterns }));
     } catch (e: unknown) {
-      return { patterns: (await sync.getPatterns()) ?? [], error: `save failed: ${(e as Error)?.message ?? e}` };
+      return { patterns: (await activeProfile(sync)).patterns, error: `save failed: ${(e as Error)?.message ?? e}` };
     }
-    engines.clear();
     return { patterns: req.patterns };
   }
   if (req.kind === 'lastCloak.get') return { record: lastCloak.get(tabId) ?? null };
+  if (req.kind === 'profiles.get') return profileList(await resolveProfiles(sync));
+  if (req.kind === 'profiles.add') {
+    const name = req.name.trim().slice(0, 40);
+    if (!name) return { ...profileList(await resolveProfiles(sync)), error: 'Profile name required' };
+    const ps = await resolveProfiles(sync);
+    if (ps.profiles.length >= MAX_PROFILES) return { ...profileList(ps), error: `Max ${MAX_PROFILES} profiles` };
+    if (ps.profiles.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+      return { ...profileList(ps), error: `Profile "${name}" already exists` };
+    }
+    const created: EntityProfile = { id: newProfileId(), name, patterns: [], flags: { ...DEFAULT_FLAGS } };
+    const next: ProfileStore = { activeId: created.id, profiles: [...ps.profiles, created] };
+    await sync.setProfiles(next);
+    engines.clear();
+    return profileList(next);
+  }
+  if (req.kind === 'profiles.switch') {
+    const ps = await resolveProfiles(sync);
+    if (!ps.profiles.some((p) => p.id === req.id)) return { ...profileList(ps), error: 'Unknown profile' };
+    const next: ProfileStore = { activeId: req.id, profiles: ps.profiles };
+    await sync.setProfiles(next);
+    engines.clear();
+    return profileList(next);
+  }
+  if (req.kind === 'profiles.delete') {
+    const ps = await resolveProfiles(sync);
+    if (ps.profiles.length <= 1) return { ...profileList(ps), error: 'Cannot delete the last profile' };
+    const target = ps.profiles.find((p) => p.id === req.id);
+    if (!target) return { ...profileList(ps), error: 'Unknown profile' };
+    const profiles = ps.profiles.filter((p) => p.id !== req.id);
+    const next: ProfileStore = { activeId: req.id === ps.activeId ? profiles[0].id : ps.activeId, profiles };
+    await sync.setProfiles(next);
+    engines.clear();
+    return profileList(next);
+  }
   if (req.kind === 'vault.clear') {
     // Total wipe: session keys are cleared popup-side; here drop live engines,
     // per-tab diffs, and the origin persistent store so nothing resurrects.
@@ -404,6 +491,8 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
     setFlags: async (f) => { await chrome.storage.sync.set({ 'dc-flags': f }); },
     getPatterns: async () => (await chrome.storage.sync.get('dc-patterns'))['dc-patterns'] as CustomPattern[] | undefined,
     setPatterns: async (p) => { await chrome.storage.sync.set({ 'dc-patterns': p }); },
+    getProfiles: async () => (await chrome.storage.sync.get('dc-profiles'))['dc-profiles'] as ProfileStore | undefined,
+    setProfiles: async (p) => { await chrome.storage.sync.set({ 'dc-profiles': p }); },
   };
   // Encrypted origin vault in chrome.storage.local; startup prune is the
   // TTL guarantee (no chrome.alarms — service-worker lifecycle makes it unreliable).

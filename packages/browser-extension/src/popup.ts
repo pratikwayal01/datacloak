@@ -699,22 +699,25 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     });
   }
   paintCustom();
-  void deps.send({ kind: 'patterns.get' }).then((res) => {
-    if (!('patterns' in res) || !Array.isArray(res.patterns)) return;
-    const stored = res.patterns as CustomPattern[];
-    const rows: EntityRow[] = [];
-    const dropped: string[] = [];
-    for (const p of stored) {
-      if (p.kind && (KINDS as readonly string[]).includes(p.kind)) { rows.push({ value: p.name, kind: p.kind as RowKind }); continue; }
-      if ((p as { literal?: boolean }).literal) { rows.push({ value: p.name, kind: 'name' }); continue; }
-      // Q1: legacy regex customs auto-drop, never read-only.
-      dropped.push(p.name);
-    }
-    if (dropped.length > 0) console.warn(`[datacloak] dropped legacy custom patterns without kinds: ${dropped.join(', ')}`);
-    custom = rows;
-    paintCustom();
-    if (dropped.length > 0 || stored.some((p) => !p.kind)) saveCustom();
-  }).catch(() => {});
+  const loadCustom = (): void => {
+    void deps.send({ kind: 'patterns.get' }).then((res) => {
+      if (!('patterns' in res) || !Array.isArray(res.patterns)) return;
+      const stored = res.patterns as CustomPattern[];
+      const rows: EntityRow[] = [];
+      const dropped: string[] = [];
+      for (const p of stored) {
+        if (p.kind && (KINDS as readonly string[]).includes(p.kind)) { rows.push({ value: p.name, kind: p.kind as RowKind }); continue; }
+        if ((p as { literal?: boolean }).literal) { rows.push({ value: p.name, kind: 'name' }); continue; }
+        // Q1: legacy regex customs auto-drop, never read-only.
+        dropped.push(p.name);
+      }
+      if (dropped.length > 0) console.warn(`[datacloak] dropped legacy custom patterns without kinds: ${dropped.join(', ')}`);
+      custom = rows;
+      paintCustom();
+      if (dropped.length > 0 || stored.some((p) => !p.kind)) saveCustom();
+    }).catch(() => {});
+  };
+  loadCustom();
 
   // ── Diff view (full-page tab only; #diff-wrap lives in fullpage.html) ──
   const marked = (text: string, spans: { text: string; at: number }[]): DocumentFragment => {
@@ -861,6 +864,84 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     }
   };
   renderPatterns();
+
+  // ── Profiles: named entity-list + flag sets. Rows + flags repaint on
+  // every switch; site grants stay global and are untouched. ──
+  const paintProfiles = (activeId: string, profiles: { id: string; name: string; patterns: number }[]): void => {
+    const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+    if (!sel) return;
+    sel.replaceChildren();
+    for (const p of profiles) {
+      const opt = doc.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.patterns})`;
+      sel.appendChild(opt);
+    }
+    sel.value = activeId;
+  };
+  const refreshProfileState = async (): Promise<void> => {
+    try {
+      const res = await deps.send({ kind: 'profiles.get' });
+      if (!('profiles' in res)) return;
+      paintProfiles(res.activeId, res.profiles);
+      const fg = await deps.send({ kind: 'settings.get' });
+      if ('flags' in fg) {
+        flags = { ...fg.flags };
+        renderPatterns();
+      }
+      loadCustom();
+    } catch { /* stays on current state */ }
+  };
+  const profileSel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+  if (profileSel && !profileSel.dataset.bound) {
+    profileSel.dataset.bound = '1';
+    profileSel.addEventListener('change', () => {
+      void deps.send({ kind: 'profiles.switch', id: profileSel.value }).then((res) => {
+        if ('error' in res && res.error) { toast(doc, res.error); void refreshProfileState(); return; }
+        toast(doc, 'Profile switched');
+        void refreshProfileState();
+      }).catch((e: unknown) => toast(doc, `Switch failed: ${(e as Error)?.message ?? e}`));
+    });
+  }
+  const profileAdd = doc.getElementById('s-profile-add');
+  if (profileAdd && !(profileAdd as HTMLElement).dataset.bound) {
+    (profileAdd as HTMLElement).dataset.bound = '1';
+    profileAdd.addEventListener('click', () => {
+      const input = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+      const name = input?.value.trim() ?? '';
+      if (!name) { toast(doc, 'Name the new profile first'); return; }
+      void deps.send({ kind: 'profiles.add', name }).then((res) => {
+        if ('error' in res && res.error) { toast(doc, res.error); return; }
+        if (input) input.value = '';
+        toast(doc, `Profile "${name}" added`);
+        void refreshProfileState();
+      }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+    });
+  }
+  const profileDel = doc.getElementById('s-profile-del');
+  if (profileDel && !(profileDel as HTMLElement).dataset.bound) {
+    (profileDel as HTMLElement).dataset.bound = '1';
+    profileDel.addEventListener('click', () => {
+      const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+      const id = sel?.value ?? '';
+      const label = sel?.selectedOptions?.[0]?.textContent ?? 'this profile';
+      if (!id) return;
+      confirmAction(
+        doc,
+        `Delete ${label}?`,
+        'Its custom entities go with it. Past messages keep their fakes; the vault still restores them.',
+        'Delete',
+        () => {
+          void deps.send({ kind: 'profiles.delete', id }).then((res) => {
+            if ('error' in res && res.error) { toast(doc, res.error); return; }
+            toast(doc, 'Profile deleted');
+            void refreshProfileState();
+          }).catch((e: unknown) => toast(doc, `Delete failed: ${(e as Error)?.message ?? e}`));
+        },
+      );
+    });
+  }
+  void refreshProfileState();
 
   // ── Console (runConsoleCmd; originals never logged) ──
   const out = doc.getElementById('console-out') as HTMLElement;
