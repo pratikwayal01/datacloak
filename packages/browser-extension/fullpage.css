@@ -133,8 +133,13 @@ body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
   position: fixed; inset: 0; z-index: 60;
   background: var(--bg);
   padding: 32px;
-  display: flex; flex-direction: column; gap: 14px; justify-content: center;
+  display: flex; flex-direction: column; gap: 14px;
+  justify-content: flex-start;
   max-width: 560px; margin: 0 auto;
+  height: fit-content;
+  border-radius: 12px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .tour-title { font-size: 20px; font-weight: 700; }
 .tour-list { color: var(--muted); font-size: 13.5px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }

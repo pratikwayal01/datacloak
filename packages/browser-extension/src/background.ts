@@ -401,6 +401,23 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     engines.clear();
     return profileList(next);
   }
+  if (req.kind === 'profiles.rename') {
+    const ps = await resolveProfiles(sync);
+    const target = ps.profiles.find((p) => p.id === req.id);
+    if (!target) return { ...profileList(ps), error: 'Unknown profile' };
+    const name = req.name.trim().slice(0, 40);
+    if (!name) return { ...profileList(ps), error: 'Profile name required' };
+    if (ps.profiles.some((p) => p.id !== req.id && p.name.toLowerCase() === name.toLowerCase())) {
+      return { ...profileList(ps), error: `Profile "${name}" already exists` };
+    }
+    // Name-only change: stored patterns untouched, engines stay warm.
+    const next: ProfileStore = {
+      activeId: ps.activeId,
+      profiles: ps.profiles.map((p) => (p.id === req.id ? { ...p, name } : p)),
+    };
+    await sync.setProfiles(next);
+    return profileList(next);
+  }
   if (req.kind === 'vault.clear') {
     // Total wipe: session keys are cleared popup-side; here drop live engines,
     // per-tab diffs, and the origin persistent store so nothing resurrects.

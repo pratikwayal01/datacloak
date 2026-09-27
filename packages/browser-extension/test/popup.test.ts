@@ -90,6 +90,7 @@ interface FakeState {
   sent: BgRequest[]; copied: string[];
   downloaded: { content: string; filename: string; mime: string }[];
   sysCb: (() => void) | null;
+  profileUi: Record<string, UiSettings>;
 }
 
 const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { deps: PopupDeps; state: FakeState } => {
@@ -98,7 +99,7 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
     flags: { ...DEFAULT_FLAGS },
     oplog: [{ ts: 1, tabId: 7, kind: 'cloak', ms: 3, count: 2, categories: ['EMAIL'], origin: 'chatgpt.com' }],
     estimate: { usage: 1024, quota: 102400 },
-    sent: [], copied: [], downloaded: [], sysCb: null,
+    sent: [], copied: [], downloaded: [], sysCb: null, profileUi: {},
     ...over,
   };
   let systemLight = over.systemLight ?? false;
@@ -123,6 +124,8 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
     onSystemThemeChange: (cb) => { state.sysCb = cb; },
     getUiSettings: async () => ({ ...state.ui }),
     setUiSettings: async (s) => { state.ui = { ...s }; },
+    getProfileUi: async (id: string) => state.profileUi[id] ?? null,
+    setProfileUi: async (id: string, s) => { state.profileUi[id] = { ...s }; },
     estimateStorage: async () => state.estimate,
     listStorage: async () => [['dc-settings', '{}']] as [string, string][],
     download: (content, filename, mime) => { state.downloaded.push({ content, filename, mime }); },

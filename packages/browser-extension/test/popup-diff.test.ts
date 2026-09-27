@@ -58,6 +58,8 @@ const fakeDeps = (store: Store): PopupDeps => ({
   onSystemThemeChange: () => {},
   getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] }),
   setUiSettings: async () => {},
+  getProfileUi: async (_id: string): Promise<null> => null,
+  setProfileUi: async () => {},
   estimateStorage: async () => null,
   listStorage: async () => [],
   download: () => {},

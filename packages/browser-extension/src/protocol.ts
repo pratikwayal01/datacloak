@@ -18,11 +18,12 @@ export interface ProfilesGetRequest { kind: 'profiles.get'; }
 export interface ProfilesAddRequest { kind: 'profiles.add'; name: string; }
 export interface ProfilesSwitchRequest { kind: 'profiles.switch'; id: string; }
 export interface ProfilesDeleteRequest { kind: 'profiles.delete'; id: string; }
+export interface ProfilesRenameRequest { kind: 'profiles.rename'; id: string; name: string; }
 export interface ProfilesResponse { activeId: string; profiles: { id: string; name: string; patterns: number }[]; error?: string; }
 export interface VaultClearResponse { cleared: boolean; }
 export interface CloakSpan { original: string; synthetic: string; category: string; start: number; end: number; }
 export interface LastCloakResponse { record: { original: string; cloaked: string; subs: CloakSpan[]; ts: number } | null; }
 export interface PatternsGetResponse { patterns: CustomPattern[]; }
 export interface PatternsSetResponse { patterns: CustomPattern[]; error?: string; }
-export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest | VaultClearRequest | ProfilesGetRequest | ProfilesAddRequest | ProfilesSwitchRequest | ProfilesDeleteRequest;
+export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest | VaultClearRequest | ProfilesGetRequest | ProfilesAddRequest | ProfilesSwitchRequest | ProfilesDeleteRequest | ProfilesRenameRequest;
 export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse | LastCloakResponse | VaultClearResponse | ProfilesResponse;

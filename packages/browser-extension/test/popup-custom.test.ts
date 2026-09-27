@@ -19,7 +19,8 @@ const skeleton = (): void => {
     <div class="panel" id="panel-settings">
       <div class="setting-desc" id="sites-active"></div>
       <div id="sites-list"></div>
-      <div id="s-profile-wrap"><select id="s-profile"></select><button id="s-profile-del">×</button><input id="s-profile-name" type="text"><button id="s-profile-add" type="button">Add</button></div>
+      <input type="checkbox" id="s-blur" checked>
+      <div id="s-profile-wrap"><select id="s-profile"></select><button id="s-profile-ren">✎</button><button id="s-profile-del">×</button><input id="s-profile-name" type="text" hidden><button id="s-profile-add" type="button">Add</button></div>
       <div id="patterns-list"></div>
       <div id="custom-list"></div>
       <button id="c-add" type="button">+ Add entity</button>
@@ -67,6 +68,8 @@ const fakeDeps = (store: { patterns: CustomPattern[] }, over: Partial<PopupDeps>
   onSystemThemeChange: () => {},
   getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] }),
   setUiSettings: async () => {},
+  getProfileUi: async (_id: string) => null,
+  setProfileUi: async () => {},
   estimateStorage: async () => null,
   listStorage: async () => [],
   download: () => {},
@@ -197,47 +200,56 @@ describe('popup full page', () => {
   });
 });
 
-describe('popup profiles', () => {
-  interface Prof { id: string; name: string; rows: CustomPattern[]; secrets: boolean }
-  const profDeps = (state: { activeId: string; profiles: Prof[] }, store: { patterns: CustomPattern[] }) => {
-    const base = fakeDeps(store);
-    const active = (): Prof => state.profiles.find((p) => p.id === state.activeId) ?? state.profiles[0];
-    const shape = () => ({ activeId: state.activeId, profiles: state.profiles.map((p) => ({ id: p.id, name: p.name, patterns: p.rows.length })) });
-    return {
-      ...base,
-      send: (async (req: Parameters<PopupDeps['send']>[0]) => {
-        if (req.kind === 'profiles.get') return shape();
-        if (req.kind === 'profiles.add') {
-          if (state.profiles.some((p) => p.name === req.name)) return { ...shape(), error: 'exists' };
-          const id = `p${state.profiles.length + 1}`;
-          state.profiles.push({ id, name: req.name, rows: [], secrets: true });
-          state.activeId = id;
-          return shape();
-        }
-        if (req.kind === 'profiles.switch') {
-          if (!state.profiles.some((p) => p.id === req.id)) return { ...shape(), error: 'Unknown' };
-          state.activeId = req.id;
-          return shape();
-        }
+interface Prof { id: string; name: string; rows: CustomPattern[]; secrets: boolean }
+const profDeps = (state: { activeId: string; profiles: Prof[] }, store: { patterns: CustomPattern[] }) => {
+  const base = fakeDeps(store);
+  const active = (): Prof => state.profiles.find((p) => p.id === state.activeId) ?? state.profiles[0];
+  const shape = () => ({ activeId: state.activeId, profiles: state.profiles.map((p) => ({ id: p.id, name: p.name, patterns: p.rows.length })) });
+  return {
+    ...base,
+    send: (async (req: Parameters<PopupDeps['send']>[0]) => {
+      if (req.kind === 'profiles.get') return shape();
+      if (req.kind === 'profiles.add') {
+        if (state.profiles.some((p) => p.name === req.name)) return { ...shape(), error: 'exists' };
+        const id = `p${state.profiles.length + 1}`;
+        state.profiles.push({ id, name: req.name, rows: [], secrets: true });
+        state.activeId = id;
+        return shape();
+      }
+      if (req.kind === 'profiles.switch') {
+        if (!state.profiles.some((p) => p.id === req.id)) return { ...shape(), error: 'Unknown' };
+        state.activeId = req.id;
+        return shape();
+      }
         if (req.kind === 'profiles.delete') {
           if (state.profiles.length <= 1) return { ...shape(), error: 'last profile' };
           state.profiles = state.profiles.filter((p) => p.id !== req.id);
           if (state.activeId === req.id) state.activeId = state.profiles[0].id;
           return shape();
         }
-        if (req.kind === 'patterns.get') return { patterns: active().rows };
-        if (req.kind === 'patterns.set') {
-          active().rows = req.patterns;
-          return { patterns: active().rows };
+        if (req.kind === 'profiles.rename') {
+          const target = state.profiles.find((p) => p.id === req.id);
+          if (!target) return { ...shape(), error: 'Unknown' };
+          if (!req.name.trim()) return { ...shape(), error: 'required' };
+          if (state.profiles.some((p) => p.id !== req.id && p.name === req.name)) return { ...shape(), error: 'exists' };
+          target.name = req.name;
+          return shape();
         }
-        if (req.kind === 'settings.get') return { flags: { secrets: active().secrets, envVars: true, pii: true, entropy: true } };
-        return base.send(req);
-      }) as PopupDeps['send'],
-    } as PopupDeps;
-  };
-  const sel = (): HTMLSelectElement => document.getElementById('s-profile') as HTMLSelectElement;
-  const rowValues = (): string[] =>
-    [...document.querySelectorAll('#custom-list input')].map((i) => (i as HTMLInputElement).value);
+      if (req.kind === 'patterns.get') return { patterns: active().rows };
+      if (req.kind === 'patterns.set') {
+        active().rows = req.patterns;
+        return { patterns: active().rows };
+      }
+      if (req.kind === 'settings.get') return { flags: { secrets: active().secrets, envVars: true, pii: true, entropy: true } };
+      return base.send(req);
+    }) as PopupDeps['send'],
+  } as PopupDeps;
+};
+const profSel = (): HTMLSelectElement => document.getElementById('s-profile') as HTMLSelectElement;
+const rowValues = (): string[] =>
+  [...document.querySelectorAll('#custom-list input')].map((i) => (i as HTMLInputElement).value);
+
+describe('popup profiles', () => {
 
   it('paints profiles with counts and switches reload rows', async () => {
     skeleton();
@@ -250,17 +262,17 @@ describe('popup profiles', () => {
     };
     await renderPopup(document, profDeps(state, { patterns: [] }));
     await flush();
-    expect(sel().options.length).toBe(2);
-    expect(sel().selectedOptions[0].textContent).toBe('Default (1)');
+    expect(profSel().options.length).toBe(2);
+    expect(profSel().selectedOptions[0].textContent).toBe('Default (1)');
     expect(rowValues()).toEqual(['Ramesh']);
-    sel().value = 'p2';
-    sel().dispatchEvent(new Event('change'));
+    profSel().value = 'p2';
+    profSel().dispatchEvent(new Event('change'));
     await flush();
     expect(rowValues()).toEqual([]);
     expect(document.getElementById('toast')?.textContent).toMatch(/switched/);
   });
 
-  it('add creates and selects; delete confirms and guards the last', async () => {
+  it('entity saves refresh the profile count live', async () => {
     skeleton();
     const state = {
       activeId: 'p1',
@@ -268,22 +280,131 @@ describe('popup profiles', () => {
     };
     await renderPopup(document, profDeps(state, { patterns: [] }));
     await flush();
-    (document.getElementById('s-profile-name') as HTMLInputElement).value = 'Client X';
+    expect(profSel().selectedOptions[0].textContent).toBe('Default (0)');
+    document.getElementById('c-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    const input = document.querySelector('#custom-list input') as HTMLInputElement;
+    input.value = 'Ramesh';
+    input.dispatchEvent(new Event('change'));
+    await flush();
+    expect(profSel().selectedOptions[0].textContent).toBe('Default (1)');
+  });
+});
+
+describe('popup profile add/delete flows', () => {
+  it('ui prefs stay per-profile across switches and saves', async () => {
+    skeleton();
+    const state = {
+      activeId: 'p1',
+      profiles: [
+        { id: 'p1', name: 'Default', rows: [] as CustomPattern[], secrets: true },
+        { id: 'p2', name: 'Work', rows: [] as CustomPattern[], secrets: true },
+      ],
+    };
+    const d = profDeps(state, { patterns: [] });
+    let uiLive = { autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: true, sensitivity: 'low' as const, style: 'realistic', allowlist: [] as string[] };
+    const snaps: Record<string, typeof uiLive> = {};
+    d.getUiSettings = async () => ({ ...uiLive });
+    d.setUiSettings = async (s) => { uiLive = { ...s }; };
+    d.getProfileUi = async (id: string) => snaps[id] ?? null;
+    d.setProfileUi = async (id: string, s) => { snaps[id] = { ...s }; };
+    await renderPopup(document, d);
+    await flush();
+    const blurBox = (): HTMLInputElement => document.querySelector('#panel-settings #s-blur') as HTMLInputElement ?? document.getElementById('s-blur') as HTMLInputElement;
+    // p1: blur off + save snapshots it.
+    (document.getElementById('s-blur') as HTMLInputElement).checked = false;
+    (document.getElementById('s-blur') as HTMLInputElement).dispatchEvent(new Event('change', { bubbles: true }));
+    (document.getElementById('s-save') as HTMLButtonElement).click();
+    await flush();
+    expect(snaps['p1'].blur).toBe(false);
+    // Switch to p2 (no snapshot): defaults apply, p1 untouched.
+    (document.getElementById('s-profile') as HTMLSelectElement).value = 'p2';
+    (document.getElementById('s-profile') as HTMLSelectElement).dispatchEvent(new Event('change'));
+    await flush();
+    expect((document.getElementById('s-blur') as HTMLInputElement).checked).toBe(true);
+    expect(snaps['p1'].blur).toBe(false);
+    // Back to p1: its blur-off restores.
+    (document.getElementById('s-profile') as HTMLSelectElement).value = 'p1';
+    (document.getElementById('s-profile') as HTMLSelectElement).dispatchEvent(new Event('change'));
+    await flush();
+    expect((document.getElementById('s-blur') as HTMLInputElement).checked).toBe(false);
+    expect(blurBox()).toBeTruthy();
+  });
+});
+
+describe('popup profile rename', () => {
+  it('rename prefills, confirms, and rejects duplicates', async () => {
+    skeleton();
+    const state = {
+      activeId: 'p1',
+      profiles: [
+        { id: 'p1', name: 'Default', rows: [] as CustomPattern[], secrets: true },
+        { id: 'p2', name: 'Work', rows: [] as CustomPattern[], secrets: true },
+      ],
+    };
+    await renderPopup(document, profDeps(state, { patterns: [] }));
+    await flush();
+    const nameInput = (): HTMLInputElement => document.getElementById('s-profile-name') as HTMLInputElement;
+    document.getElementById('s-profile-ren')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(nameInput().hidden).toBe(false);
+    expect(nameInput().value).toBe('Default');
+    nameInput().value = 'Personal';
     document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
     await flush();
-    expect(sel().selectedOptions[0].textContent).toBe('Client X (0)');
+    expect(profSel().selectedOptions[0].textContent).toBe('Personal (0)');
+    expect(document.getElementById('toast')?.textContent).toMatch(/renamed/);
+    // Duplicate name surfaces the backend error and stays open.
+    document.getElementById('s-profile-ren')?.dispatchEvent(new Event('click'));
+    await flush();
+    nameInput().value = 'Work';
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(document.getElementById('toast')?.textContent).toMatch(/exists/);
+    expect(profSel().selectedOptions[0].textContent).toBe('Personal (0)');
+  });
+});
+
+describe('popup profile add/delete flows', () => {
+  it('add reveals input first, then creates on confirm', async () => {
+    skeleton();
+    const nameInput = (): HTMLInputElement => document.getElementById('s-profile-name') as HTMLInputElement;
+    const state = {
+      activeId: 'p1',
+      profiles: [{ id: 'p1', name: 'Default', rows: [] as CustomPattern[], secrets: true }],
+    };
+    await renderPopup(document, profDeps(state, { patterns: [] }));
+    await flush();
+    // First click reveals the inline input instead of creating.
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(nameInput().hidden).toBe(false);
+    expect(profSel().options.length).toBe(1);
+    // Empty confirm cancels back to a lone Add button.
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(nameInput().hidden).toBe(true);
+    expect(profSel().options.length).toBe(1);
+    // Named confirm creates and selects.
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    nameInput().value = 'Client X';
+    document.getElementById('s-profile-add')?.dispatchEvent(new Event('click'));
+    await flush();
+    expect(nameInput().hidden).toBe(true);
+    expect(profSel().selectedOptions[0].textContent).toBe('Client X (0)');
     expect(document.getElementById('toast')?.textContent).toMatch(/added/);
     document.getElementById('s-profile-del')?.click();
     await flush();
     expect(document.querySelector('.dc-confirm')?.textContent).toContain('Client X');
     (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
     await flush();
-    expect(sel().options.length).toBe(1);
+    expect(profSel().options.length).toBe(1);
     document.getElementById('s-profile-del')?.click();
     await flush();
     (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
     await flush();
     expect(document.getElementById('toast')?.textContent).toMatch(/last profile/);
-    expect(sel().options.length).toBe(1);
+    expect(profSel().options.length).toBe(1);
   });
 });

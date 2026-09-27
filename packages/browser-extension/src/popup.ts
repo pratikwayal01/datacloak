@@ -81,6 +81,8 @@ export interface PopupDeps {
   onSystemThemeChange: (cb: () => void) => void;
   getUiSettings: () => Promise<UiSettings>;
   setUiSettings: (s: UiSettings) => Promise<void>;
+  getProfileUi: (id: string) => Promise<UiSettings | null>;
+  setProfileUi: (id: string, s: UiSettings) => Promise<void>;
   estimateStorage: () => Promise<{ usage: number; quota: number } | null>;
   listStorage: () => Promise<[string, string][]>;
   download: (content: string, filename: string, mime: string) => void;
@@ -658,7 +660,8 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
       .filter((r) => r.value)
       .map((r) => ({ name: r.value, kind: r.kind }) as CustomPattern);
     void deps.send({ kind: 'patterns.set', patterns: minimal }).then((res) => {
-      if ('error' in res && res.error) toast(doc, res.error);
+      if ('error' in res && res.error) { toast(doc, res.error); return; }
+      void refreshProfileCounts();
     }).catch((e: unknown) => toast(doc, `Save failed: ${(e as Error)?.message ?? e}`));
   };
 
@@ -867,7 +870,11 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   doc.getElementById('s-fullpage')?.addEventListener('click', () => {
     void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
   });
-  doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
+  doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => {
+      // Footer Save also snapshots prefs into the active profile.
+      deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+      toast(doc, 'Settings saved');
+    }).catch(() => {});
   });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
@@ -913,7 +920,13 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
 
   // ── Profiles: named entity-list + flag sets. Rows + flags repaint on
   // every switch; site grants stay global and are untouched. ──
+  // UI prefs (blur, review, …) snapshot per profile behind the live
+  // `dc-settings` key, so the content script keeps reading one key.
+  // tourSeen stays global and is never snapshotted back.
+  let currentProfileId = 'default';
+  let profileUiSeeded = false;
   const paintProfiles = (activeId: string, profiles: { id: string; name: string; patterns: number }[]): void => {
+    currentProfileId = activeId;
     const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
     if (!sel) return;
     sel.replaceChildren();
@@ -925,11 +938,38 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     }
     sel.value = activeId;
   };
+  // Apply a profile's UI snapshot (or defaults for brand-new profiles).
+  const applyIncomingUi = async (): Promise<void> => {
+    try {
+      const snap = await deps.getProfileUi(currentProfileId);
+      ui = { ...(snap ?? DEFAULT_UI_SETTINGS), tourSeen: ui.tourSeen };
+      await deps.setUiSettings({ ...ui }).catch(() => {});
+    } catch { /* keep current ui */ }
+    paintSettings();
+    renderVault();
+  };
+  // Entity saves change the counts — refresh labels without touching rows.
+  const refreshProfileCounts = async (): Promise<void> => {
+    try {
+      const res = await deps.send({ kind: 'profiles.get' });
+      if ('profiles' in res) paintProfiles(res.activeId, res.profiles);
+    } catch { /* stale counts beat broken saves */ }
+  };
   const refreshProfileState = async (): Promise<void> => {
     try {
       const res = await deps.send({ kind: 'profiles.get' });
       if (!('profiles' in res)) return;
       paintProfiles(res.activeId, res.profiles);
+      // First load seeds the snapshot from live settings without applying —
+      // never clobber the user's current checkboxes on open.
+      if (!profileUiSeeded) {
+        profileUiSeeded = true;
+        try {
+          if (!(await deps.getProfileUi(currentProfileId))) {
+            await deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+          }
+        } catch { /* snapshot best-effort */ }
+      }
       const fg = await deps.send({ kind: 'settings.get' });
       if ('flags' in fg) {
         flags = { ...fg.flags };
@@ -942,28 +982,84 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   if (profileSel && !profileSel.dataset.bound) {
     profileSel.dataset.bound = '1';
     profileSel.addEventListener('change', () => {
-      void deps.send({ kind: 'profiles.switch', id: profileSel.value }).then((res) => {
-        if ('error' in res && res.error) { toast(doc, res.error); void refreshProfileState(); return; }
-        toast(doc, 'Profile switched');
-        void refreshProfileState();
-      }).catch((e: unknown) => toast(doc, `Switch failed: ${(e as Error)?.message ?? e}`));
+      hideNameInput();
+      void (async () => {
+        try {
+          // Snapshot outgoing prefs first, then apply the incoming profile's.
+          await deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+          const res = await deps.send({ kind: 'profiles.switch', id: profileSel.value });
+          if ('error' in res && res.error) { toast(doc, res.error); void refreshProfileState(); return; }
+          toast(doc, 'Profile switched');
+          await refreshProfileState();
+          await applyIncomingUi();
+        } catch (e: unknown) { toast(doc, `Switch failed: ${(e as Error)?.message ?? e}`); }
+      })();
     });
   }
+  // Rename state lives beside the add flow so profile switching can cancel it.
+  let renaming: string | null = null;
+  const hideNameInput = (): void => {
+    const el = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+    if (el) { el.value = ''; el.hidden = true; }
+    renaming = null;
+  };
   const profileAdd = doc.getElementById('s-profile-add');
   if (profileAdd && !(profileAdd as HTMLElement).dataset.bound) {
     (profileAdd as HTMLElement).dataset.bound = '1';
-    profileAdd.addEventListener('click', () => {
+    // Custom-row flow: first click reveals the inline input, second confirms.
+    // Empty confirm cancels back to a single Add button. The ✎ button reuses
+    // the same input to rename the active profile instead of adding.
+    const submitProfileAdd = (): void => {
       const input = doc.getElementById('s-profile-name') as HTMLInputElement | null;
-      const name = input?.value.trim() ?? '';
-      if (!name) { toast(doc, 'Name the new profile first'); return; }
+      if (!input || input.hidden) {
+        if (input) {
+          input.hidden = false;
+          input.focus();
+        }
+        return;
+      }
+      const name = input.value.trim();
+      if (!name) { hideNameInput(); return; }
+      if (renaming) {
+        const id = renaming;
+        void deps.send({ kind: 'profiles.rename', id, name }).then((res) => {
+          if ('error' in res && res.error) { toast(doc, res.error); return; }
+          hideNameInput();
+          toast(doc, `Profile renamed to "${name}"`);
+          void refreshProfileState();
+        }).catch((e: unknown) => toast(doc, `Rename failed: ${(e as Error)?.message ?? e}`));
+        return;
+      }
       void deps.send({ kind: 'profiles.add', name }).then((res) => {
         if ('error' in res && res.error) { toast(doc, res.error); return; }
-        if (input) input.value = '';
+        input.value = '';
+        input.hidden = true;
         toast(doc, `Profile "${name}" added`);
-        void refreshProfileState();
+        void refreshProfileState().then(() => applyIncomingUi());
       }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+    };
+    profileAdd.addEventListener('click', submitProfileAdd);
+    const nameInput = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+    nameInput?.addEventListener('keydown', (ev) => {
+      const ke = ev as KeyboardEvent;
+      if (ke.key === 'Enter') submitProfileAdd();
+      else if (ke.key === 'Escape') hideNameInput();
     });
   }
+  const profileRen = doc.getElementById('s-profile-ren');
+    if (profileRen && !(profileRen as HTMLElement).dataset.bound) {
+      (profileRen as HTMLElement).dataset.bound = '1';
+      profileRen.addEventListener('click', () => {
+        const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+        const input = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+        if (!sel?.value || !input) return;
+        renaming = sel.value;
+        input.value = (sel.selectedOptions?.[0]?.textContent ?? '').replace(/ \(\d+\)$/, '');
+        input.hidden = false;
+        input.focus();
+        input.select();
+      });
+    }
   const profileDel = doc.getElementById('s-profile-del');
   if (profileDel && !(profileDel as HTMLElement).dataset.bound) {
     (profileDel as HTMLElement).dataset.bound = '1';
@@ -981,7 +1077,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
           void deps.send({ kind: 'profiles.delete', id }).then((res) => {
             if ('error' in res && res.error) { toast(doc, res.error); return; }
             toast(doc, 'Profile deleted');
-            void refreshProfileState();
+            void refreshProfileState().then(() => applyIncomingUi());
           }).catch((e: unknown) => toast(doc, `Delete failed: ${(e as Error)?.message ?? e}`));
         },
       );
@@ -1142,6 +1238,14 @@ function prodDeps(): PopupDeps {
     },
     getUiSettings: async () => ({ ...DEFAULT_UI_SETTINGS, ...((await syncGet('dc-settings', {})) as Partial<UiSettings>) }),
     setUiSettings: async (s) => { await chrome!.storage.sync.set({ 'dc-settings': s }); },
+    getProfileUi: async (id) => {
+      const all = (await syncGet('dc-profile-ui', {})) as Record<string, UiSettings>;
+      return all[id] ?? null;
+    },
+    setProfileUi: async (id, s) => {
+      const all = (await syncGet('dc-profile-ui', {})) as Record<string, UiSettings>;
+      await chrome!.storage.sync.set({ 'dc-profile-ui': { ...all, [id]: s } });
+    },
     estimateStorage: async () => {
       try {
         const est = await navigator.storage.estimate();
