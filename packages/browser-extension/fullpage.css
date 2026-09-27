@@ -143,7 +143,7 @@ body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
 }
 .tour-title { font-size: 20px; font-weight: 700; }
 .tour-list { color: var(--muted); font-size: 13.5px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
-.tour-overlay .btn { align-self: flex-start; width: fit-content; max-width: 100%; white-space: nowrap; }
+.tour-overlay .btn { align-self: flex-start; flex: none; width: fit-content; max-width: 100%; white-space: nowrap; }
 .fp-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* ── Shared-behavior controls, same look as the popup ── */
