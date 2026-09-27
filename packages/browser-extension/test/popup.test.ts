@@ -338,7 +338,7 @@ describe('settings + dev panels', () => {
     expect((document.getElementById('s-theme') as HTMLSelectElement).value).toBe('system');
     expect(document.querySelector('.risk-btn[data-risk="low"]')?.className).toContain('active-low');
     expect(document.getElementById('s-allowlist-add')).toBeNull();
-    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, sensitivity: 'low', style: 'realistic', allowlist: [] });
+    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] });
     // toggle once after reset → single state flip (no stacked listeners)
     const blur = document.getElementById('s-blur') as HTMLInputElement;
     blur.checked = false;
@@ -359,8 +359,24 @@ describe('settings + dev panels', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.review).toBe(true);
   });
-  it('page badge toggle persists on save', async () => {
+  it('first run shows tour overlay; Got it persists and removes', async () => {
     skeleton();
+    const { deps, state } = fakeDeps();
+    expect(state.ui.tourSeen).toBe(false);
+    await renderPopup(document, deps);
+    expect(document.querySelector('.tour-overlay')?.textContent).toContain('Welcome to DataCloak');
+    (document.querySelector('.tour-overlay .btn') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.tourSeen).toBe(true);
+    expect(document.querySelector('.tour-overlay')).toBeNull();
+  });
+  it('no tour overlay once seen', async () => {
+    skeleton();
+    const { deps } = fakeDeps({ ui: { ...DEFAULT_UI_SETTINGS, tourSeen: true } });
+    await renderPopup(document, deps);
+    expect(document.querySelector('.tour-overlay')).toBeNull();
+  });
+  it('page badge toggle persists on save', async () => {    skeleton();
     const { deps, state } = fakeDeps();
     await renderPopup(document, deps);
     expect((document.getElementById('s-pagebadge') as HTMLInputElement).checked).toBe(true);

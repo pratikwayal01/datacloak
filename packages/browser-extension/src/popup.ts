@@ -30,11 +30,13 @@ export function applyTheme(doc: Document, theme: ResolvedTheme): void {
 export interface UiSettings {
   autodetect: boolean; clipboard: boolean; network: boolean;
   blur: boolean; notif: boolean; review: boolean; pageBadge: boolean;
+  tourSeen: boolean;
   sensitivity: 'low' | 'medium' | 'high'; style: string; allowlist: string[];
 }
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   autodetect: true, clipboard: false, network: true,
   blur: true, notif: true, review: false, pageBadge: true,
+  tourSeen: false,
   sensitivity: 'low', style: 'realistic', allowlist: [],
 };
 
@@ -225,6 +227,37 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   let ui: UiSettings = { ...DEFAULT_UI_SETTINGS };
   try { ui = { ...DEFAULT_UI_SETTINGS, ...(await deps.getUiSettings()) }; } catch { /* defaults */ }
   let flags = await readFlags(deps);
+
+  // ── First-run tour: one overlay, dismissed forever via ui flag ──
+  if (!ui.tourSeen) {
+    const tour = doc.createElement('div');
+    tour.className = 'tour-overlay';
+    const title = doc.createElement('div');
+    title.className = 'tour-title';
+    title.textContent = 'Welcome to DataCloak';
+    const list = doc.createElement('ol');
+    list.className = 'tour-list';
+    for (const step of [
+      'Type normally — names, emails, IDs and secrets become fakes before they leave the page.',
+      'Turn on Review before sending in Settings to confirm each cloak.',
+      'Replies restore automatically; your vault never leaves this device.',
+    ]) {
+      const li = doc.createElement('li');
+      li.textContent = step;
+      list.appendChild(li);
+    }
+    const got = doc.createElement('button');
+    got.className = 'btn btn-primary';
+    got.type = 'button';
+    got.textContent = 'Got it';
+    got.addEventListener('click', () => {
+      ui.tourSeen = true;
+      deps.setUiSettings({ ...ui }).catch(() => {});
+      tour.remove();
+    });
+    tour.append(title, list, got);
+    doc.body.appendChild(tour);
+  }
 
   // ── Vault ──
   let entries: VaultEntry[] = [];

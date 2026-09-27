@@ -127,6 +127,18 @@ body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
 .mono { font-family: var(--mono); font-size: 12.5px; }
 .blurred { filter: blur(5px); cursor: pointer; }
 .vault-empty { color: var(--muted); padding: 16px; }
+
+/* First-run tour overlay */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  padding: 32px;
+  display: flex; flex-direction: column; gap: 14px; justify-content: center;
+  max-width: 560px; margin: 0 auto;
+}
+.tour-title { font-size: 20px; font-weight: 700; }
+.tour-list { color: var(--muted); font-size: 13.5px; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.tour-overlay .btn { align-self: flex-start; }
 .fp-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* ── Shared-behavior controls, same look as the popup ── */

@@ -55,7 +55,7 @@ const fakeDeps = (store: Store): PopupDeps => ({
   setTheme: async () => {},
   systemIsLight: () => false,
   onSystemThemeChange: () => {},
-  getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, sensitivity: 'low', style: 'realistic', allowlist: [] }),
+  getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] }),
   setUiSettings: async () => {},
   estimateStorage: async () => null,
   listStorage: async () => [],

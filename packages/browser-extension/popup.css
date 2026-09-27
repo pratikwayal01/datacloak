@@ -196,6 +196,17 @@ body {
 .vault-empty svg { margin-bottom: 8px; opacity: .35; }
 .vault-empty p { font-size: 12px; }
 
+/* First-run tour overlay */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 12px; justify-content: center;
+}
+.tour-title { font-size: 16px; font-weight: 600; }
+.tour-list { color: var(--muted); font-size: 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.tour-overlay .btn { align-self: flex-start; }
+
 .vault-row {
   display: flex;
   align-items: center;
