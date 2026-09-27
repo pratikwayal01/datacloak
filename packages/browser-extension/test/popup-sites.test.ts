@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderPopup, upsertCustomSite, type PopupDeps } from '../src/popup.js';
+import { renderPopup, type PopupDeps } from '../src/popup.js';
+import { upsertCustomSite } from '../src/site-store.js';
 import { toOriginPattern } from '../src/site-store.js';
 import type { BgResponse } from '../src/protocol.js';
 
@@ -61,7 +62,7 @@ const fakeDeps = (over: Partial<PopupDeps> = {}): { deps: PopupDeps; calls: { to
   const calls: { toggle: [string, boolean][]; add: string[]; remove: string[] } = { toggle: [], add: [], remove: [] };
   const deps: PopupDeps = {
     send: async (req) => {
-      if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [] };
+      if (req.kind === 'stats') return { counts: { cloaked: 0, restored: 0 }, byCategory: {}, oplog: [], lifetime: { cloaked: 0, restored: 0 } };
       if (req.kind === 'settings.get') return { flags: { secrets: true, envVars: true, pii: true, entropy: true } };
       return { text: '', count: 0, categories: [] } as BgResponse;
     },
@@ -73,8 +74,10 @@ const fakeDeps = (over: Partial<PopupDeps> = {}): { deps: PopupDeps; calls: { to
     setTheme: async () => {},
     systemIsLight: () => false,
     onSystemThemeChange: () => {},
-    getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, sensitivity: 'low', style: 'realistic', allowlist: [] }),
+    getUiSettings: async () => ({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] }),
     setUiSettings: async () => {},
+    getProfileUi: async (_id: string): Promise<null> => null,
+    setProfileUi: async () => {},
     estimateStorage: async () => null,
     listStorage: async () => [],
     download: () => {},
@@ -114,7 +117,7 @@ describe('popup sites section', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.toggle).toEqual([['claude.ai', false]]);
   });
-  it('add + remove call through to deps', async () => {
+  it('add asks same-page confirm, then calls through', async () => {
     skeleton();
     const { deps, calls } = fakeDeps();
     await renderPopup(document, deps);
@@ -122,9 +125,34 @@ describe('popup sites section', () => {
     input.value = 'duck.ai';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('duck.ai');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(calls.add).toEqual(['duck.ai']);
+  });
+  it('add cancel calls nothing', async () => {
+    skeleton();
+    const { deps, calls } = fakeDeps();
+    await renderPopup(document, deps);
+    (document.getElementById('s-sites-input') as HTMLInputElement).value = 'duck.ai';
+    (document.getElementById('s-sites-add') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    (document.querySelectorAll('.dc-confirm button')[0] as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-confirm')).toBeNull();
+  });
+  it('remove asks same-page confirm with host', async () => {
+    skeleton();
+    const { deps, calls } = fakeDeps();
+    await renderPopup(document, deps);
     const rm = document.querySelector('#sites-list button[data-remove]') as HTMLButtonElement;
     rm.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.remove).toEqual([]);
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('duck.ai');
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
     expect(calls.remove.length).toBe(1);
   });
@@ -132,26 +160,16 @@ describe('popup sites section', () => {
     const { deps } = fakeDeps({ getSites: undefined, addSite: undefined, toggleSite: undefined, removeSite: undefined });
     await expect(renderPopup(document, deps)).resolves.toBeUndefined();
   });
-  it('add via static input creates custom site + appears in list', async () => {
+  it('garbage input toasts instead of confirming', async () => {
     skeleton();
-    const added: string[] = [];
-    const base = [
-      { host: 'claude.ai', enabled: true, builtin: true, active: true },
-    ] as { host: string; enabled: boolean; builtin: boolean; active: boolean }[];
-    const { deps, calls } = fakeDeps({
-      getSites: async () => ({
-        sites: [...base, ...added.map((host) => ({ host, enabled: true, builtin: false, active: false }))],
-        activeHost: 'claude.ai',
-      }),
-      addSite: async (input: string) => { calls.add.push(input); added.push(input); return { ok: true }; },
-    });
+    const { deps, calls } = fakeDeps();
     await renderPopup(document, deps);
-    const input = document.getElementById('s-sites-input') as HTMLInputElement;
-    input.value = 'newsite.example';
+    (document.getElementById('s-sites-input') as HTMLInputElement).value = '::::';
     (document.getElementById('s-sites-add') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
-    expect(calls.add).toEqual(['newsite.example']);
-    expect(document.getElementById('sites-list')?.textContent).toContain('newsite.example');
+    expect(calls.add).toEqual([]);
+    expect(document.querySelector('.dc-confirm')).toBeNull();
+    expect(document.getElementById('toast')?.textContent).toMatch(/Unrecognized host/);
   });
   it('allowlist entries migrate into sites as disabled unique rows', async () => {
     skeleton();

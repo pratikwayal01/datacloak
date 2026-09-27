@@ -21,7 +21,8 @@ Four levels, first wins: `DATACLOAK_*` env → `<project>/.opencode/datacloak.js
   "blockPaths": [".env", ".env.local", "**/*.pem", "~/.ssh/**"],
   "customPatterns": [
     { "name": "Employee ID", "pattern": "EMP-[0-9]{6}",
-      "category": "EMPLOYEE_ID", "type": "pii" }
+      "category": "EMPLOYEE_ID", "type": "pii",
+      "synthesizer": "EMP-{{string.numeric(6)}}" }  // optional, see custom-entities.md
   ],
   "vault": { "maxEntries": 2000 }
 }
@@ -34,6 +35,9 @@ Env overrides: `DATACLOAK_ENABLED`, `DATACLOAK_MODE`,
 
 `--vault PATH`, or `$DATACLOAK_VAULT`, or
 `~/.config/datacloak/vault-<DATACLOAK_SESSION|default>.json`.
+Custom patterns for CLI: `--config PATH`, `$DATACLOAK_CONFIG`, or
+`./datacloak.json` (`{ "customPatterns": [...] }`, full guide in
+custom-entities.md).
 Export one `DATACLOAK_VAULT` per shell session to share cloak/restore state
 across prompts, hooks and tool calls. Files are chmod 600; session-scoped.
 

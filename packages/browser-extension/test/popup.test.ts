@@ -44,7 +44,8 @@ const skeleton = (): void => {
     <div class="panel" id="panel-settings">
       <input type="checkbox" id="s-autodetect"><input type="checkbox" id="s-clipboard">
       <input type="checkbox" id="s-network"><input type="checkbox" id="s-blur">
-      <input type="checkbox" id="s-notif">
+      <input type="checkbox" id="s-notif"><input type="checkbox" id="s-review">
+      <input type="checkbox" id="s-pagebadge">
       <button class="risk-btn" data-risk="low">Low</button>
       <button class="risk-btn" data-risk="medium">Med</button>
       <button class="risk-btn" data-risk="high">High</button>
@@ -84,20 +85,21 @@ const skeleton = (): void => {
 interface FakeState {
   mode: Mode; theme: ThemePref; ui: UiSettings; vault: VaultEntry[];
   flags: typeof DEFAULT_FLAGS;
-  oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[] }[];
+  oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[]; origin?: string }[];
   estimate: { usage: number; quota: number } | null;
   sent: BgRequest[]; copied: string[];
   downloaded: { content: string; filename: string; mime: string }[];
   sysCb: (() => void) | null;
+  profileUi: Record<string, UiSettings>;
 }
 
 const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { deps: PopupDeps; state: FakeState } => {
   const state: FakeState = {
     mode: 'auto', theme: 'system', ui: { ...DEFAULT_UI_SETTINGS }, vault: [...ENTRIES],
     flags: { ...DEFAULT_FLAGS },
-    oplog: [{ ts: 1, tabId: 7, kind: 'cloak', ms: 3, count: 2, categories: ['EMAIL'] }],
+    oplog: [{ ts: 1, tabId: 7, kind: 'cloak', ms: 3, count: 2, categories: ['EMAIL'], origin: 'chatgpt.com' }],
     estimate: { usage: 1024, quota: 102400 },
-    sent: [], copied: [], downloaded: [], sysCb: null,
+    sent: [], copied: [], downloaded: [], sysCb: null, profileUi: {},
     ...over,
   };
   let systemLight = over.systemLight ?? false;
@@ -106,7 +108,7 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
     send: async (req) => {
       state.sent.push(req);
       if (req.kind === 'stats') {
-        return { counts: { cloaked: 2, restored: 0 }, byCategory: { EMAIL: 1 }, oplog: state.oplog };
+        return { counts: { cloaked: 2, restored: 0 }, byCategory: { EMAIL: 1 }, oplog: state.oplog, lifetime: { cloaked: 7, restored: 1 } };
       }
       if (req.kind === 'settings.get') return { flags: { ...state.flags } };
       if (req.kind === 'settings.set') { state.flags = { ...req.flags }; return { flags: { ...state.flags } }; };
@@ -122,6 +124,8 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
     onSystemThemeChange: (cb) => { state.sysCb = cb; },
     getUiSettings: async () => ({ ...state.ui }),
     setUiSettings: async (s) => { state.ui = { ...s }; },
+    getProfileUi: async (id: string) => state.profileUi[id] ?? null,
+    setProfileUi: async (id: string, s) => { state.profileUi[id] = { ...s }; },
     estimateStorage: async () => state.estimate,
     listStorage: async () => [['dc-settings', '{}']] as [string, string][],
     download: (content, filename, mime) => { state.downloaded.push({ content, filename, mime }); },
@@ -190,6 +194,11 @@ describe('popup tabs + vault', () => {
     expect(document.querySelectorAll('#dc-vault .vault-row')).toHaveLength(1);
     expect(document.getElementById('stat-total')?.textContent).toBe('2');
     expect(document.getElementById('vault-badge')?.textContent).toBe('2');
+    // Original values are searchable too — the query stays local.
+    search.value = 'alice.real';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(document.querySelectorAll('#dc-vault .vault-row')).toHaveLength(1);
+    expect(document.querySelector('#dc-vault .vault-row')?.textContent).toContain('alice.synth@example.net');
   });
   it('copy buttons copy the synthetic, copy-map copies JSON map', async () => {
     skeleton();
@@ -238,6 +247,16 @@ describe('popup tabs + vault', () => {
     expect(out).not.toContain('sk-live-abcdef123456');
     expect(out).toMatch(/vault: 2 entries/);
     expect(out).toMatch(/unknown command/);
+  });
+  it('dev Clear log empties the console output', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    const input = document.getElementById('console-input') as HTMLInputElement;
+    pressEnter(input, 'help');
+    expect(document.getElementById('console-out')?.childNodes.length).toBeGreaterThan(0);
+    (document.getElementById('dev-clear-log') as HTMLButtonElement).click();
+    expect(document.getElementById('console-out')?.childNodes.length).toBe(0);
   });
   it('mode toggle flips auto/off and persists', async () => {
     skeleton();
@@ -290,6 +309,7 @@ describe('settings + dev panels', () => {
     expect(list).toContain('Background operation log');
     expect(list).toContain('CLOAK');
     expect(list).toContain('3ms');
+    expect(list).toContain('chatgpt.com');
 
     skeleton();
     const empty = fakeDeps({ oplog: [] });
@@ -314,14 +334,14 @@ describe('settings + dev panels', () => {
     expect((document.getElementById('s-clipboard') as HTMLInputElement).checked).toBe(true);
     (document.getElementById('s-reset') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
-    for (const [id, val] of [['s-autodetect', true], ['s-clipboard', false], ['s-network', true], ['s-blur', true], ['s-notif', true]] as const) {
+    for (const [id, val] of [['s-autodetect', true], ['s-clipboard', false], ['s-network', true], ['s-blur', true], ['s-notif', true], ['s-review', false], ['s-pagebadge', true]] as const) {
       expect((document.getElementById(id) as HTMLInputElement).checked).toBe(val);
     }
     expect((document.getElementById('s-style') as HTMLSelectElement).value).toBe('realistic');
     expect((document.getElementById('s-theme') as HTMLSelectElement).value).toBe('system');
     expect(document.querySelector('.risk-btn[data-risk="low"]')?.className).toContain('active-low');
     expect(document.getElementById('s-allowlist-add')).toBeNull();
-    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, sensitivity: 'low', style: 'realistic', allowlist: [] });
+    expect(state.ui).toEqual({ autodetect: true, clipboard: false, network: true, blur: true, notif: true, review: false, pageBadge: true, tourSeen: false, sensitivity: 'low', style: 'realistic', allowlist: [] });
     // toggle once after reset → single state flip (no stacked listeners)
     const blur = document.getElementById('s-blur') as HTMLInputElement;
     blur.checked = false;
@@ -330,13 +350,78 @@ describe('settings + dev panels', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.blur).toBe(false);
   });
-  it('clear vault empties rows + badge', async () => {
+  it('review toggle paints from state and persists on save', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    expect((document.getElementById('s-review') as HTMLInputElement).checked).toBe(false);
+    const review = document.getElementById('s-review') as HTMLInputElement;
+    review.checked = true;
+    review.dispatchEvent(new Event('change', { bubbles: true }));
+    (document.getElementById('s-save') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.review).toBe(true);
+  });
+  it('first run shows tour overlay; Got it persists and removes', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    expect(state.ui.tourSeen).toBe(false);
+    await renderPopup(document, deps);
+    expect(document.querySelector('.tour-overlay')?.textContent).toContain('Welcome to DataCloak');
+    (document.querySelector('.tour-overlay .btn') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.tourSeen).toBe(true);
+    expect(document.querySelector('.tour-overlay')).toBeNull();
+  });
+  it('no tour overlay once seen', async () => {
+    skeleton();
+    const { deps } = fakeDeps({ ui: { ...DEFAULT_UI_SETTINGS, tourSeen: true } });
+    await renderPopup(document, deps);
+    expect(document.querySelector('.tour-overlay')).toBeNull();
+  });
+  it('double init never stacks tour overlays', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    await renderPopup(document, deps);
+    expect(document.querySelectorAll('.tour-overlay')).toHaveLength(1);
+  });
+  it('sensitivity buttons update state when reachable', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    // Dismiss the tour first — it covers Settings until gone (the reported trap).
+    (document.querySelector('.tour-overlay .btn') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    (document.querySelector('.risk-btn[data-risk="medium"]') as HTMLElement).click();
+    expect(state.ui.sensitivity).toBe('medium');
+    expect(document.querySelector('.risk-btn[data-risk="medium"]')?.className).toContain('active-medium');
+  });
+  it('page badge toggle persists on save', async () => {    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    expect((document.getElementById('s-pagebadge') as HTMLInputElement).checked).toBe(true);
+    const badge = document.getElementById('s-pagebadge') as HTMLInputElement;
+    badge.checked = false;
+    badge.dispatchEvent(new Event('change', { bubbles: true }));
+    (document.getElementById('s-save') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.pageBadge).toBe(false);
+  });
+  it('clear vault asks confirm first, then empties rows + badge', async () => {
     skeleton();
     const { deps, state } = fakeDeps();
     await renderPopup(document, deps);
     (document.getElementById('dc-clear') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 0));
+    // Irreversible wipe waits on the same-page confirm — nothing cleared yet.
+    expect(document.querySelector('.dc-confirm')?.textContent).toContain('Clear the whole vault');
+    expect(state.vault.length).toBeGreaterThan(0);
+    (document.querySelectorAll('.dc-confirm button')[1] as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(state.vault).toEqual([]);
     expect(document.getElementById('vault-badge')?.textContent).toBe('0');
   });
 });
+
+

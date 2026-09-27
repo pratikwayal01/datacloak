@@ -47,3 +47,31 @@ describe('restore split across streaming text nodes', () => {
     }
   });
 });
+
+describe('restore dead-context', () => {
+  it('disconnects the observer instead of spamming errors', async () => {
+    const p = document.createElement('p');
+    p.appendChild(document.createTextNode('hello FAKE@x.net world'));
+    document.body.appendChild(p);
+    let calls = 0;
+    const deadSend = async (req: BgRequest): Promise<BgResponse> => {
+      calls++;
+      throw new Error('Extension context invalidated.');
+    };
+    const obs = observeResponses(p, deadSend);
+    try {
+      p.appendChild(document.createTextNode('!'));
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(calls).toBe(1);
+      // Observer is dead: further mutations trigger nothing.
+      p.appendChild(document.createTextNode('?'));
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(calls).toBe(1);
+      expect(document.querySelector('.dc-badge')?.textContent).toMatch(/refresh the page/);
+    } finally {
+      obs.disconnect();
+      p.remove();
+      document.querySelector('.dc-badge')?.remove();
+    }
+  });
+});

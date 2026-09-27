@@ -1,33 +1,5 @@
-/* ── Tokens ─────────────────────────────── */
-:root {
-  --bg:          #0F1117;
-  --surface:     #1C2033;
-  --surface2:    #222640;
-  --border:      #2A3050;
-  --accent:      #00D4AA;
-  --accent-dim:  rgba(0,212,170,.12);
-  --accent-glow: rgba(0,212,170,.06);
-  --danger:      #FF5E5E;
-  --warn:        #FFB547;
-  --text:        #E4E8F0;
-  --muted:       #8B95A6;
-  --chip-bg:     #252B42;
-  --mono:        'JetBrains Mono', monospace;
-}
+/* Tokens live in shared.css (linked by popup.html before this file). */
 
-/* ── Light theme (data-theme="light"; default :root is dark) ── */
-[data-theme="light"] {
-  --bg:          #F4F6FA;
-  --surface:     #FFFFFF;
-  --surface2:    #EAEFF5;
-  --border:      #D8DEE8;
-  --accent:      #009878;
-  --accent-dim:  rgba(0,152,120,.12);
-  --accent-glow: rgba(0,152,120,.06);
-  --text:        #1A2030;
-  --muted:       #5B6577;
-  --chip-bg:     #E8EDF4;
-}
 [data-theme="light"] .console-output,
 [data-theme="light"] .console-input-row { background: #10141C; }
 
@@ -223,6 +195,17 @@ body {
 }
 .vault-empty svg { margin-bottom: 8px; opacity: .35; }
 .vault-empty p { font-size: 12px; }
+
+/* First-run tour overlay */
+.tour-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: var(--bg);
+  padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 12px; justify-content: center;
+}
+.tour-title { font-size: 16px; font-weight: 600; }
+.tour-list { color: var(--muted); font-size: 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.tour-overlay .btn { align-self: flex-start; flex: none; width: fit-content; max-width: 100%; white-space: nowrap; }
 
 .vault-row {
   display: flex;

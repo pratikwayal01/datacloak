@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DataCloak",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Swap secrets/PII for realistic fakes before AI chat sees them.",
   "icons": {
     "16": "icons/icon16.png",
@@ -9,7 +9,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "scripting"],
+  "permissions": ["storage", "scripting", "contextMenus"],
   "optional_host_permissions": ["<all_urls>"],
   "host_permissions": [
     "https://claude.ai/*",

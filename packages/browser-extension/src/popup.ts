@@ -1,8 +1,9 @@
 import { toCsv } from './exporters.js';
 import { runConsoleCmd } from './console-cmd.js';
 import { SITE_SELECTORS } from './sites.js';
-import { isEnabled, parseHost, requestSite, removeSite, type Scheme, type UserSites } from './site-store.js';
+import { ensureRegistered, ensureSiteAccess, isEnabled, loadUserSites, parseHost, removeSite, requestSite, upsertCustomSite, type Scheme, type SitesStorage, type UserSites } from './site-store.js';
 import type { BgRequest, BgResponse } from './protocol.js';
+import type { CustomPattern } from '@pratikw/detect';
 
 export interface VaultEntry { synthetic: string; original: string; category: string; }
 export type Mode = 'auto' | 'off';
@@ -28,12 +29,14 @@ export function applyTheme(doc: Document, theme: ResolvedTheme): void {
 // ── UI settings (chrome.storage.sync `dc-settings`) ──
 export interface UiSettings {
   autodetect: boolean; clipboard: boolean; network: boolean;
-  blur: boolean; notif: boolean;
+  blur: boolean; notif: boolean; review: boolean; pageBadge: boolean;
+  tourSeen: boolean;
   sensitivity: 'low' | 'medium' | 'high'; style: string; allowlist: string[];
 }
 export const DEFAULT_UI_SETTINGS: UiSettings = {
   autodetect: true, clipboard: false, network: true,
-  blur: true, notif: true,
+  blur: true, notif: true, review: false, pageBadge: true,
+  tourSeen: false,
   sensitivity: 'low', style: 'realistic', allowlist: [],
 };
 
@@ -78,6 +81,8 @@ export interface PopupDeps {
   onSystemThemeChange: (cb: () => void) => void;
   getUiSettings: () => Promise<UiSettings>;
   setUiSettings: (s: UiSettings) => Promise<void>;
+  getProfileUi: (id: string) => Promise<UiSettings | null>;
+  setProfileUi: (id: string, s: UiSettings) => Promise<void>;
   estimateStorage: () => Promise<{ usage: number; quota: number } | null>;
   listStorage: () => Promise<[string, string][]>;
   download: (content: string, filename: string, mime: string) => void;
@@ -87,6 +92,7 @@ export interface PopupDeps {
   addSite?: (input: string) => Promise<{ ok: boolean; error?: string }>;
   toggleSite?: (host: string, enabled: boolean, scheme?: Scheme) => Promise<boolean>;
   removeSite?: (host: string, scheme?: Scheme) => Promise<void>;
+  openFullPage?: () => Promise<void>;
 }
 
 const toast = (doc: Document, msg: string): void => {
@@ -94,11 +100,36 @@ const toast = (doc: Document, msg: string): void => {
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+  setTimeout(() => el.classList.remove('show'), 4000);
 };
 
 const fmtBytes = (n: number): string =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+
+// Same-page confirm modal: title + consequence + CTA/Cancel.
+const confirmAction = (doc: Document, title: string, body: string, cta: string, onConfirm: () => void): void => {
+  doc.querySelector('.dc-confirm')?.remove();
+  const panel = doc.createElement('div');
+  panel.className = 'dc-review-panel dc-confirm';
+  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:280px');
+  const h = doc.createElement('div');
+  h.setAttribute('style', 'font-weight:600;margin-bottom:4px');
+  h.textContent = title;
+  const b = doc.createElement('div');
+  b.textContent = body;
+  const row = doc.createElement('div');
+  row.setAttribute('style', 'margin-top:8px;display:flex;gap:8px;justify-content:flex-end');
+  const cancel = doc.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', () => panel.remove());
+  const ok = doc.createElement('button');
+  ok.textContent = cta;
+  ok.addEventListener('click', () => { panel.remove(); onConfirm(); });
+  row.append(cancel, ok);
+  panel.append(h, b, row);
+  doc.body.appendChild(panel);
+  ok.focus();
+};
 
 async function readFlags(deps: PopupDeps): Promise<DetectorFlags> {
   try {
@@ -108,12 +139,18 @@ async function readFlags(deps: PopupDeps): Promise<DetectorFlags> {
   return { ...DEFAULT_FLAGS };
 }
 
-export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void> {
-  const need = ['dc-mode-toggle', 'dc-vault', 'dc-export', 'dc-copy-all', 'dc-clear', 'dc-search',
+export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullPage?: boolean }): Promise<void> {
+  const need = ['dc-mode-toggle', 'dc-export', 'dc-copy-all', 'dc-clear', 'dc-search',
     'stat-total', 'stat-session', 'stat-types', 'vault-badge', 'dc-empty',
     'console-out', 'console-input', 'network-list', 'storage-table',
     'storage-pct', 'storage-bar', 'storage-used', 'storage-quota', 'patterns-list'];
   for (const id of need) if (!doc.getElementById(id)) throw new Error(`popup skeleton missing #${id}`);
+  // Popup renders div rows into #dc-vault; the full-page tab renders a real
+  // table into #vault-table-body. Exactly one container must exist.
+  const tableMode = !doc.getElementById('dc-vault') && !!doc.getElementById('vault-table-body');
+  if (!doc.getElementById('dc-vault') && !doc.getElementById('vault-table-body')) throw new Error('popup skeleton missing vault container');
+  // Full-page tab (fullpage.html) renders extras the 380px popup never shows.
+  const fullPage = opts?.fullPage ?? (typeof location !== 'undefined' && location.pathname.endsWith('fullpage.html'));
 
   // ── Theme ──
   let themePref: ThemePref = 'system';
@@ -135,6 +172,10 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       doc.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
       btn.classList.add('active');
       doc.getElementById(`panel-${(btn as HTMLElement).dataset.tab}`)?.classList.add('active');
+      // Full page remembers its panel across refreshes; popup always opens on Vault.
+      if (fullPage) {
+        try { localStorage.setItem('fp-panel', (btn as HTMLElement).dataset.tab ?? 'vault'); } catch { /* private mode */ }
+      }
     });
   });
   doc.querySelectorAll('.dev-tab').forEach((btn) => {
@@ -145,6 +186,27 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       doc.getElementById(`dpanel-${(btn as HTMLElement).dataset.dtab}`)?.classList.add('active');
     });
   });
+
+  // ── Full-page extras: foldable sidebar + remembered panel ──
+  if (fullPage) {
+    let kept: Storage | null = null;
+    try { kept = localStorage; } catch { /* unavailable */ }
+    // The sidebar logo is the fold toggle — no separate button.
+    const logo = doc.getElementById('fp-logo') as HTMLElement | null;
+    if (kept?.getItem('fp-folded') === '1') doc.body.classList.add('fp-folded');
+    logo?.addEventListener('click', () => {
+      const folded = doc.body.classList.toggle('fp-folded');
+      try { kept?.setItem('fp-folded', folded ? '1' : '0'); } catch { /* private mode */ }
+    });
+    logo?.addEventListener('keydown', (ev) => {
+      if ((ev as KeyboardEvent).key === 'Enter' || (ev as KeyboardEvent).key === ' ') (logo as HTMLElement).click();
+    });
+    const savedPanel = kept?.getItem('fp-panel');
+    if (savedPanel && doc.getElementById(`panel-${savedPanel}`)) {
+      doc.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', (t as HTMLElement).dataset.tab === savedPanel));
+      doc.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${savedPanel}`));
+    }
+  }
 
   // ── Mode toggle ──
   let mode: Mode = 'auto';
@@ -168,6 +230,39 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   try { ui = { ...DEFAULT_UI_SETTINGS, ...(await deps.getUiSettings()) }; } catch { /* defaults */ }
   let flags = await readFlags(deps);
 
+  // ── First-run tour: one overlay, dismissed forever via ui flag ──
+  if (!ui.tourSeen) {
+    // Never stack: a second init (restored tab, double boot) replaces, not adds.
+    doc.querySelectorAll('.tour-overlay').forEach((n) => n.remove());
+    const tour = doc.createElement('div');
+    tour.className = 'tour-overlay';
+    const title = doc.createElement('div');
+    title.className = 'tour-title';
+    title.textContent = 'Welcome to DataCloak';
+    const list = doc.createElement('ol');
+    list.className = 'tour-list';
+    for (const step of [
+      'Type normally — names, emails, IDs and secrets become fakes before they leave the page.',
+      'Turn on Review before sending in Settings to confirm each cloak.',
+      'Replies restore automatically; your vault never leaves this device.',
+    ]) {
+      const li = doc.createElement('li');
+      li.textContent = step;
+      list.appendChild(li);
+    }
+    const got = doc.createElement('button');
+    got.className = 'btn btn-primary';
+    got.type = 'button';
+    got.textContent = 'Got it';
+    got.addEventListener('click', () => {
+      ui.tourSeen = true;
+      deps.setUiSettings({ ...ui }).catch(() => {});
+      doc.querySelectorAll('.tour-overlay').forEach((n) => n.remove());
+    });
+    tour.append(title, list, got);
+    doc.body.appendChild(tour);
+  }
+
   // ── Vault ──
   let entries: VaultEntry[] = [];
   try { entries = await deps.getVault(); } catch { /* empty */ }
@@ -183,61 +278,128 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     (doc.getElementById('vault-badge') as HTMLElement).textContent = String(count);
   };
 
-  const renderVault = (): void => {
-    const vault = doc.getElementById('dc-vault') as HTMLElement;
-    const empty = doc.getElementById('dc-empty') as HTMLElement;
-    vault.querySelectorAll('.vault-row').forEach((n) => n.remove());
-    const filtered = entries
+  const filteredVault = (): { e: VaultEntry; i: number }[] =>
+    entries
       .map((e, i) => ({ e, i }))
       .filter(({ e }) =>
         (activeCat === 'all' || e.category.toLowerCase() === activeCat) &&
-        (!query || e.synthetic.toLowerCase().includes(query) || e.category.toLowerCase().includes(query)));
-    empty.style.display = filtered.length === 0 ? '' : 'none';
+        (!query || e.synthetic.toLowerCase().includes(query) || e.original.toLowerCase().includes(query) || e.category.toLowerCase().includes(query)));
+
+  const paintEmpty = (empty: HTMLElement, isEmpty: boolean): void => {
+    empty.style.display = isEmpty ? '' : 'none';
+  };
+
+  // Reveal shows the original in the row output only — never clipboard/console.
+  const vaultText = (e: VaultEntry, i: number): HTMLElement => {
+    const text = doc.createElement('span');
+    text.className = 'synth-text';
+    text.title = e.synthetic;
+    const isOut = revealed.has(i);
+    text.textContent = isOut ? e.original : e.synthetic;
+    if (isOut && ui.blur) {
+      const b = doc.createElement('span');
+      b.className = 'blurred';
+      b.textContent = e.original;
+      text.replaceChildren(b);
+      text.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+    }
+    return text;
+  };
+
+  const vaultActions = (e: VaultEntry, i: number, rerender: () => void): HTMLElement => {
+    const isOut = revealed.has(i);
+    const peek = doc.createElement('button');
+    peek.className = 'icon-btn' + (isOut ? ' reveal-active' : '');
+    peek.type = 'button';
+    peek.title = isOut ? 'Hide original' : 'Peek original';
+    peek.textContent = '◉';
+    peek.addEventListener('click', () => {
+      if (revealed.has(i)) revealed.delete(i); else revealed.add(i);
+      rerender();
+    });
+    const copyBtn = doc.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.type = 'button';
+    copyBtn.title = 'Copy synthetic';
+    copyBtn.textContent = '⧉';
+    copyBtn.addEventListener('click', () => {
+      deps.copy(e.synthetic).then(() => toast(doc, 'Copied to clipboard')).catch(() => {});
+    });
+    const actions = doc.createElement('div');
+    actions.className = 'row-actions';
+    actions.append(peek, copyBtn);
+    return actions;
+  };
+
+  const vaultChip = (category: string): HTMLElement => {
+    const chip = doc.createElement('span');
+    chip.className = `cat-chip ${category.toLowerCase()}`;
+    chip.textContent = category.toLowerCase();
+    return chip;
+  };
+
+  const renderVaultTable = (): void => {
+    const body = doc.getElementById('vault-table-body') as HTMLElement;
+    const empty = doc.getElementById('dc-empty') as HTMLElement;
+    body.replaceChildren();
+    const filtered = filteredVault();
+    paintEmpty(empty, filtered.length === 0);
     for (const { e, i } of filtered) {
-      const row = doc.createElement('div');
-      row.className = 'vault-row';
-      const chip = doc.createElement('span');
-      chip.className = `cat-chip ${e.category.toLowerCase()}`;
-      chip.textContent = e.category.toLowerCase();
-      const text = doc.createElement('span');
-      text.className = 'synth-text';
-      text.title = e.synthetic;
-      const isOut = revealed.has(i);
-      // Reveal shows the original in the row output only — never clipboard/console.
-      text.textContent = isOut ? e.original : e.synthetic;
-      if (isOut && ui.blur) {
+      const tr = doc.createElement('tr');
+      const tdType = doc.createElement('td');
+      tdType.appendChild(vaultChip(e.category));
+      const tdOrig = doc.createElement('td');
+      tdOrig.className = 'mono';
+      // Originals stay blurred until peeked — same invariant as the popup,
+      // even though the full page gets a dedicated column for them.
+      if (revealed.has(i) || !ui.blur) {
+        tdOrig.textContent = e.original;
+      } else {
         const b = doc.createElement('span');
         b.className = 'blurred';
         b.textContent = e.original;
-        text.replaceChildren(b);
-        text.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+        b.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+        tdOrig.appendChild(b);
       }
-      const peek = doc.createElement('button');
-      peek.className = 'icon-btn' + (isOut ? ' reveal-active' : '');
-      peek.type = 'button';
-      peek.title = isOut ? 'Hide original' : 'Peek original';
-      peek.textContent = '◉';
-      peek.addEventListener('click', () => {
-        if (revealed.has(i)) revealed.delete(i); else revealed.add(i);
-        renderVault();
-      });
-      const copyBtn = doc.createElement('button');
-      copyBtn.className = 'icon-btn';
-      copyBtn.type = 'button';
-      copyBtn.title = 'Copy synthetic';
-      copyBtn.textContent = '⧉';
-      copyBtn.addEventListener('click', () => {
-        deps.copy(e.synthetic).then(() => toast(doc, 'Copied to clipboard')).catch(() => {});
-      });
-      const actions = doc.createElement('div');
-      actions.className = 'row-actions';
-      actions.append(peek, copyBtn);
-      row.append(chip, text, actions);
+      const tdSynth = doc.createElement('td');
+      tdSynth.className = 'mono';
+      tdSynth.appendChild(vaultText(e, i));
+      const tdActions = doc.createElement('td');
+      tdActions.appendChild(vaultActions(e, i, renderVaultTable));
+      tr.append(tdType, tdOrig, tdSynth, tdActions);
+      body.appendChild(tr);
+    }
+    stats();
+  };
+
+  const renderVault = (): void => {
+    if (tableMode) { renderVaultTable(); return; }
+    const vault = doc.getElementById('dc-vault') as HTMLElement;
+    const empty = doc.getElementById('dc-empty') as HTMLElement;
+    vault.querySelectorAll('.vault-row').forEach((n) => n.remove());
+    const filtered = filteredVault();
+    paintEmpty(empty, filtered.length === 0);
+    for (const { e, i } of filtered) {
+      const row = doc.createElement('div');
+      row.className = 'vault-row';
+      row.append(vaultChip(e.category), vaultText(e, i), vaultActions(e, i, renderVault));
       vault.appendChild(row);
     }
     stats();
   };
   renderVault();
+
+  // Lifetime total (never reset by Clear) — rendered only where the
+  // full-page sidebar provides #stat-lifetime; popup has no such element.
+  const renderLifetime = async (): Promise<void> => {
+    const el = doc.getElementById('stat-lifetime');
+    if (!el) return;
+    try {
+      const res = await deps.send({ kind: 'stats' });
+      if ('lifetime' in res) el.textContent = String(res.lifetime.cloaked);
+    } catch { /* keeps last value */ }
+  };
+  void renderLifetime();
 
   (doc.getElementById('dc-search') as HTMLInputElement).addEventListener('input', (ev) => {
     query = (ev.target as HTMLInputElement).value.toLowerCase();
@@ -252,12 +414,22 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     });
   });
   (doc.getElementById('dc-clear') as HTMLButtonElement).addEventListener('click', () => {
-    deps.clearVault().then(() => {
-      entries = [];
-      revealed.clear();
-      renderVault();
-      toast(doc, 'Vault cleared');
-    }).catch(() => {});
+    // Global wipe can't be undone — same-page confirm, like entity/site removes.
+    confirmAction(
+      doc,
+      'Clear the whole vault?',
+      'This forgets every mapping on every site, including backups. Sent messages keep their fakes.',
+      'Clear everything',
+      () => {
+        deps.clearVault().then(() => {
+          entries = [];
+          revealed.clear();
+          renderVault();
+          void renderLifetime();
+          toast(doc, 'Vault cleared');
+        }).catch(() => {});
+      },
+    );
   });
   (doc.getElementById('dc-copy-all') as HTMLButtonElement).addEventListener('click', () => {
     const map = Object.fromEntries(entries.map((e) => [e.synthetic, e.original]));
@@ -278,7 +450,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   const paintSettings = (): void => {
     for (const [id, val] of [
       ['s-autodetect', ui.autodetect], ['s-clipboard', ui.clipboard], ['s-network', ui.network],
-      ['s-blur', ui.blur], ['s-notif', ui.notif],
+      ['s-blur', ui.blur], ['s-notif', ui.notif], ['s-review', ui.review], ['s-pagebadge', ui.pageBadge],
     ] as const) {
       const el = doc.getElementById(id) as HTMLInputElement | null;
       if (el) el.checked = val;
@@ -301,12 +473,16 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   bindCheck('s-network', (v) => { ui.network = v; });
   bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); });
   bindCheck('s-notif', (v) => { ui.notif = v; });
+  bindCheck('s-review', (v) => { ui.review = v; });
+  bindCheck('s-pagebadge', (v) => { ui.pageBadge = v; });
   doc.querySelectorAll('.risk-btn').forEach((btn) => {
     if ((btn as HTMLElement).dataset.bound) return;
     (btn as HTMLElement).dataset.bound = '1';
     btn.addEventListener('click', () => {
       ui.sensitivity = ((btn as HTMLElement).dataset.risk ?? 'low') as UiSettings['sensitivity'];
       paintRisk();
+      // Radio-like control: persist immediately, not on footer Save.
+      deps.setUiSettings({ ...ui }).catch(() => {});
     });
   });
 
@@ -418,7 +594,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
             rm.title = `Remove ${s.host}`;
             rm.textContent = '×';
             rm.addEventListener('click', () => {
-              void deps.removeSite!(s.host, s.scheme).then(() => void paintSites()).catch(() => {});
+              confirmAction(
+                doc,
+                `Remove ${s.host}?`,
+                'DataCloak stops cloaking here immediately. Saved vault entries still restore.',
+                'Remove',
+                () => {
+                  void deps.removeSite!(s.host, s.scheme).then(() => { void paintSites(); toast(doc, `${s.host} removed`); }).catch((e: unknown) => toast(doc, `Remove failed: ${(e as Error)?.message ?? e}`));
+                },
+              );
             });
             right.appendChild(rm);
           }
@@ -431,10 +615,21 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
         const input = doc.getElementById('s-sites-input') as HTMLInputElement | null;
         const val = input?.value.trim() ?? '';
         if (!val) return;
-        void deps.addSite!(val).then((r) => {
-          if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
-          else toast(doc, r.error ?? 'Could not add site');
-        }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+        const parsed = parseHost(val);
+        if (!parsed) { toast(doc, 'Unrecognized host — try duck.ai or http://nas:3000'); return; }
+        confirmAction(
+          doc,
+          `Allow access to ${parsed.host}?`,
+          'DataCloak will cloak what you type and restore replies for display. Vault stays on this device. Chrome shows its own grant dialog next.',
+          'Allow',
+          () => {
+            toast(doc, 'Requesting access…');
+            void deps.addSite!(val).then((r) => {
+              if (r.ok) { if (input) input.value = ''; toast(doc, 'Site added'); void paintSites(); }
+              else toast(doc, r.error ?? 'Could not add site');
+            }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+          },
+        );
       };
       const addBtn = doc.getElementById('s-sites-add');
       if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
@@ -451,10 +646,240 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     }
   }
 
-  doc.getElementById('s-save')?.addEventListener('click', () => {
-    deps.setUiSettings({ ...ui }).then(() => toast(doc, 'Settings saved')).catch(() => {});
+  // ── Custom entities: one row per value — [value][kind ▾][×]. ──
+  // Rows persist minimal {name, kind}; the background expands value+kind
+  // to full matchers (see entity-types in @pratikw/detect).
+  // ponytail: kind labels hardcoded here — popup takes no value imports
+  // from @pratikw/detect to avoid bundling the whole engine (see ENTITY_KINDS).
+  const KINDS = ['name', 'employee_id', 'email', 'phone', 'other'] as const;
+  type RowKind = typeof KINDS[number];
+  const KIND_LABELS: Record<RowKind, string> = {
+    name: 'Name', employee_id: 'Employee ID', email: 'Email', phone: 'Phone', other: 'Other',
+  };
+  interface EntityRow { value: string; kind: RowKind; }
+  let custom: EntityRow[] = [];
+
+  const saveCustom = (): void => {
+    const minimal = custom
+      .filter((r) => r.value)
+      .map((r) => ({ name: r.value, kind: r.kind }) as CustomPattern);
+    void deps.send({ kind: 'patterns.set', patterns: minimal }).then((res) => {
+      if ('error' in res && res.error) { toast(doc, res.error); return; }
+      void refreshProfileCounts();
+    }).catch((e: unknown) => toast(doc, `Save failed: ${(e as Error)?.message ?? e}`));
+  };
+
+  const paintCustom = (): void => {
+    const list = doc.getElementById('custom-list');
+    if (!list) return;
+    list.replaceChildren();
+    if (custom.length === 0) {
+      const hint = doc.createElement('div');
+      hint.className = 'setting-desc';
+      hint.textContent = 'No custom entities yet.';
+      list.appendChild(hint);
+      return;
+    }
+    for (const row of custom) {
+      const wrap = doc.createElement('div');
+      wrap.className = 'allowlist-input-row';
+      const input = doc.createElement('input');
+      input.className = 'allowlist-input';
+      input.type = 'text';
+      input.value = row.value;
+      input.placeholder = 'Value to cloak';
+      input.setAttribute('aria-label', 'Value to cloak');
+      const sel = doc.createElement('select');
+      sel.className = 'setting-select';
+      sel.setAttribute('aria-label', 'Entity type');
+      for (const k of KINDS) {
+        const opt = doc.createElement('option');
+        opt.value = k;
+        opt.textContent = KIND_LABELS[k];
+        sel.appendChild(opt);
+      }
+      sel.value = row.kind;
+      const rm = doc.createElement('button');
+      rm.className = 'btn-sm';
+      rm.type = 'button';
+      rm.textContent = '×';
+      rm.setAttribute('aria-label', `Remove ${row.value || 'entity'}`);
+      input.addEventListener('change', () => {
+        row.value = input.value.trim();
+        if (!row.value) {
+          // Clearing a row deletes it — empty rows never persist.
+          custom = custom.filter((r) => r !== row);
+          paintCustom();
+        }
+        saveCustom();
+      });
+      sel.addEventListener('change', () => {
+        row.kind = (KINDS as readonly string[]).includes(sel.value) ? sel.value as RowKind : 'name';
+        saveCustom();
+      });
+      rm.addEventListener('click', () => {
+        confirmAction(
+          doc,
+          `Remove "${row.value || 'this entity'}"?`,
+          'This custom entity stops cloaking immediately. Past messages keep their fakes; the vault still restores them.',
+          'Remove',
+          () => {
+            custom = custom.filter((r) => r !== row);
+            paintCustom();
+            saveCustom();
+            toast(doc, `${row.value || 'Entity'} removed`);
+          },
+        );
+      });
+      wrap.append(input, sel, rm);
+      list.appendChild(wrap);
+    }
+  };
+  const focusRow = (i: number): void => {
+    const row = doc.querySelectorAll('#custom-list .allowlist-input-row')[i];
+    row?.querySelector('input')?.focus();
+  };
+
+  const addBtn = doc.getElementById('c-add');
+  if (addBtn && !(addBtn as HTMLElement).dataset.bound) {
+    (addBtn as HTMLElement).dataset.bound = '1';
+    addBtn.addEventListener('click', () => {
+      const i = custom.findIndex((r) => !r.value);
+      if (i >= 0) { focusRow(i); return; }
+      custom.push({ value: '', kind: 'name' });
+      paintCustom();
+      focusRow(custom.length - 1);
+    });
+  }
+  paintCustom();
+  const loadCustom = (): void => {
+    void deps.send({ kind: 'patterns.get' }).then((res) => {
+      if (!('patterns' in res) || !Array.isArray(res.patterns)) return;
+      const stored = res.patterns as CustomPattern[];
+      const rows: EntityRow[] = [];
+      const dropped: string[] = [];
+      for (const p of stored) {
+        if (p.kind && (KINDS as readonly string[]).includes(p.kind)) { rows.push({ value: p.name, kind: p.kind as RowKind }); continue; }
+        if ((p as { literal?: boolean }).literal) { rows.push({ value: p.name, kind: 'name' }); continue; }
+        // Q1: legacy regex customs auto-drop, never read-only.
+        dropped.push(p.name);
+      }
+      if (dropped.length > 0) console.warn(`[datacloak] dropped legacy custom patterns without kinds: ${dropped.join(', ')}`);
+      custom = rows;
+      paintCustom();
+      if (dropped.length > 0 || stored.some((p) => !p.kind)) saveCustom();
+    }).catch(() => {});
+  };
+  loadCustom();
+
+  // ── Diff view (full-page tab only; #diff-wrap lives in fullpage.html) ──
+  const marked = (text: string, spans: { text: string; at: number }[]): DocumentFragment => {
+    const frag = doc.createDocumentFragment();
+    let pos = 0;
+    let leftEdge = 0;
+    for (const s of [...spans].sort((a, b) => a.at - b.at)) {
+      if (s.at < leftEdge) continue;
+      if (s.at > pos) frag.appendChild(doc.createTextNode(text.slice(pos, s.at)));
+      const m = doc.createElement('mark');
+      m.textContent = text.slice(s.at, s.at + s.text.length);
+      frag.appendChild(m);
+      pos = s.at + s.text.length;
+      leftEdge = pos;
+    }
+    if (pos < text.length) frag.appendChild(doc.createTextNode(text.slice(pos)));
+    return frag;
+  };
+  const renderDiff = async (): Promise<void> => {
+    const wrap = doc.getElementById('diff-wrap');
+    if (!wrap) return;
+    wrap.replaceChildren();
+    let record: {
+      original: string; cloaked: string;
+      subs: { original: string; synthetic: string; category: string; start: number; end: number }[];
+      ts: number;
+    } | null = null;
+    try {
+      const res = await deps.send({ kind: 'lastCloak.get' });
+      if ('record' in res) record = res.record;
+    } catch { /* empty state below */ }
+    const head = doc.createElement('div');
+    head.className = 'diff-head';
+    const title = doc.createElement('span');
+    title.className = 'setting-desc';
+    title.textContent = 'Last cloak in this tab';
+    const refresh = doc.createElement('button');
+    refresh.className = 'btn-sm';
+    refresh.type = 'button';
+    refresh.textContent = 'Refresh';
+    refresh.addEventListener('click', () => { void renderDiff(); });
+    head.append(title, refresh);
+    wrap.appendChild(head);
+    if (!record || record.subs.length === 0) {
+      const p = doc.createElement('div');
+      p.className = 'setting-desc';
+      p.textContent = 'Nothing cloaked in this tab yet — it appears here after your next send.';
+      wrap.appendChild(p);
+      return;
+    }
+    const panels = doc.createElement('div');
+    panels.className = 'diff-panels';
+    const left = doc.createElement('div');
+    left.className = 'diff-panel';
+    left.appendChild(marked(record.original, record.subs.map((s) => ({ text: s.original, at: s.start }))));
+    const right = doc.createElement('div');
+    right.className = 'diff-panel';
+    const rightSpans: { text: string; at: number }[] = [];
+    for (const s of record.subs) {
+      let from = 0;
+      for (;;) {
+        const at = record.cloaked.indexOf(s.synthetic, from);
+        if (at < 0) break;
+        rightSpans.push({ text: s.synthetic, at });
+        from = at + s.synthetic.length;
+      }
+    }
+    right.appendChild(marked(record.cloaked, rightSpans));
+    panels.append(left, right);
+    wrap.appendChild(panels);
+    for (const s of record.subs) {
+      const row = doc.createElement('div');
+      row.className = 'diff-sub';
+      const label = doc.createElement('span');
+      label.className = 'site-desc';
+      label.textContent = `${s.original} → ${s.synthetic} · ${s.category}`;
+      const add = doc.createElement('button');
+      add.className = 'btn-sm accent';
+      add.type = 'button';
+      add.textContent = 'Add to entities';
+      add.setAttribute('aria-label', `Add ${s.original} to custom entities`);
+      add.addEventListener('click', () => {
+        // Merge into stored rows — patterns.set replaces wholesale.
+        void (async () => {
+          try {
+            const cur = await deps.send({ kind: 'patterns.get' });
+            const rows = ('patterns' in cur && Array.isArray(cur.patterns)) ? (cur.patterns as CustomPattern[]) : [];
+            if (rows.some((p) => p.name === s.original)) { toast(doc, 'Already in custom entities'); return; }
+            const res = await deps.send({ kind: 'patterns.set', patterns: [...rows, { name: s.original } as CustomPattern] });
+            if ('error' in res && res.error) { toast(doc, res.error); return; }
+            toast(doc, `“${s.original}” added to custom entities`);
+          } catch (e: unknown) { toast(doc, `Add failed: ${(e as Error)?.message ?? e}`); }
+        })();
+      });
+      row.append(label, add);
+      wrap.appendChild(row);
+    }
+  };
+  if (fullPage) void renderDiff();
+
+  doc.getElementById('s-fullpage')?.addEventListener('click', () => {
+    void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
   });
-  doc.getElementById('s-reset')?.addEventListener('click', () => {
+  doc.getElementById('s-save')?.addEventListener('click', () => {    deps.setUiSettings({ ...ui }).then(() => {
+      // Footer Save also snapshots prefs into the active profile.
+      deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+      toast(doc, 'Settings saved');
+    }).catch(() => {});
+  });  doc.getElementById('s-reset')?.addEventListener('click', () => {
     ui = { ...DEFAULT_UI_SETTINGS };
     void applyPref('system');
     paintSettings();
@@ -497,6 +922,173 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   };
   renderPatterns();
 
+  // ── Profiles: named entity-list + flag sets. Rows + flags repaint on
+  // every switch; site grants stay global and are untouched. ──
+  // UI prefs (blur, review, …) snapshot per profile behind the live
+  // `dc-settings` key, so the content script keeps reading one key.
+  // tourSeen stays global and is never snapshotted back.
+  let currentProfileId = 'default';
+  let profileUiSeeded = false;
+  const paintProfiles = (activeId: string, profiles: { id: string; name: string; patterns: number }[]): void => {
+    currentProfileId = activeId;
+    const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+    if (!sel) return;
+    sel.replaceChildren();
+    for (const p of profiles) {
+      const opt = doc.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.patterns})`;
+      sel.appendChild(opt);
+    }
+    sel.value = activeId;
+  };
+  // Apply a profile's UI snapshot (or defaults for brand-new profiles).
+  const applyIncomingUi = async (): Promise<void> => {
+    try {
+      const snap = await deps.getProfileUi(currentProfileId);
+      ui = { ...(snap ?? DEFAULT_UI_SETTINGS), tourSeen: ui.tourSeen };
+      await deps.setUiSettings({ ...ui }).catch(() => {});
+    } catch { /* keep current ui */ }
+    paintSettings();
+    renderVault();
+  };
+  // Entity saves change the counts — refresh labels without touching rows.
+  const refreshProfileCounts = async (): Promise<void> => {
+    try {
+      const res = await deps.send({ kind: 'profiles.get' });
+      if ('profiles' in res) paintProfiles(res.activeId, res.profiles);
+    } catch { /* stale counts beat broken saves */ }
+  };
+  const refreshProfileState = async (): Promise<void> => {
+    try {
+      const res = await deps.send({ kind: 'profiles.get' });
+      if (!('profiles' in res)) return;
+      paintProfiles(res.activeId, res.profiles);
+      // First load seeds the snapshot from live settings without applying —
+      // never clobber the user's current checkboxes on open.
+      if (!profileUiSeeded) {
+        profileUiSeeded = true;
+        try {
+          if (!(await deps.getProfileUi(currentProfileId))) {
+            await deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+          }
+        } catch { /* snapshot best-effort */ }
+      }
+      const fg = await deps.send({ kind: 'settings.get' });
+      if ('flags' in fg) {
+        flags = { ...fg.flags };
+        renderPatterns();
+      }
+      loadCustom();
+    } catch { /* stays on current state */ }
+  };
+  const profileSel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+  if (profileSel && !profileSel.dataset.bound) {
+    profileSel.dataset.bound = '1';
+    profileSel.addEventListener('change', () => {
+      hideNameInput();
+      void (async () => {
+        try {
+          // Snapshot outgoing prefs first, then apply the incoming profile's.
+          await deps.setProfileUi(currentProfileId, { ...ui }).catch(() => {});
+          const res = await deps.send({ kind: 'profiles.switch', id: profileSel.value });
+          if ('error' in res && res.error) { toast(doc, res.error); void refreshProfileState(); return; }
+          toast(doc, 'Profile switched');
+          await refreshProfileState();
+          await applyIncomingUi();
+        } catch (e: unknown) { toast(doc, `Switch failed: ${(e as Error)?.message ?? e}`); }
+      })();
+    });
+  }
+  // Rename state lives beside the add flow so profile switching can cancel it.
+  let renaming: string | null = null;
+  const hideNameInput = (): void => {
+    const el = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+    if (el) { el.value = ''; el.hidden = true; }
+    renaming = null;
+  };
+  const profileAdd = doc.getElementById('s-profile-add');
+  if (profileAdd && !(profileAdd as HTMLElement).dataset.bound) {
+    (profileAdd as HTMLElement).dataset.bound = '1';
+    // Custom-row flow: first click reveals the inline input, second confirms.
+    // Empty confirm cancels back to a single Add button. The ✎ button reuses
+    // the same input to rename the active profile instead of adding.
+    const submitProfileAdd = (): void => {
+      const input = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+      if (!input || input.hidden) {
+        if (input) {
+          input.hidden = false;
+          input.focus();
+        }
+        return;
+      }
+      const name = input.value.trim();
+      if (!name) { hideNameInput(); return; }
+      if (renaming) {
+        const id = renaming;
+        void deps.send({ kind: 'profiles.rename', id, name }).then((res) => {
+          if ('error' in res && res.error) { toast(doc, res.error); return; }
+          hideNameInput();
+          toast(doc, `Profile renamed to "${name}"`);
+          void refreshProfileState();
+        }).catch((e: unknown) => toast(doc, `Rename failed: ${(e as Error)?.message ?? e}`));
+        return;
+      }
+      void deps.send({ kind: 'profiles.add', name }).then((res) => {
+        if ('error' in res && res.error) { toast(doc, res.error); return; }
+        input.value = '';
+        input.hidden = true;
+        toast(doc, `Profile "${name}" added`);
+        void refreshProfileState().then(() => applyIncomingUi());
+      }).catch((e: unknown) => toast(doc, `Add failed: ${(e as Error)?.message ?? e}`));
+    };
+    profileAdd.addEventListener('click', submitProfileAdd);
+    const nameInput = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+    nameInput?.addEventListener('keydown', (ev) => {
+      const ke = ev as KeyboardEvent;
+      if (ke.key === 'Enter') submitProfileAdd();
+      else if (ke.key === 'Escape') hideNameInput();
+    });
+  }
+  const profileRen = doc.getElementById('s-profile-ren');
+    if (profileRen && !(profileRen as HTMLElement).dataset.bound) {
+      (profileRen as HTMLElement).dataset.bound = '1';
+      profileRen.addEventListener('click', () => {
+        const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+        const input = doc.getElementById('s-profile-name') as HTMLInputElement | null;
+        if (!sel?.value || !input) return;
+        renaming = sel.value;
+        input.value = (sel.selectedOptions?.[0]?.textContent ?? '').replace(/ \(\d+\)$/, '');
+        input.hidden = false;
+        input.focus();
+        input.select();
+      });
+    }
+  const profileDel = doc.getElementById('s-profile-del');
+  if (profileDel && !(profileDel as HTMLElement).dataset.bound) {
+    (profileDel as HTMLElement).dataset.bound = '1';
+    profileDel.addEventListener('click', () => {
+      const sel = doc.getElementById('s-profile') as HTMLSelectElement | null;
+      const id = sel?.value ?? '';
+      const label = sel?.selectedOptions?.[0]?.textContent ?? 'this profile';
+      if (!id) return;
+      confirmAction(
+        doc,
+        `Delete ${label}?`,
+        'Its custom entities go with it. Past messages keep their fakes; the vault still restores them.',
+        'Delete',
+        () => {
+          void deps.send({ kind: 'profiles.delete', id }).then((res) => {
+            if ('error' in res && res.error) { toast(doc, res.error); return; }
+            toast(doc, 'Profile deleted');
+            void refreshProfileState().then(() => applyIncomingUi());
+          }).catch((e: unknown) => toast(doc, `Delete failed: ${(e as Error)?.message ?? e}`));
+        },
+      );
+    });
+  }
+  void refreshProfileState();
+
   // ── Console (runConsoleCmd; originals never logged) ──
   const out = doc.getElementById('console-out') as HTMLElement;
   const addLog = (level: string, msg: string): void => {
@@ -538,7 +1130,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     label.className = 'section-label';
     label.textContent = 'Background operation log';
     list.appendChild(label);
-    let rows: { kind: string; ms: number; count: number; categories: string[]; ts: number }[] = [];
+    let rows: { kind: string; ms: number; count: number; categories: string[]; ts: number; origin?: string }[] = [];
     try {
       const res = await deps.send({ kind: 'stats' });
       if ('oplog' in res) rows = res.oplog;
@@ -558,7 +1150,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       method.textContent = r.kind.toUpperCase();
       const url = doc.createElement('span');
       url.className = 'net-url';
-      url.textContent = `${r.count} item(s)${r.categories.length ? ` · ${r.categories.join(', ')}` : ''}`;
+      url.textContent = `${r.origin ?? ''}${r.origin ? ' · ' : ''}${r.count} item(s)${r.categories.length ? ` · ${r.categories.join(', ')}` : ''}`;
       const status = doc.createElement('span');
       status.className = 'net-status ok';
       status.textContent = String(r.count);
@@ -606,15 +1198,16 @@ declare const chrome: {
   runtime: {
     sendMessage: (msg: BgRequest) => Promise<BgResponse>;
     getManifest?: () => { version?: string };
+    getURL: (path: string) => string;
   };
   storage: {
     sync: { get(k: string | null): Promise<Record<string, unknown>>; set(o: Record<string, unknown>): Promise<void> };
     session: { get(k: string | null): Promise<Record<string, unknown>>; remove(k: string): Promise<void> };
   };
-  tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]> };
-  permissions: { request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
+  tabs: { query: (q: { active: boolean; currentWindow: boolean }) => Promise<{ url?: string }[]>; create: (p: { url: string }) => Promise<unknown> };
+  permissions: { contains: (p: { origins: string[] }) => Promise<boolean>; request: (p: { origins: string[] }) => Promise<boolean>; remove: (p: { origins: string[] }) => Promise<boolean> };
   scripting: {
-    registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => Promise<void>;
+    registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => Promise<void>;
     unregisterContentScripts: (f: { ids: string[] }) => Promise<void>;
   };
 } | undefined;
@@ -633,6 +1226,9 @@ function prodDeps(): PopupDeps {
       const all = await chrome!.storage.session.get(null);
       await Promise.all(Object.keys(all).filter((k) => k.startsWith('vault:'))
         .map((k) => chrome!.storage.session.remove(k)));
+      // Background drops live engines + origin store; otherwise cleared
+      // entries resurrect on the next cloak or new tab.
+      try { await chrome!.runtime.sendMessage({ kind: 'vault.clear' }); } catch { /* background unreachable */ }
     },
     getMode: () => syncGet<Mode>('dc-mode', 'auto'),
     setMode: async (m) => { await chrome!.storage.sync.set({ 'dc-mode': m }); },
@@ -646,6 +1242,14 @@ function prodDeps(): PopupDeps {
     },
     getUiSettings: async () => ({ ...DEFAULT_UI_SETTINGS, ...((await syncGet('dc-settings', {})) as Partial<UiSettings>) }),
     setUiSettings: async (s) => { await chrome!.storage.sync.set({ 'dc-settings': s }); },
+    getProfileUi: async (id) => {
+      const all = (await syncGet('dc-profile-ui', {})) as Record<string, UiSettings>;
+      return all[id] ?? null;
+    },
+    setProfileUi: async (id, s) => {
+      const all = (await syncGet('dc-profile-ui', {})) as Record<string, UiSettings>;
+      await chrome!.storage.sync.set({ 'dc-profile-ui': { ...all, [id]: s } });
+    },
     estimateStorage: async () => {
       try {
         const est = await navigator.storage.estimate();
@@ -674,43 +1278,39 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
+    openFullPage: async () => { await chrome!.tabs.create({ url: chrome!.runtime.getURL('fullpage.html') }); },
     ...prodSites(),
   };
-}
-
-export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {
-  const idx = user.custom.findIndex((c) => c.host === host);
-  if (idx >= 0) return { ...user, custom: user.custom.map((c, i) => i === idx ? { ...c, enabled } : c) };
-  return { ...user, custom: [...user.custom, { host, enabled, ...(scheme ? { scheme } : {}) }] };
 }
 
 const SITES_KEY = 'dc-sites';
 const BUILTINS = Object.keys(SITE_SELECTORS);
 
+const syncSites: SitesStorage = {
+  load: async () => {
+    try {
+      return (await chrome!.storage.sync.get(SITES_KEY))[SITES_KEY] as UserSites | undefined;
+    } catch { return undefined; }
+  },
+  save: async (u) => { await chrome!.storage.sync.set({ [SITES_KEY]: u }); },
+};
+
 // Scheme threads from parseHost into requestSite/removeSite: bare host:port
 // defaults http, remote https-with-port needs the explicit scheme.
-function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
+export function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'removeSite'> {
   const chromeish = {
     permissions: {
+      contains: (p: { origins: string[] }) => chrome!.permissions.contains(p),
       request: (p: { origins: string[] }) => chrome!.permissions.request(p),
       remove: (p: { origins: string[] }) => chrome!.permissions.remove(p),
     },
     scripting: {
-      registerContentScript: (s: { id: string; matches: string[]; js: string[] }) => chrome!.scripting.registerContentScript(s),
+      registerContentScripts: (s: { id: string; matches: string[]; js: string[] }[]) => chrome!.scripting.registerContentScripts(s),
       unregisterContentScripts: (f: { ids: string[] }) => chrome!.scripting.unregisterContentScripts(f),
     },
   };
-  const loadSites = async (): Promise<UserSites> => {
-    try {
-      const got = await chrome!.storage.sync.get(SITES_KEY);
-      const v = got[SITES_KEY] as UserSites | undefined;
-      if (v && Array.isArray(v.custom) && Array.isArray(v.disabled)) return v;
-    } catch { /* defaults */ }
-    return { custom: [], disabled: [] };
-  };
-  const saveSites = async (u: UserSites): Promise<void> => {
-    await chrome!.storage.sync.set({ [SITES_KEY]: u });
-  };
+  const loadSites = async (): Promise<UserSites> => loadUserSites(syncSites);
+  const saveSites = async (u: UserSites): Promise<void> => { await chrome!.storage.sync.set({ [SITES_KEY]: u }); };
   const activeHost = async (): Promise<string | null> => {
     try {
       const [tab] = await chrome!.tabs.query({ active: true, currentWindow: true });
@@ -720,6 +1320,9 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
   return {
     getSites: async () => {
       const user = await loadSites();
+      // Heal half-finished adds: the native grant dialog closes the popup,
+      // which can orphan an enabled site without its content script.
+      await Promise.all(user.custom.filter((c) => c.enabled).map((c) => ensureRegistered(c.host, chromeish, c.scheme)));
       const host = await activeHost();
       const sites: SiteRow[] = [
         ...BUILTINS.map((h) => ({
@@ -734,21 +1337,20 @@ function prodSites(): Pick<PopupDeps, 'getSites' | 'addSite' | 'toggleSite' | 'r
     addSite: async (input) => {
       const parsed = parseHost(input);
       if (!parsed) return { ok: false, error: 'Unrecognized host — try duck.ai or http://nas:3000' };
-      const { host, scheme } = parsed;
       // Thread scheme only when the input stated it explicitly; bare
       // host:port keeps the colon-rule http default (see site-store).
-      const explicit = input.includes('://') ? scheme : undefined;
+      const explicit = input.includes('://') ? parsed.scheme : undefined;
+      // Persist FIRST: the native grant dialog closes the popup, killing
+      // this chain mid-flight — the site must already be stored on reopen.
+      await saveSites(upsertCustomSite(await loadSites(), parsed.host, true, explicit));
       const user = await loadSites();
-      if (!(host in SITE_SELECTORS) && !user.custom.some((c) => c.host === host)) {
-        if (!await requestSite(host, chromeish, explicit)) return { ok: false, error: 'Permission denied' };
-        user.custom.push({ host, enabled: true, ...(explicit ? { scheme: explicit } : {}) });
-      } else {
-        user.disabled = user.disabled.filter((d) => d !== host);
-        user.custom = user.custom.map((c) => c.host === host ? { ...c, enabled: true } : c);
-        const known = user.custom.find((c) => c.host === host)?.scheme ?? explicit;
-        if (!await requestSite(host, chromeish, known)) return { ok: false, error: 'Permission denied' };
+      const r = await ensureSiteAccess(user, parsed.host, explicit, chromeish, SITE_SELECTORS);
+      if (!r.ok) {
+        // Denied: leave the entry in place but disabled, so toggle retries.
+        await saveSites(upsertCustomSite(await loadSites(), parsed.host, false, explicit));
+        return { ok: false, error: 'Permission denied' };
       }
-      await saveSites(user);
+      await saveSites(r.user);
       return { ok: true };
     },
     toggleSite: async (host, enabled, scheme) => {

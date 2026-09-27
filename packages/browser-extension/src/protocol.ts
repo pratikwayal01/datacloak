@@ -1,12 +1,29 @@
+import type { CustomPattern } from '@pratikw/detect';
+
 export interface CloakRequest { kind: 'cloak'; text: string; }
 export interface RestoreRequest { kind: 'restore'; text: string; }
 export interface StatsRequest { kind: 'stats'; }
 export interface SettingsGetRequest { kind: 'settings.get'; }
 export interface SettingsSetRequest { kind: 'settings.set'; flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
-export interface CloakResponse { text: string; count: number; categories: string[]; }
+export interface CloakResponse { text: string; count: number; categories: string[]; uncertain: { original: string; synthetic: string; category: string }[]; subs: { original: string; synthetic: string; category: string }[]; }
 export interface RestoreResponse { text: string; restored: number; hits?: { synthetic: string; original: string }[]; }
-export interface StatsResponse { counts: { cloaked: number; restored: number }; byCategory: Record<string, number>; oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[] }[]; }
+export interface StatsResponse { counts: { cloaked: number; restored: number }; byCategory: Record<string, number>; oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[]; origin?: string }[]; lifetime: { cloaked: number; restored: number }; }
 export interface SettingsGetResponse { flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
 export interface SettingsSetResponse { flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
-export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest;
-export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse;
+export interface PatternsGetRequest { kind: 'patterns.get'; }
+export interface PatternsSetRequest { kind: 'patterns.set'; patterns: CustomPattern[]; }
+export interface LastCloakRequest { kind: 'lastCloak.get'; }
+export interface VaultClearRequest { kind: 'vault.clear'; }
+export interface ProfilesGetRequest { kind: 'profiles.get'; }
+export interface ProfilesAddRequest { kind: 'profiles.add'; name: string; }
+export interface ProfilesSwitchRequest { kind: 'profiles.switch'; id: string; }
+export interface ProfilesDeleteRequest { kind: 'profiles.delete'; id: string; }
+export interface ProfilesRenameRequest { kind: 'profiles.rename'; id: string; name: string; }
+export interface ProfilesResponse { activeId: string; profiles: { id: string; name: string; patterns: number }[]; error?: string; }
+export interface VaultClearResponse { cleared: boolean; }
+export interface CloakSpan { original: string; synthetic: string; category: string; start: number; end: number; }
+export interface LastCloakResponse { record: { original: string; cloaked: string; subs: CloakSpan[]; ts: number } | null; }
+export interface PatternsGetResponse { patterns: CustomPattern[]; }
+export interface PatternsSetResponse { patterns: CustomPattern[]; error?: string; }
+export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest | VaultClearRequest | ProfilesGetRequest | ProfilesAddRequest | ProfilesSwitchRequest | ProfilesDeleteRequest | ProfilesRenameRequest;
+export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse | LastCloakResponse | VaultClearResponse | ProfilesResponse;

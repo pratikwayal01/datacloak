@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="shared.css">
 <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -32,7 +33,7 @@
     Vault <span class="tab-badge" id="vault-badge">6</span>
   </button>
   <button class="tab" data-tab="settings" type="button">
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1.2M6 9.8V11M1 6h1.2M9.8 6H11M2.3 2.3l.84.84M8.86 8.86l.84.84M9.7 2.3l-.84.84M3.14 8.86l-.84.84" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     Settings
   </button>
   <button class="tab" data-tab="dev" type="button">
@@ -113,6 +114,17 @@
 <div class="panel" id="panel-settings">
   <div class="settings-body">
 
+    <div class="settings-group-label">Profile</div>
+    <div class="allowlist-input-row">
+      <select class="setting-select" id="s-profile" aria-label="Active profile"></select>
+      <button class="btn-sm" id="s-profile-ren" type="button" title="Rename active profile">✎</button>
+      <button class="btn-sm" id="s-profile-del" type="button" title="Delete active profile">×</button>
+    </div>
+    <div class="allowlist-input-row">
+      <input class="allowlist-input" id="s-profile-name" type="text" placeholder="New profile name…" hidden>
+      <button class="btn-sm accent" id="s-profile-add" type="button">Add</button>
+    </div>
+
     <div class="settings-group-label">Detection</div>
 
     <div class="setting-row">
@@ -186,6 +198,28 @@
 
     <div class="setting-row">
       <div class="setting-info">
+        <div class="setting-name">Review before sending</div>
+        <div class="setting-desc">Pause on cloaked sends to confirm uncertain items</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-review">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Page badge</div>
+        <div class="setting-desc">Show cloak status on the page (🔒 counts)</div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="s-pagebadge" checked>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
         <div class="setting-name">Replacement style</div>
         <div class="setting-desc">How synthetic values are generated</div>
       </div>
@@ -217,9 +251,17 @@
       </div>
     </div>
 
+    <div class="settings-group-label" style="margin-top:6px">Custom entities</div>
+    <div class="setting-desc">Your values, cloaked everywhere. Pick a type per row.</div>
+    <div id="custom-list"></div>
+    <div class="allowlist-wrap">
+      <button class="btn-sm accent" id="c-add" type="button">+ Add entity</button>
+    </div>
+
   </div>
 
   <div class="footer">
+    <button class="btn" id="s-fullpage" type="button" title="Open settings in a full tab">Full page ↗</button>
     <button class="btn btn-danger" id="s-reset" type="button">Reset defaults</button>
     <button class="btn btn-primary" id="s-save" type="button">
       <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 6l3 3 5-5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>

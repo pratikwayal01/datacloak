@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { DataCloakEngine } from '@pratikw/detect';
 import { defaultVaultPath, loadInto, saveFrom } from './vault-file.js';
+import { loadCliConfig } from './config-file.js';
 
 const readStdin = async (): Promise<string> => {
   let s = '';
@@ -15,7 +16,7 @@ const vaultFlag = (argv: string[]): string => {
 
 const main = async (): Promise<number> => {
   const [cmd, ...rest] = process.argv.slice(2);
-  const engine = new DataCloakEngine();
+  const engine = new DataCloakEngine({ customPatterns: loadCliConfig(process.argv.slice(2)).customPatterns });
   if (cmd === 'cloak') {
     const path = vaultFlag(rest);
     loadInto(engine, path);
@@ -60,7 +61,7 @@ const main = async (): Promise<number> => {
     process.stdout.write(readFileSync(file, 'utf8'));
     return 0;
   }
-  process.stderr.write('usage: datacloak <cloak|restore|scan|guard|install-shell> [--vault PATH]\n');
+  process.stderr.write('usage: datacloak <cloak|restore|scan|guard|install-shell> [--vault PATH] [--config PATH]\n');
   return 1;
 };
 

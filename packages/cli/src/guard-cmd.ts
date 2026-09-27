@@ -1,5 +1,6 @@
 import { DataCloakEngine } from '@pratikw/detect';
 import { defaultVaultPath, loadInto } from './vault-file.js';
+import { loadCliConfig } from './config-file.js';
 
 export type GuardOut = { decision: 'allow' | 'deny' | 'rewrite'; reason?: string; args?: unknown };
 
@@ -49,7 +50,7 @@ export function guard(incoming: { event: string; text?: string; tool?: string; a
 export const vaultPathForGuard = (): string => process.env.DATACLOAK_VAULT ?? defaultVaultPath();
 
 export const loadGuardEngine = (): DataCloakEngine => {
-  const engine = new DataCloakEngine();
+  const engine = new DataCloakEngine({ customPatterns: loadCliConfig().customPatterns });
   loadInto(engine, vaultPathForGuard());
   return engine;
 };

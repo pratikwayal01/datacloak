@@ -4,10 +4,15 @@ import { defaultConfig } from './types.js';
 import { detectPass1 } from './patterns/index.js';
 import { scanEntropy } from './entropy.js';
 import { synthesize } from './synthesizers/index.js';
+import { synthesizeCustom } from './synthesizers/custom.js';
+import { isEntityKind, synthesizeEntity } from './entity-types.js';
 import { synthesizeDsn } from './synthesizers/credentials.js';
 import { opaqueToken } from './tokens.js';
 import { Vault } from './vault.js';
 import { exportVaultJson, importVaultJson } from './vault-crypto.js';
+
+// Warn-once per category for broken custom synthesizer templates.
+const warnedTemplates = new Set<string>();
 
 export class DataCloakEngine {
   readonly vault: Vault;
@@ -62,15 +67,41 @@ export class DataCloakEngine {
         this.vault.set({ original: det.value, synthetic, category: det.category, type: det.type, synthesizedAt: Date.now(), confidence: det.confidence });
       }
       result = result.slice(0, det.start) + synthetic + result.slice(det.end);
-      substitutions.unshift({ original: det.value, synthetic, category: det.category });
+      substitutions.unshift({ original: det.value, synthetic, category: det.category, confidence: det.confidence, start: det.start, end: det.end });
     }
     return { text: result, substitutions };
   }
   private makeSynthetic(det: Detection, fullText: string): string {
     if (det.category === 'ENV_VAR') return this.synthEnvValue(det.value);
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const custom = (this.config.customPatterns ?? []).find((c) => c.category === det.category && c.synthesizer);
+    // Invariant: a synthetic must never equal a value the vault already knows
+    // (as original OR synthetic) — otherwise cloak skips real secrets and
+    // restore maps them to the wrong identity.
+    const fresh = (s: string): boolean =>
+      !fullText.includes(s) && !this.vault.getByOriginal(s) && !this.vault.getBySynthetic(s);
+    if (custom?.synthesizer) {
+      try {
+        const s = synthesizeCustom(custom.synthesizer, this.config.locale);
+        if (fresh(s)) return s;
+      } catch (err) {
+        if (!warnedTemplates.has(det.category)) {
+          warnedTemplates.add(det.category);
+          console.error(`[datacloak] bad synthesizer for ${det.category}: ${(err as Error).message}`);
+        }
+      }
+    }
+    // Typed entity kinds: same-length/case/format fake for the matched value.
+    // Vault reuse above keeps it stable per session; fresh() retries collisions.
+    const kinded = (this.config.customPatterns ?? []).find((c) => c.category === det.category && isEntityKind(c.kind));
+    if (kinded?.kind) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const s = synthesizeEntity(kinded.kind, det.value, this.config.locale);
+        if (fresh(s)) return s;
+      }
+    }
+    for (let attempt = 0; attempt < 5; attempt++) {
       const s = synthesize(det.category, det.value, this.config.locale) ?? opaqueToken(det.category);
-      if (!fullText.includes(s)) return s;
+      if (fresh(s)) return s;
     }
     return opaqueToken(det.category);
   }
@@ -141,15 +172,36 @@ export class DataCloakEngine {
     return { value: walk(value), substitutions: subs };
   }
   restore(text: string): RestoreResult {
+    // Single pass over the INPUT snapshot: matches are located before any
+    // replacement, so a restored original is never re-scanned and chained
+    // entries (synthetic of one = original of another) can't cascade.
+    // Matching is case-insensitive (LLMs recase fakes: "ivqtry" → "Ivqtry");
+    // hits always restore the original verbatim — never a reshaped variant.
     const entries = this.vault.list().sort((a, b) => b.synthetic.length - a.synthetic.length);
-    let result = text;
-    let restored = 0;
+    const lowered = text.toLowerCase();
+    const occs: { s: number; e: number; original: string; synthetic: string }[] = [];
     for (const e of entries) {
-      if (!result.includes(e.synthetic)) continue;
-      result = result.split(e.synthetic).join(e.original);
-      restored++;
+      if (!e.synthetic) continue;
+      const needle = e.synthetic.toLowerCase();
+      let from = 0;
+      for (;;) {
+        const at = lowered.indexOf(needle, from);
+        if (at < 0) break;
+        occs.push({ s: at, e: at + e.synthetic.length, original: e.original, synthetic: e.synthetic });
+        from = at + e.synthetic.length;
+      }
     }
-    return { text: result, restored };
+    occs.sort((x, y) => y.s - x.s);
+    let result = text;
+    let leftEdge = Infinity;
+    const hit = new Set<string>();
+    for (const o of occs) {
+      if (o.e > leftEdge) continue; // overlaps an already-applied replacement
+      result = result.slice(0, o.s) + o.original + result.slice(o.e);
+      leftEdge = o.s;
+      hit.add(o.synthetic);
+    }
+    return { text: result, restored: hit.size };
   }
   async exportVault(pass: string): Promise<string> {
     return exportVaultJson(JSON.stringify(this.vault.list()), pass);
@@ -169,3 +221,5 @@ export class DataCloakEngine {
 }
 export type { CustomPattern };
 export { defaultConfig } from './types.js';
+export { ENTITY_KINDS, expandEntityPattern, inferEntityKind, isEntityKind, matchPattern, synthesizeEntity } from './entity-types.js';
+export type { EntityKind } from './types.js';

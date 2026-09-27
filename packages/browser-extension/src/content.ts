@@ -2,7 +2,17 @@ import { findComposer, findSendButton, getFieldText, setFieldText } from './site
 import type { BgRequest, BgResponse, CloakResponse } from './protocol.js';
 
 export type SendFn = (req: BgRequest) => Promise<BgResponse>;
-export interface ArmOpts { mode: 'auto' | 'review'; }
+export interface ArmOpts { mode: 'auto' | 'review'; badge?: boolean; }
+
+/** Synchronously swap known synthetics for originals (split/join: no regex-escaping hazards). */
+export function restoreCached(text: string, cache: Map<string, string>): string {
+  if (!text || cache.size === 0) return text;
+  let out = text;
+  for (const k of [...cache.keys()].sort((a, b) => b.length - a.length)) {
+    if (k && out.includes(k)) out = out.split(k).join(cache.get(k) as string);
+  }
+  return out;
+}
 
 const isField = (el: Element | null): el is HTMLElement =>
   !!el && (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || (el as HTMLElement).isContentEditable);
@@ -26,29 +36,180 @@ const ensureBadge = (doc: Document): HTMLElement => {
   return b;
 };
 
-const setBadge = (doc: Document, count: number): void => {
+const setBadge = (doc: Document, count: number, uncertain = 0): void => {
+  if (uncertain > 0) {
+    ensureBadge(doc).textContent = `🔒 ${count} cloaked ⚠️ ${uncertain} uncertain`;
+    return;
+  }
   ensureBadge(doc).textContent = count > 0 ? `DataCloak: ${count} cloaked` : 'DataCloak active';
 };
 
-// ponytail: review MVP = one Cloak-all button over categories list; per-item Accept/Skip when Task 4 needs it.
-const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: () => void): void => {
+// ponytail: review MVP = uncertain rows over the Cloak-all button; per-item
+// Accept/Skip lives here now that confidence rides the cloak response.
+const CARD_CSS = [
+  ':host{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(5,7,12,.55);font:13px \'Inter\',system-ui,sans-serif}',
+  '.dc-card{background:#0F1117;color:#E4E8F0;border:1px solid #2A3050;border-radius:14px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.5);width:min(520px,92vw);max-height:80vh;overflow:auto}',
+  '.dc-head{font-weight:700;font-size:14px;margin-bottom:10px}',
+  '.dc-hint{font-size:11px;color:#8B95A6;margin-bottom:4px}',
+  '.dc-item{border:1px solid #2A3050;border-radius:10px;padding:10px 12px;margin:8px 0;background:#1C2033}',
+  '.dc-item[data-state="revealed"]{border-color:#FFB547}',
+  '.dc-pill{display:inline-block;background:#252B42;color:#00D4AA;border-radius:4px;padding:1px 7px;font-size:11px;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px}',
+  '.dc-orig{font-family:\'JetBrains Mono\',monospace;font-size:12px;color:#8B95A6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '.dc-synth{font-family:\'JetBrains Mono\',monospace;font-size:12.5px;color:#E4E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0 8px}',
+  '.dc-toggle{display:flex;gap:8px}',
+  '.dc-btn{font:inherit;color:#E4E8F0;background:#222640;border:1px solid #2A3050;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer}',
+  '.dc-btn.kept{border-color:#00D4AA;color:#00D4AA}',
+  '.dc-btn.revealed{border-color:#FFB547;color:#FFB547}',
+  '.dc-foot{display:flex;gap:8px;margin-top:12px}',
+  '.dc-send{flex:1;background:rgba(0,212,170,.12);border:1px solid #00D4AA;color:#00D4AA;font-weight:700;border-radius:8px;padding:8px;font-size:13px;cursor:pointer;font:inherit}',
+  '.dc-cancel{background:transparent;border:1px solid #2A3050;color:#8B95A6;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font:inherit}',
+].join('\n');
+
+/** Shadow card: page author CSS can't restyle our buttons; adopted sheets
+ *  (constructable stylesheets bypass style-src) with a plain <style>
+ *  fallback for older engines. A <style> in shadow still obeys page CSP —
+ *  shadow DOM buys isolation, not exemption. */
+const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalText: string) => void): void => {
   doc.querySelector('.dc-review-panel')?.remove();
+  const host = doc.createElement('div');
+  host.className = 'dc-review-panel';
+  const sh = host.attachShadow({ mode: 'open' });
+  let styled = false;
+  try {
+    const Ctor = (globalThis as unknown as { CSSStyleSheet?: new () => { replaceSync(c: string): void } }).CSSStyleSheet;
+    if (Ctor && 'adoptedStyleSheets' in sh) {
+      const sheet = new Ctor();
+      sheet.replaceSync(CARD_CSS);
+      (sh as unknown as { adoptedStyleSheets: unknown[] }).adoptedStyleSheets = [sheet];
+      styled = true;
+    }
+  } catch { /* fall through to <style> */ }
+  if (!styled) {
+    const style = doc.createElement('style');
+    style.textContent = CARD_CSS;
+    sh.appendChild(style);
+  }
   const panel = doc.createElement('div');
-  panel.className = 'dc-review-panel';
-  panel.setAttribute('style', 'position:fixed;bottom:44px;right:12px;z-index:2147483647;font:12px sans-serif;background:#fff;color:#111;border:1px solid #ccc;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2)');
-  panel.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) `;
-  const btn = doc.createElement('button');
-  btn.textContent = 'Cloak all & send';
-  btn.addEventListener('click', () => { panel.remove(); onConfirm(); });
-  panel.appendChild(btn);
-  doc.body.appendChild(panel);
-  (btn as HTMLButtonElement).focus();
+  panel.className = 'dc-card';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Review cloaked values');
+  const head = doc.createElement('div');
+  head.className = 'dc-head';
+  head.textContent = `Cloaked ${res.count} item${res.count === 1 ? '' : 's'} (${res.categories.join(', ')}) — review each value:`;
+  panel.appendChild(head);
+  const hint = doc.createElement('div');
+  hint.className = 'dc-hint';
+  hint.textContent = 'Confirmed once — the same text sends without asking again.';
+  panel.appendChild(hint);
+  // Every detected value gets a row (not just uncertain ones): Keep sends the
+  // synthetic, Reveal swaps it back to the original in the outgoing text.
+  const items = (res.subs?.length ? res.subs : (res.uncertain ?? [])).map((s, i) => ({ id: i, ...s }));
+  const states = new Map<number, 'kept' | 'revealed'>(items.map((s) => [s.id, 'kept']));
+  // Acting on every row resolves the review — auto-send instead of waiting
+  // for the footer. Selecting Keep on the last pending row submits.
+  const resolved = new Set<number>();
+  const doSend = (): void => {
+    host.remove();
+    onConfirm(revertRevealed(res.text));
+  };
+  const resolve = (id: number): void => {
+    resolved.add(id);
+    if (items.length > 0 && resolved.size >= items.length) doSend();
+  };
+  const revertRevealed = (text: string, ids?: Set<number>): string => {
+    let out = text;
+    const targets = [...items]
+      .filter((s) => (ids ? ids.has(s.id) : states.get(s.id) === 'revealed'))
+      .sort((a, b) => b.synthetic.length - a.synthetic.length);
+    for (const s of targets) {
+      if (s.synthetic) out = out.split(s.synthetic).join(s.original);
+    }
+    return out;
+  };
+  for (const sub of items) {
+    const div = doc.createElement('div');
+    div.className = 'item';
+    div.dataset.id = String(sub.id);
+    div.dataset.state = 'kept';
+    const pill = doc.createElement('span');
+    pill.className = 'dc-pill';
+    pill.textContent = sub.category;
+    const orig = doc.createElement('div');
+    orig.className = 'dc-orig';
+    orig.textContent = sub.original;
+    const synth = doc.createElement('div');
+    synth.className = 'dc-synth';
+    synth.textContent = `→ ${sub.synthetic}`;
+    const toggle = doc.createElement('div');
+    toggle.className = 'dc-toggle';
+    const keep = doc.createElement('button');
+    keep.className = 'dc-btn kept';
+    keep.textContent = 'Keep';
+    keep.setAttribute('data-action', 'keep');
+    const reveal = doc.createElement('button');
+    reveal.className = 'dc-btn';
+    reveal.textContent = 'Reveal';
+    reveal.setAttribute('data-action', 'reveal');
+    const paint = (): void => {
+      const st = states.get(sub.id) ?? 'kept';
+      div.dataset.state = st;
+      keep.classList.toggle('kept', st === 'kept');
+      reveal.classList.toggle('revealed', st === 'revealed');
+    };
+    keep.addEventListener('click', () => { states.set(sub.id, 'kept'); paint(); resolve(sub.id); });
+    reveal.addEventListener('click', () => { states.set(sub.id, 'revealed'); paint(); resolve(sub.id); });
+    toggle.append(keep, reveal);
+    div.append(pill, orig, synth, toggle);
+    panel.appendChild(div);
+  }
+  const foot = doc.createElement('div');
+  foot.className = 'dc-foot';
+  const send = doc.createElement('button');
+  send.className = 'dc-send';
+  send.textContent = 'Send cloaked →';
+  send.addEventListener('click', doSend);
+  const cancel = doc.createElement('button');
+  cancel.className = 'dc-cancel';
+  cancel.textContent = '✗ Send original';
+  const sendOriginal = (): void => {
+    host.remove();
+    onConfirm(revertRevealed(res.text, new Set(items.map((s) => s.id))));
+  };
+  cancel.addEventListener('click', sendOriginal);
+  foot.append(send, cancel);
+  panel.appendChild(foot);
+  sh.appendChild(panel);
+  // Scrim click cancels the same way "Send original" does.
+  host.addEventListener('click', (ev) => {
+    if (ev.target === host) sendOriginal();
+  });
+  doc.body.appendChild(host);
+  send.focus();
 };
 
 export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disarm(): void } {
+  // Single armed instance per document: a previous arm (stale test module,
+  // double bootstrap) would otherwise swallow submits via stopPropagation.
+  // The marker lives on the document so it works across module instances.
+  const d = doc as unknown as { __dcArm?: { disarm(): void } };
+  try { d.__dcArm?.disarm(); } catch { /* stale handle */ }
   let proceeding = false;
-  const badge = ensureBadge(doc);
-  badge.textContent = 'DataCloak active';
+  // Confirmed texts skip repeat prompts: same original + same cloak result
+  // (or a prior full dismiss) sends without re-asking. Re-cloak still runs
+  // every time, so vault changes surface the panel again. Page-lifetime only.
+  const confirmed = new Map<string, { final: string; dismissedAll: boolean }>();
+  const remember = (original: string, final: string): void => {
+    if (confirmed.size >= 20) {
+      const oldest = confirmed.keys().next();
+      if (!oldest.done) confirmed.delete(oldest.value);
+    }
+    confirmed.set(original, { final, dismissedAll: final === original });
+  };
+  // Page badge is user-hideable (Settings → Page badge); review panel is unaffected.
+  const showBadge = opts.badge !== false;
+  const badgeText = (t: string): void => { if (showBadge) ensureBadge(doc).textContent = t; };
+  const badgeCount = (count: number, uncertain = 0): void => { if (showBadge) setBadge(doc, count, uncertain); };
+  if (showBadge) ensureBadge(doc).textContent = 'DataCloak active';
 
   const proceed = (field: HTMLElement): void => {
     proceeding = true;
@@ -63,19 +224,40 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   };
 
   const intercept = async (field: HTMLElement): Promise<void> => {
+    // Review panel already open — Enter re-presses must not stack prompts.
+    if (doc.querySelector('.dc-review-panel')) return;
     const text = getFieldText(field);
-    const res = await send({ kind: 'cloak', text });
-    if (!('count' in res) || res.count === 0) { setBadge(doc, 0); proceed(field); return; }
+    let res: BgResponse;
+    try {
+      res = await send({ kind: 'cloak', text });
+    } catch {
+      // Stale content script (extension reloaded): fail closed — never send raw.
+      badgeText('DataCloak disconnected — refresh the page');
+      return;
+    }
+    if (!('count' in res) || res.count === 0) { badgeCount(0); proceed(field); return; }
     const cloak = res as CloakResponse;
+    const uncertainCount = cloak.uncertain?.length ?? 0;
     if (opts.mode === 'auto') {
+      // Auto mode: badge count only — no panel, no intercept change.
       setFieldText(field, cloak.text);
-      setBadge(doc, cloak.count);
+      badgeCount(cloak.count, uncertainCount);
       proceed(field);
       return;
     }
-    renderReviewPanel(doc, cloak, () => {
-      setFieldText(field, cloak.text);
-      setBadge(doc, cloak.count);
+    // Already resolved this exact text: same cloak result (or a prior full
+    // dismiss) goes straight through instead of nagging again.
+    const known = confirmed.get(text);
+    if (known !== undefined && (known.dismissedAll || known.final === cloak.text)) {
+      if (!known.dismissedAll) setFieldText(field, cloak.text);
+      badgeCount(cloak.count, uncertainCount);
+      proceed(field);
+      return;
+    }
+    renderReviewPanel(doc, cloak, (finalText) => {
+      remember(text, finalText);
+      setFieldText(field, finalText);
+      badgeCount(cloak.count, uncertainCount);
       proceed(field);
     });
   };
@@ -118,18 +300,21 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('submit', onSubmit, true);
 
-  return {
+  const handle = {
     disarm(): void {
       doc.removeEventListener('keydown', onKeydown, true);
       doc.removeEventListener('click', onClick, true);
       doc.removeEventListener('submit', onSubmit, true);
       doc.querySelector('.dc-review-panel')?.remove();
       doc.querySelector('.dc-badge')?.remove();
+      if (d.__dcArm === handle) delete d.__dcArm;
     },
   };
+  d.__dcArm = handle;
+  return handle;
 }
 
-export function observeResponses(logRoot: Node, send: SendFn): MutationObserver {
+export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string, string> = new Map(), showBadge = true): MutationObserver {
   const doc = logRoot.ownerDocument ?? (logRoot as Document);
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Map a char offset in the concatenated group text to its (node, inner offset).
@@ -194,10 +379,27 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
       let acc = '';
       for (const t of g) { starts.push(acc.length); lens.push(t.data.length); acc += t.data; }
       if (!acc.trim()) continue;
-      const res = await send({ kind: 'restore', text: acc });
+      let res: BgResponse;
+      try {
+        res = await send({ kind: 'restore', text: acc });
+      } catch {
+        // Stale content script (extension reloaded): stop observing so the
+        // dead sendMessage doesn't spam errors every batch.
+        obs.disconnect();
+        if (showBadge) ensureBadge(doc).textContent = 'DataCloak disconnected — refresh the page';
+        return;
+      }
       if (!('restored' in res) || res.restored === 0) continue;
       if (!g.some((t) => t.isConnected)) continue;
       if (res.hits?.length) {
+        // Feed the copy-handler cache: what the user sees restored, copy must match.
+        for (const h of res.hits) {
+          cache.set(h.synthetic, h.original);
+          if (cache.size > 500) {
+            const oldest = cache.keys().next();
+            if (!oldest.done) cache.delete(oldest.value);
+          }
+        }
         // Descending offsets so earlier replacements don't shift later ones.
         const occs: { s: number; e: number; original: string }[] = [];
         for (const h of [...res.hits].sort((x, y) => y.synthetic.length - x.synthetic.length)) {
@@ -224,8 +426,30 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
     timer = setTimeout(() => { void scan(); }, 800);
   });
   obs.observe(logRoot, { childList: true, characterData: true, subtree: true });
+  // Copy must match display: swap cached synthetics synchronously, then let
+  // the background catch fakes the cache missed via an async rewrite.
+  // Untouched when the selection is already clean, so rich formatting survives.
+  const onCopy = (e: Event): void => {
+    const sel = typeof doc.getSelection === 'function' ? doc.getSelection()?.toString() ?? '' : '';
+    if (!sel) return;
+    const quick = restoreCached(sel, cache);
+    if (quick !== sel) {
+      try {
+        (e as ClipboardEvent).preventDefault();
+        (e as ClipboardEvent).clipboardData?.setData('text/plain', quick);
+      } catch { return; }
+    }
+    void (async () => {
+      try {
+        const res = await send({ kind: 'restore', text: sel });
+        if (!('restored' in res) || res.restored === 0 || res.text === quick) return;
+        await navigator.clipboard?.writeText(res.text);
+      } catch { /* clipboard write is best-effort */ }
+    })();
+  };
+  doc.addEventListener('copy', onCopy, true);
   const origDisconnect = obs.disconnect.bind(obs);
-  obs.disconnect = () => { if (timer) clearTimeout(timer); origDisconnect(); };
+  obs.disconnect = () => { if (timer) clearTimeout(timer); doc.removeEventListener('copy', onCopy, true); origDisconnect(); };
   return obs;
 }
 
@@ -254,11 +478,17 @@ declare const chrome: {
 
 if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage && chrome?.storage?.sync) {
   const send: SendFn = (req) => chrome.runtime.sendMessage(req);
-  void chrome.storage.sync.get(['dc-mode', 'dc-sites']).then((vals) => {
+  void chrome.storage.sync.get(['dc-mode', 'dc-sites', 'dc-settings']).then((vals) => {
     const host = typeof location !== 'undefined' ? location.host.toLowerCase() : '';
     if (host && !shouldArmForSite(host, (vals['dc-sites'] as UserSitesShape | undefined) ?? undefined)) return;
-    const mode = vals['dc-mode'] === 'review' ? 'review' : 'auto';
-    armComposer(document, send, { mode });
-    if (document.body) observeResponses(document.body, send);
+    // Review toggle lives in Settings (dc-settings); legacy dc-mode 'review' still honored.
+    const uiSettings = vals['dc-settings'] as { review?: boolean; pageBadge?: boolean } | undefined;
+    const review = uiSettings?.review === true;
+    const showBadge = uiSettings?.pageBadge ?? true;
+    const mode = vals['dc-mode'] === 'review' || review ? 'review' : 'auto';
+    armComposer(document, send, { mode, badge: showBadge });
+    if (document.body) observeResponses(document.body, send, new Map(), showBadge);
+  }).catch(() => {
+    // Reload raced the initial read — the orphaned script stays inert.
   });
 }

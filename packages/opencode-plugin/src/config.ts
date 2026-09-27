@@ -6,7 +6,7 @@ export interface ResolvedConfig {
   vault: { maxEntries: number };
   allowPaths: string[];
   blockPaths: string[];
-  customPatterns: { name: string; pattern: string; category: string; type: 'pii' | 'secret' | 'credential' }[];
+  customPatterns: { name: string; pattern: string; category: string; type: 'pii' | 'secret' | 'credential'; synthesizer?: string }[];
   notifications: { onDetection: boolean; onBlock: boolean };
 }
 export const defaultResolvedConfig: ResolvedConfig = {

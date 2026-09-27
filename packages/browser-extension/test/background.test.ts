@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { handleRequest, type MemoryStore } from '../src/background.js';
+import type { CustomPattern } from '@pratikw/detect';
+import { handleRequest, memoryVaultBackend, type MemoryStore } from '../src/background.js';
 
 const fakeStore = (): MemoryStore => {
   const m = new Map<number, { vault: [string, string, string][] }>();
@@ -133,5 +134,386 @@ describe('background', () => {
     expect((await backend.load()).origins['stale']).toBeDefined();
     await handleRequest(59, { kind: 'cloak', text: 'john.doe@acme.com' }, s, undefined, { backend, origin: 'a.io' });
     expect((await backend.load()).origins['stale']).toBeUndefined();
+  });
+});
+describe('custom entity patterns', () => {
+  it('round-trips patterns and cloaks with them', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const emp = { name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii' as const, synthesizer: 'EMP-{{string.numeric(6)}}' };
+    const set = await handleRequest(31, { kind: 'patterns.set', patterns: [emp] }, s) as { patterns: unknown[]; error?: string };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns).toHaveLength(1);
+    const get = await handleRequest(31, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(1);
+    __dropEnginesForTest();
+    await handleRequest(31, { kind: 'patterns.set', patterns: [emp] }, s);
+    const c = await handleRequest(32, { kind: 'cloak', text: 'owner EMP-482913' }, s) as { text: string };
+    expect(c.text).toMatch(/EMP-[0-9]{6}/);
+    expect(c.text).not.toContain('EMP-482913');
+  });
+  it('rejects invalid regex without saving', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const bad = { name: 'Bad', pattern: '([a-z', category: 'X', type: 'pii' as const };
+    const res = await handleRequest(33, { kind: 'patterns.set', patterns: [bad] }, s) as { patterns: unknown[]; error?: string };
+    expect(res.error).toMatch(/valid regex/);
+    const get = await handleRequest(33, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(0);
+  });
+});
+
+describe('typed entity kinds', () => {
+  it('expands value+kind rows and cloaks same-length', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const row = { name: 'Ramesh', kind: 'name' as const };
+    const set = await handleRequest(41, { kind: 'patterns.set', patterns: [row] }, s) as { patterns: CustomPattern[]; error?: string };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns[0]).toMatchObject({ name: 'Ramesh', category: 'PERSON_NAME', type: 'pii', kind: 'name' });
+    expect(set.patterns[0].pattern).toContain('[Rr]');
+    const c = await handleRequest(42, { kind: 'cloak', text: 'hi RAMESH bye' }, s) as { text: string; count: number };
+    expect(c.count).toBe(1);
+    const fake = c.text.replace('hi ', '').replace(' bye', '');
+    expect(fake).toHaveLength(6);
+    expect(fake).toMatch(/^[A-Z]{6}$/);
+  });
+
+  it('rejects unknown kinds without saving', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const res = await handleRequest(43, { kind: 'patterns.set', patterns: [{ name: 'X', kind: 'regex' }] }, s) as { patterns: unknown[]; error?: string };
+    expect(res.error).toMatch(/bad kind/);
+    const get = await handleRequest(43, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
+    expect(get.patterns).toHaveLength(0);
+  });
+});
+
+describe('oplog origin attribution', () => {
+  it('records origin on cloak/restore when VaultCtx present', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const vctx = { backend: memoryVaultBackend(), origin: 'chatgpt.com' };
+    await handleRequest(51, { kind: 'cloak', text: 'reach alice.real@acme.com' }, s, undefined, vctx);
+    const stats = (await handleRequest(51, { kind: 'stats' }, s)) as { oplog: { kind: string; origin?: string }[] };
+    const cloak = stats.oplog.find((o) => o.kind === 'cloak');
+    expect(cloak?.origin).toBe('chatgpt.com');
+  });
+  it('leaves origin undefined without VaultCtx', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    await handleRequest(52, { kind: 'cloak', text: 'reach alice.real@acme.com' }, s);
+    const stats = (await handleRequest(52, { kind: 'stats' }, s)) as { oplog: { kind: string; origin?: string }[] };
+    expect(stats.oplog.find((o) => o.kind === 'cloak')?.origin).toBeUndefined();
+  });
+});
+
+describe('selection capture', () => {
+  const memSync = (patterns: CustomPattern[] = []) => {
+    let p = patterns;
+    let ps: { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: object }[] } | undefined;
+    let lifetime: { cloaked: number; restored: number } | undefined;
+    return {
+      getFlags: async () => undefined,
+      setFlags: async () => {},
+      getPatterns: async () => p,
+      setPatterns: async (next: CustomPattern[]) => { p = next; },
+      getProfiles: async () => ps,
+      setProfiles: async (next: NonNullable<typeof ps>) => { ps = next; },
+      getLifetime: async () => lifetime,
+      setLifetime: async (c: NonNullable<typeof lifetime>) => { lifetime = c; },
+    };
+  };
+  it('saves inferred kind rows expanded', async () => {
+    const { addSelectedEntity } = await import('../src/background.js');
+    const sync = memSync();
+    expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: true, kind: 'name' });
+    expect(await addSelectedEntity('EMP-001234', sync)).toEqual({ added: true, kind: 'employee_id' });
+    const s = fakeStore();
+    const { handleRequest } = await import('../src/background.js');
+    const got = (await handleRequest(40, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(got.patterns.map((p) => p.name)).toEqual(['Ramesh', 'EMP-001234']);
+    expect(got.patterns[0]).toMatchObject({ category: 'PERSON_NAME', kind: 'name' });
+    expect(got.patterns[0].pattern).toContain('[Rr]');
+  });
+  it('rejects empty, too-long and duplicates', async () => {
+    const { addSelectedEntity } = await import('../src/background.js');
+    const sync = memSync();
+    expect(await addSelectedEntity('   ', sync)).toEqual({ added: false, reason: 'empty' });
+    expect(await addSelectedEntity('x'.repeat(201), sync)).toEqual({ added: false, reason: 'too-long' });
+    await addSelectedEntity('Ramesh', sync);
+    expect(await addSelectedEntity('Ramesh', sync)).toEqual({ added: false, reason: 'duplicate' });
+    const s = fakeStore();
+    const { handleRequest } = await import('../src/background.js');
+    const got = (await handleRequest(40, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(got.patterns).toHaveLength(1);
+  });
+});
+
+describe('recased restore hits', () => {
+  it('exposes found-form hits with verbatim originals', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const c = (await bg.handleRequest(61, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s)) as { text: string };
+    // LLM shouts the fake back in all caps — restore must still recover it.
+    const shouted = c.text.toUpperCase();
+    expect(shouted).not.toContain('ramesh@gmail.com');
+    const r = (await bg.handleRequest(61, { kind: 'restore', text: `FYI: ${shouted}` }, s)) as {
+      text: string; restored: number; hits: { synthetic: string; original: string }[];
+    };
+    expect(r.restored).toBeGreaterThan(0);
+    expect(r.text).toContain('ramesh@gmail.com');
+    expect(r.hits.length).toBeGreaterThan(0);
+    for (const h of r.hits) {
+      expect(`FYI: ${shouted}`.includes(h.synthetic)).toBe(true);
+      expect(r.text.includes(h.original)).toBe(true);
+    }
+  });
+});
+
+describe('lastCloak record', () => {
+  it('stores offsets, returns null pre-cloak and per-tab', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const empty = (await bg.handleRequest(71, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(empty.record).toBeNull();
+    await bg.handleRequest(71, { kind: 'cloak', text: 'mail ramesh@gmail.com end' }, s);
+    const got = (await bg.handleRequest(71, { kind: 'lastCloak.get' }, s)) as {
+      record: { original: string; cloaked: string; subs: { original: string; synthetic: string; start: number; end: number }[] };
+    };
+    expect(got.record.original).toBe('mail ramesh@gmail.com end');
+    expect(got.record.subs).toHaveLength(1);
+    const [sub] = got.record.subs;
+    expect(got.record.original.slice(sub.start, sub.end)).toBe(sub.original);
+    expect(got.record.cloaked).not.toContain(sub.original);
+    const other = (await bg.handleRequest(72, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(other.record).toBeNull();
+  });
+
+  it('name-only rows infer kind centrally', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const set = (await bg.handleRequest(73, { kind: 'patterns.set', patterns: [{ name: 'Ramesh' }] }, s)) as {
+      patterns: CustomPattern[]; error?: string;
+    };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns[0]).toMatchObject({ name: 'Ramesh', category: 'PERSON_NAME', kind: 'name' });
+  });
+});
+
+describe('lifetime counters', () => {
+  it('accumulates across calls and survives drops + vault.clear', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const base = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    await bg.handleRequest(95, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s);
+    await bg.handleRequest(95, { kind: 'restore', text: 'nothing here' }, s);
+    const mid = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    expect(mid.cloaked - base.cloaked).toBe(1);
+    expect(mid.restored - base.restored).toBe(0);
+    await bg.handleRequest(95, { kind: 'vault.clear' }, s);
+    bg.__dropEnginesForTest();
+    const after = ((await bg.handleRequest(95, { kind: 'stats' }, s)) as { lifetime: { cloaked: number; restored: number } }).lifetime;
+    expect(after).toEqual(mid);
+  });
+});
+
+describe('origin-scoped restore fallback', () => {
+  it('tops up from origin entries that postdate engine creation', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    // Tab engine exists (created by this cloak) before the origin learns OLDFAKE.
+    await bg.handleRequest(81, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s, undefined, vctx);
+    const stored = await backend.load();
+    await backend.save({
+      origins: {
+        'chatgpt.com': {
+          updatedAt: Date.now(),
+          entries: [...(stored.origins['chatgpt.com']?.entries ?? []), { synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }],
+        },
+      },
+    });
+    // Another tab's fake: unknown to this engine → initial miss → fallback fills the gap.
+    const r = (await bg.handleRequest(81, { kind: 'restore', text: 'hi OLDFAKE bye' }, s, undefined, vctx)) as {
+      text: string; restored: number; hits: { synthetic: string; original: string }[];
+    };
+    expect(r.restored).toBe(1);
+    expect(r.text).toBe('hi ramesh bye');
+    expect(r.hits).toEqual([{ synthetic: 'OLDFAKE', original: 'ramesh' }]);
+  });
+
+  it('never overwrites tab-authoritative mappings', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    // Tab cloaks ramesh itself → tab engine maps it to a fresh fake.
+    await bg.handleRequest(82, { kind: 'patterns.set', patterns: [{ name: 'ramesh', kind: 'name' }] }, s);
+    const c = (await bg.handleRequest(82, { kind: 'cloak', text: 'hi ramesh bye' }, s, undefined, vctx)) as { text: string };
+    expect(c.text).not.toContain('ramesh');
+    // A stale same-original fake lands in the origin store afterwards (other tab).
+    const stored = await backend.load();
+    await backend.save({
+      origins: {
+        'chatgpt.com': {
+          updatedAt: Date.now(),
+          entries: [...(stored.origins['chatgpt.com']?.entries ?? []), { synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }],
+        },
+      },
+    });
+    // Origin's stale OLDFAKE for the same original must not win: the tab's
+    // own mapping is authoritative, so OLDFAKE text stays untouched.
+    const stale = (await bg.handleRequest(82, { kind: 'restore', text: 'hi OLDFAKE bye' }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(stale.restored).toBe(0);
+    expect(stale.text).toBe('hi OLDFAKE bye');
+    // And the tab's own fake still round-trips.
+    const r = (await bg.handleRequest(82, { kind: 'restore', text: c.text }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(r.restored).toBe(1);
+    expect(r.text).toContain('hi ramesh bye');
+  });
+});
+
+describe('vault.clear is total', () => {
+  it('wipes engines, origin store and diffs so nothing resurrects', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    const c = (await bg.handleRequest(91, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s, undefined, vctx)) as { text: string };
+    expect((await backend.load()).origins['chatgpt.com']?.entries.length).toBeGreaterThan(0);
+    const cleared = (await bg.handleRequest(91, { kind: 'vault.clear' }, s, undefined, vctx)) as { cleared: boolean };
+    expect(cleared).toEqual({ cleared: true });
+    expect((await backend.load()).origins).toEqual({});
+    // Old fakes no longer restore (fresh engine, no rehydration)…
+    const stale = (await bg.handleRequest(92, { kind: 'restore', text: c.text }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(stale.restored).toBe(0);
+    // …and the diff record is gone too.
+    const diff = (await bg.handleRequest(91, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(diff.record).toBeNull();
+  });
+});
+
+describe('vault.clear from an origin-less sender', () => {
+  it('wipes the persistent store without VaultCtx origin (popup path)', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend({
+      origins: { 'chatgpt.com': { updatedAt: Date.now(), entries: [{ synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }] } },
+    });
+    // Popup/fullpage senders carry backend but no origin — same as prod wiring.
+    const cleared = (await bg.handleRequest(93, { kind: 'vault.clear' }, s, undefined, { backend })) as { cleared: boolean };
+    expect(cleared).toEqual({ cleared: true });
+    expect((await backend.load()).origins).toEqual({});
+  });
+});
+
+describe('uncertain split', () => {
+  it('medium-confidence subs ride along, count stays total', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    await bg.handleRequest(84, { kind: 'patterns.set', patterns: [{ name: 'ramesh', kind: 'name' }] }, s);
+    const c1 = (await bg.handleRequest(84, { kind: 'cloak', text: 'hi ramesh bye' }, s)) as {
+      text: string; count: number; uncertain: { original: string; synthetic: string; category: string }[];
+    };
+    expect(c1.count).toBe(1);
+    expect(c1.uncertain).toHaveLength(1);
+    expect(c1.uncertain[0]).toMatchObject({ original: 'ramesh', category: 'PERSON_NAME' });
+    const c2 = (await bg.handleRequest(84, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s)) as {
+      count: number; uncertain: unknown[];
+    };
+    expect(c2.count).toBe(1);
+    expect(c2.uncertain).toEqual([]);
+  });
+});
+
+describe('profiles', () => {
+  const legacySync = () => {
+    let patterns: CustomPattern[] = [{ name: 'Ramesh', pattern: '[Rr][Aa][Mm][Ee][Ss][Hh]', category: 'RAMESH', type: 'pii' as const }];
+    let flags = { secrets: true, envVars: true, pii: true, entropy: true };
+    let profiles: undefined | { activeId: string; profiles: { id: string; name: string; patterns: CustomPattern[]; flags: typeof flags }[] };
+    let lifetime: { cloaked: number; restored: number } | undefined;
+    return {
+      getFlags: async () => flags,
+      setFlags: async (f: typeof flags) => { flags = f; },
+      getPatterns: async () => patterns,
+      setPatterns: async (p: CustomPattern[]) => { patterns = p; },
+      getProfiles: async () => profiles,
+      setProfiles: async (p: NonNullable<typeof profiles>) => { profiles = p; },
+      getLifetime: async () => lifetime,
+      setLifetime: async (c: NonNullable<typeof lifetime>) => { lifetime = c; },
+    };
+  };
+  type ProfilesRes = { activeId: string; profiles: { id: string; name: string; patterns: number }[]; error?: string };
+
+  it('migrates legacy keys into a Default profile', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    const got = (await bg.handleRequest(91, { kind: 'profiles.get' }, s, sync)) as ProfilesRes;
+    expect(got.error).toBeUndefined();
+    expect(got.activeId).toBe('default');
+    expect(got.profiles).toEqual([{ id: 'default', name: 'Default', patterns: 1 }]);
+    const rows = (await bg.handleRequest(91, { kind: 'patterns.get' }, s, sync)) as { patterns: CustomPattern[] };
+    expect(rows.patterns.map((p) => p.name)).toEqual(['Ramesh']);
+  });
+
+  it('add/switch/delete with guards', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    expect(((await bg.handleRequest(92, { kind: 'profiles.add', name: '  ' }, s, sync)) as ProfilesRes).error).toMatch(/required/);
+    const added = (await bg.handleRequest(92, { kind: 'profiles.add', name: 'Work' }, s, sync)) as ProfilesRes;
+    expect(added.error).toBeUndefined();
+    expect(added.activeId).not.toBe('default');
+    const workId = added.activeId;
+    expect(((await bg.handleRequest(92, { kind: 'profiles.add', name: 'work' }, s, sync)) as ProfilesRes).error).toMatch(/exists/);
+    expect(((await bg.handleRequest(92, { kind: 'profiles.switch', id: 'nope' }, s, sync)) as ProfilesRes).error).toMatch(/Unknown/);
+    const back = (await bg.handleRequest(92, { kind: 'profiles.switch', id: 'default' }, s, sync)) as ProfilesRes;
+    expect(back.activeId).toBe('default');
+    // Deleting the active profile falls back to the first remaining.
+    const del = (await bg.handleRequest(92, { kind: 'profiles.delete', id: workId }, s, sync)) as ProfilesRes;
+    expect(del.error).toBeUndefined();
+    expect(del.profiles.map((p) => p.name)).toEqual(['Default']);
+    expect(((await bg.handleRequest(92, { kind: 'profiles.delete', id: 'default' }, s, sync)) as ProfilesRes).error).toMatch(/last profile/);
+  });
+
+  it('patterns, flags and cloak follow the active profile', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const sync = legacySync();
+    const added = (await bg.handleRequest(93, { kind: 'profiles.add', name: 'Work' }, s, sync)) as ProfilesRes;
+    const workId = added.activeId;
+    // Default still has the migrated row; Work starts empty.
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: 'default' }, s, sync);
+    const c1 = (await bg.handleRequest(93, { kind: 'cloak', text: 'hi ramesh bye' }, s, sync)) as { count: number };
+    expect(c1.count).toBe(1);
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: workId }, s, sync);
+    const c2 = (await bg.handleRequest(93, { kind: 'cloak', text: 'hi ramesh bye' }, s, sync)) as { count: number };
+    expect(c2.count).toBe(0);
+    // Flags are per-profile too.
+    await bg.handleRequest(93, { kind: 'settings.set', flags: { secrets: false, envVars: true, pii: true, entropy: true } }, s, sync);
+    await bg.handleRequest(93, { kind: 'profiles.switch', id: 'default' }, s, sync);
+    const f = (await bg.handleRequest(93, { kind: 'settings.get' }, s, sync)) as { flags: { secrets: boolean } };
+    expect(f.flags.secrets).toBe(true);
   });
 });

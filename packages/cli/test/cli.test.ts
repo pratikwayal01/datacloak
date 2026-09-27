@@ -72,3 +72,17 @@ describe('guard', () => {
     expect(JSON.parse(ok.stdout).decision).toBe('allow');
   });
 });
+
+describe('--config', () => {
+  it('cloak/scan honor customPatterns from --config', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dc-'));
+    const cfg = join(dir, 'datacloak.json');
+    writeFileSync(cfg, JSON.stringify({ customPatterns: [{ name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii', synthesizer: 'EMP-{{string.numeric(6)}}' }] }));
+    const vault = join(dir, 'v.json');
+    const c = await cli(['cloak', '--vault', vault, '--config', cfg], 'owner EMP-482913');
+    expect(c.stdout).toMatch(/EMP-[0-9]{6}/);
+    expect(c.stdout).not.toContain('EMP-482913');
+    const scan = await cli(['scan', '--config', cfg], 'owner EMP-482913');
+    expect(scan.code).toBe(2);
+  });
+});

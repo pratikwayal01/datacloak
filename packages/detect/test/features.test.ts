@@ -92,3 +92,89 @@ describe('cloakFile', () => {
     await expect(cloakFile(new DataCloakEngine(), p)).rejects.toThrow(/unsupported extension/);
   });
 });
+
+describe('custom entity mapping', () => {
+  const emp = { name: 'Employee ID', pattern: 'EMP-[0-9]{6}', category: 'EMPLOYEE_ID', type: 'pii' as const, synthesizer: 'EMP-{{string.numeric(6)}}' };
+  it('cloaks with shape-preserving fake and restores', () => {
+    const e = new DataCloakEngine({ customPatterns: [emp] });
+    const r = e.cloak('owner EMP-482913 please');
+    expect(r.text).toMatch(/EMP-[0-9]{6}/);
+    expect(r.text).not.toContain('EMP-482913');
+    expect(e.restore(r.text).text).toContain('EMP-482913');
+  });
+  it('falls back to opaque without a synthesizer', () => {
+    const e = new DataCloakEngine({ customPatterns: [{ name: 'x', pattern: 'XX-[0-9]+', category: 'XX_CODE', type: 'secret' }] });
+    expect(e.cloak('id XX-123').text).toMatch(/\[XX_CODE_[A-Z0-9]{6}\]/);
+  });
+  it('bad synthesizer fails open with opaque token', () => {
+    const e = new DataCloakEngine({ customPatterns: [{ ...emp, synthesizer: 'EMP-{{nope.fn(1)}}' }] });
+    expect(e.cloak('owner EMP-482913').text).toMatch(/\[EMPLOYEE_ID_[A-Z0-9]{6}\]/);
+  });
+});
+
+describe('synthetic vault-collision guard', () => {
+  it('never reuses a synthetic the vault already knows', () => {
+    const lit = (cat: string) => ({ name: cat, pattern: `${cat}-[0-9]+`, category: cat, type: 'pii' as const, synthesizer: 'FIXED-SYNTH' });
+    const e = new DataCloakEngine({ customPatterns: [lit('C1'), lit('C2')] });
+    const first = e.cloak('id C1-1');
+    expect(first.text).toContain('FIXED-SYNTH');
+    const second = e.cloak('id C2-2');
+    expect(second.text).not.toContain('FIXED-SYNTH');
+    expect(second.text).toMatch(/\[C2_[A-Z0-9]{6}\]/);
+    // And the known synthetic is not re-cloaked as an original either.
+    expect(e.cloak('saw FIXED-SYNTH today').text).toContain('FIXED-SYNTH');
+  });
+});
+
+describe('restore chained entries', () => {
+  it('maps each synthetic to its direct original without cascading', () => {
+    const e = new DataCloakEngine();
+    e.vault.set({ original: 'AAA@x.com', synthetic: 'BBB@x.com', category: 'EMAIL', type: 'pii', synthesizedAt: 1, confidence: 'high' });
+    e.vault.set({ original: 'BBB@x.com', synthetic: 'CCC@x.com', category: 'EMAIL', type: 'pii', synthesizedAt: 2, confidence: 'high' });
+    expect(e.restore('hi CCC@x.com').text).toBe('hi BBB@x.com');
+    expect(e.restore('hi BBB@x.com').text).toBe('hi AAA@x.com');
+  });
+});
+
+describe('case-insensitive literal', () => {
+  it('class-expanded pattern cloaks every case variant', () => {
+    const lit = '[Rr][Aa][Mm][Ee][Ss][Hh]';
+    const e = new DataCloakEngine({ customPatterns: [{ name: 'Ramesh', pattern: lit, category: 'RAMESH', type: 'pii' as const, literal: true }] });
+    for (const v of ['Ramesh', 'ramesh', 'RAMESH']) {
+      const r = e.cloak(`hi ${v} bye`);
+      expect(r.substitutions).toHaveLength(1);
+      expect(r.text).not.toContain(`hi ${v} bye`);
+      expect(e.restore(r.text).text).toContain(`hi ${v} bye`);
+    }
+  });
+});
+
+describe('recased restore', () => {
+  it('restores LLM-recased synthetics to the verbatim original', () => {
+    const e = new DataCloakEngine({});
+    e.vault.set({ original: 'suresh', synthetic: 'ivqtry', category: 'PERSON_NAME', type: 'pii', synthesizedAt: 1, confidence: 'high' });
+    expect(e.restore('Hi, Ivqtry!').text).toBe('Hi, suresh!');
+    expect(e.restore('shout IVQTRY now').text).toBe('shout suresh now');
+    expect(e.restore('hi ivqtry bye').text).toBe('hi suresh bye');
+    expect(e.restore('nothing to do here').text).toBe('nothing to do here');
+  });
+});
+
+describe('substitution offsets', () => {
+  it('carries original-coordinates for diff highlighting', () => {
+    const e = new DataCloakEngine({});
+    const r = e.cloak('mail kloe36@gmail.com end');
+    expect(r.substitutions).toHaveLength(1);
+    const [s] = r.substitutions;
+    expect('mail kloe36@gmail.com end'.slice(s.start, s.end)).toBe(s.original);
+  });
+});
+
+describe('substitution confidence', () => {
+  it('carries detection confidence (medium for entropy)', () => {
+    const e = new DataCloakEngine({});
+    const r = e.cloak('mail kloe36@gmail.com end');
+    expect(r.substitutions).toHaveLength(1);
+    expect(r.substitutions[0].confidence).toBe('high');
+  });
+});
