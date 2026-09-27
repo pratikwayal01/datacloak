@@ -67,7 +67,7 @@ export class DataCloakEngine {
         this.vault.set({ original: det.value, synthetic, category: det.category, type: det.type, synthesizedAt: Date.now(), confidence: det.confidence });
       }
       result = result.slice(0, det.start) + synthetic + result.slice(det.end);
-      substitutions.unshift({ original: det.value, synthetic, category: det.category });
+      substitutions.unshift({ original: det.value, synthetic, category: det.category, start: det.start, end: det.end });
     }
     return { text: result, substitutions };
   }

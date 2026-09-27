@@ -135,12 +135,18 @@ async function readFlags(deps: PopupDeps): Promise<DetectorFlags> {
   return { ...DEFAULT_FLAGS };
 }
 
-export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void> {
-  const need = ['dc-mode-toggle', 'dc-vault', 'dc-export', 'dc-copy-all', 'dc-clear', 'dc-search',
+export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullPage?: boolean }): Promise<void> {
+  const need = ['dc-mode-toggle', 'dc-export', 'dc-copy-all', 'dc-clear', 'dc-search',
     'stat-total', 'stat-session', 'stat-types', 'vault-badge', 'dc-empty',
     'console-out', 'console-input', 'network-list', 'storage-table',
     'storage-pct', 'storage-bar', 'storage-used', 'storage-quota', 'patterns-list'];
   for (const id of need) if (!doc.getElementById(id)) throw new Error(`popup skeleton missing #${id}`);
+  // Popup renders div rows into #dc-vault; the full-page tab renders a real
+  // table into #vault-table-body. Exactly one container must exist.
+  const tableMode = !doc.getElementById('dc-vault') && !!doc.getElementById('vault-table-body');
+  if (!doc.getElementById('dc-vault') && !doc.getElementById('vault-table-body')) throw new Error('popup skeleton missing vault container');
+  // Full-page tab (fullpage.html) renders extras the 380px popup never shows.
+  const fullPage = opts?.fullPage ?? (typeof location !== 'undefined' && location.pathname.endsWith('fullpage.html'));
 
   // ── Theme ──
   let themePref: ThemePref = 'system';
@@ -210,56 +216,111 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     (doc.getElementById('vault-badge') as HTMLElement).textContent = String(count);
   };
 
-  const renderVault = (): void => {
-    const vault = doc.getElementById('dc-vault') as HTMLElement;
-    const empty = doc.getElementById('dc-empty') as HTMLElement;
-    vault.querySelectorAll('.vault-row').forEach((n) => n.remove());
-    const filtered = entries
+  const filteredVault = (): { e: VaultEntry; i: number }[] =>
+    entries
       .map((e, i) => ({ e, i }))
       .filter(({ e }) =>
         (activeCat === 'all' || e.category.toLowerCase() === activeCat) &&
         (!query || e.synthetic.toLowerCase().includes(query) || e.category.toLowerCase().includes(query)));
-    empty.style.display = filtered.length === 0 ? '' : 'none';
+
+  const paintEmpty = (empty: HTMLElement, isEmpty: boolean): void => {
+    empty.style.display = isEmpty ? '' : 'none';
+  };
+
+  // Reveal shows the original in the row output only — never clipboard/console.
+  const vaultText = (e: VaultEntry, i: number): HTMLElement => {
+    const text = doc.createElement('span');
+    text.className = 'synth-text';
+    text.title = e.synthetic;
+    const isOut = revealed.has(i);
+    text.textContent = isOut ? e.original : e.synthetic;
+    if (isOut && ui.blur) {
+      const b = doc.createElement('span');
+      b.className = 'blurred';
+      b.textContent = e.original;
+      text.replaceChildren(b);
+      text.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+    }
+    return text;
+  };
+
+  const vaultActions = (e: VaultEntry, i: number, rerender: () => void): HTMLElement => {
+    const isOut = revealed.has(i);
+    const peek = doc.createElement('button');
+    peek.className = 'icon-btn' + (isOut ? ' reveal-active' : '');
+    peek.type = 'button';
+    peek.title = isOut ? 'Hide original' : 'Peek original';
+    peek.textContent = '◉';
+    peek.addEventListener('click', () => {
+      if (revealed.has(i)) revealed.delete(i); else revealed.add(i);
+      rerender();
+    });
+    const copyBtn = doc.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.type = 'button';
+    copyBtn.title = 'Copy synthetic';
+    copyBtn.textContent = '⧉';
+    copyBtn.addEventListener('click', () => {
+      deps.copy(e.synthetic).then(() => toast(doc, 'Copied to clipboard')).catch(() => {});
+    });
+    const actions = doc.createElement('div');
+    actions.className = 'row-actions';
+    actions.append(peek, copyBtn);
+    return actions;
+  };
+
+  const vaultChip = (category: string): HTMLElement => {
+    const chip = doc.createElement('span');
+    chip.className = `cat-chip ${category.toLowerCase()}`;
+    chip.textContent = category.toLowerCase();
+    return chip;
+  };
+
+  const renderVaultTable = (): void => {
+    const body = doc.getElementById('vault-table-body') as HTMLElement;
+    const empty = doc.getElementById('dc-empty') as HTMLElement;
+    body.replaceChildren();
+    const filtered = filteredVault();
+    paintEmpty(empty, filtered.length === 0);
     for (const { e, i } of filtered) {
-      const row = doc.createElement('div');
-      row.className = 'vault-row';
-      const chip = doc.createElement('span');
-      chip.className = `cat-chip ${e.category.toLowerCase()}`;
-      chip.textContent = e.category.toLowerCase();
-      const text = doc.createElement('span');
-      text.className = 'synth-text';
-      text.title = e.synthetic;
-      const isOut = revealed.has(i);
-      // Reveal shows the original in the row output only — never clipboard/console.
-      text.textContent = isOut ? e.original : e.synthetic;
-      if (isOut && ui.blur) {
+      const tr = doc.createElement('tr');
+      const tdType = doc.createElement('td');
+      tdType.appendChild(vaultChip(e.category));
+      const tdOrig = doc.createElement('td');
+      tdOrig.className = 'mono';
+      // Originals stay blurred until peeked — same invariant as the popup,
+      // even though the full page gets a dedicated column for them.
+      if (revealed.has(i) || !ui.blur) {
+        tdOrig.textContent = e.original;
+      } else {
         const b = doc.createElement('span');
         b.className = 'blurred';
         b.textContent = e.original;
-        text.replaceChildren(b);
-        text.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+        b.addEventListener('click', () => b.style.filter = b.style.filter ? '' : 'none');
+        tdOrig.appendChild(b);
       }
-      const peek = doc.createElement('button');
-      peek.className = 'icon-btn' + (isOut ? ' reveal-active' : '');
-      peek.type = 'button';
-      peek.title = isOut ? 'Hide original' : 'Peek original';
-      peek.textContent = '◉';
-      peek.addEventListener('click', () => {
-        if (revealed.has(i)) revealed.delete(i); else revealed.add(i);
-        renderVault();
-      });
-      const copyBtn = doc.createElement('button');
-      copyBtn.className = 'icon-btn';
-      copyBtn.type = 'button';
-      copyBtn.title = 'Copy synthetic';
-      copyBtn.textContent = '⧉';
-      copyBtn.addEventListener('click', () => {
-        deps.copy(e.synthetic).then(() => toast(doc, 'Copied to clipboard')).catch(() => {});
-      });
-      const actions = doc.createElement('div');
-      actions.className = 'row-actions';
-      actions.append(peek, copyBtn);
-      row.append(chip, text, actions);
+      const tdSynth = doc.createElement('td');
+      tdSynth.className = 'mono';
+      tdSynth.appendChild(vaultText(e, i));
+      const tdActions = doc.createElement('td');
+      tdActions.appendChild(vaultActions(e, i, renderVaultTable));
+      tr.append(tdType, tdOrig, tdSynth, tdActions);
+      body.appendChild(tr);
+    }
+    stats();
+  };
+
+  const renderVault = (): void => {
+    if (tableMode) { renderVaultTable(); return; }
+    const vault = doc.getElementById('dc-vault') as HTMLElement;
+    const empty = doc.getElementById('dc-empty') as HTMLElement;
+    vault.querySelectorAll('.vault-row').forEach((n) => n.remove());
+    const filtered = filteredVault();
+    paintEmpty(empty, filtered.length === 0);
+    for (const { e, i } of filtered) {
+      const row = doc.createElement('div');
+      row.className = 'vault-row';
+      row.append(vaultChip(e.category), vaultText(e, i), vaultActions(e, i, renderVault));
       vault.appendChild(row);
     }
     stats();
@@ -619,6 +680,105 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     if (dropped.length > 0 || stored.some((p) => !p.kind)) saveCustom();
   }).catch(() => {});
 
+  // ── Diff view (full-page tab only; #diff-wrap lives in fullpage.html) ──
+  const marked = (text: string, spans: { text: string; at: number }[]): DocumentFragment => {
+    const frag = doc.createDocumentFragment();
+    let pos = 0;
+    let leftEdge = 0;
+    for (const s of [...spans].sort((a, b) => a.at - b.at)) {
+      if (s.at < leftEdge) continue;
+      if (s.at > pos) frag.appendChild(doc.createTextNode(text.slice(pos, s.at)));
+      const m = doc.createElement('mark');
+      m.textContent = text.slice(s.at, s.at + s.text.length);
+      frag.appendChild(m);
+      pos = s.at + s.text.length;
+      leftEdge = pos;
+    }
+    if (pos < text.length) frag.appendChild(doc.createTextNode(text.slice(pos)));
+    return frag;
+  };
+  const renderDiff = async (): Promise<void> => {
+    const wrap = doc.getElementById('diff-wrap');
+    if (!wrap) return;
+    wrap.replaceChildren();
+    let record: {
+      original: string; cloaked: string;
+      subs: { original: string; synthetic: string; category: string; start: number; end: number }[];
+      ts: number;
+    } | null = null;
+    try {
+      const res = await deps.send({ kind: 'lastCloak.get' });
+      if ('record' in res) record = res.record;
+    } catch { /* empty state below */ }
+    const head = doc.createElement('div');
+    head.className = 'diff-head';
+    const title = doc.createElement('span');
+    title.className = 'setting-desc';
+    title.textContent = 'Last cloak in this tab';
+    const refresh = doc.createElement('button');
+    refresh.className = 'btn-sm';
+    refresh.type = 'button';
+    refresh.textContent = 'Refresh';
+    refresh.addEventListener('click', () => { void renderDiff(); });
+    head.append(title, refresh);
+    wrap.appendChild(head);
+    if (!record || record.subs.length === 0) {
+      const p = doc.createElement('div');
+      p.className = 'setting-desc';
+      p.textContent = 'Nothing cloaked in this tab yet — it appears here after your next send.';
+      wrap.appendChild(p);
+      return;
+    }
+    const panels = doc.createElement('div');
+    panels.className = 'diff-panels';
+    const left = doc.createElement('div');
+    left.className = 'diff-panel';
+    left.appendChild(marked(record.original, record.subs.map((s) => ({ text: s.original, at: s.start }))));
+    const right = doc.createElement('div');
+    right.className = 'diff-panel';
+    const rightSpans: { text: string; at: number }[] = [];
+    for (const s of record.subs) {
+      let from = 0;
+      for (;;) {
+        const at = record.cloaked.indexOf(s.synthetic, from);
+        if (at < 0) break;
+        rightSpans.push({ text: s.synthetic, at });
+        from = at + s.synthetic.length;
+      }
+    }
+    right.appendChild(marked(record.cloaked, rightSpans));
+    panels.append(left, right);
+    wrap.appendChild(panels);
+    for (const s of record.subs) {
+      const row = doc.createElement('div');
+      row.className = 'diff-sub';
+      const label = doc.createElement('span');
+      label.className = 'site-desc';
+      label.textContent = `${s.original} → ${s.synthetic} · ${s.category}`;
+      const add = doc.createElement('button');
+      add.className = 'btn-sm accent';
+      add.type = 'button';
+      add.textContent = 'Add to entities';
+      add.setAttribute('aria-label', `Add ${s.original} to custom entities`);
+      add.addEventListener('click', () => {
+        // Merge into stored rows — patterns.set replaces wholesale.
+        void (async () => {
+          try {
+            const cur = await deps.send({ kind: 'patterns.get' });
+            const rows = ('patterns' in cur && Array.isArray(cur.patterns)) ? (cur.patterns as CustomPattern[]) : [];
+            if (rows.some((p) => p.name === s.original)) { toast(doc, 'Already in custom entities'); return; }
+            const res = await deps.send({ kind: 'patterns.set', patterns: [...rows, { name: s.original } as CustomPattern] });
+            if ('error' in res && res.error) { toast(doc, res.error); return; }
+            toast(doc, `“${s.original}” added to custom entities`);
+          } catch (e: unknown) { toast(doc, `Add failed: ${(e as Error)?.message ?? e}`); }
+        })();
+      });
+      row.append(label, add);
+      wrap.appendChild(row);
+    }
+  };
+  if (fullPage) void renderDiff();
+
   doc.getElementById('s-fullpage')?.addEventListener('click', () => {
     void deps.openFullPage?.().catch((e: unknown) => toast(doc, `Cannot open full page: ${(e as Error)?.message ?? e}`));
   });
@@ -844,7 +1004,7 @@ function prodDeps(): PopupDeps {
     },
     copy: async (text) => { await navigator.clipboard.writeText(text); },
     version: (() => { try { return chrome!.runtime.getManifest?.().version ?? '1.0.0'; } catch { return '1.0.0'; } })(),
-    openFullPage: async () => { await chrome!.tabs.create({ url: chrome!.runtime.getURL('popup.html') }); },
+    openFullPage: async () => { await chrome!.tabs.create({ url: chrome!.runtime.getURL('fullpage.html') }); },
     ...prodSites(),
   };
 }

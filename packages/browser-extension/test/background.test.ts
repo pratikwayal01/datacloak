@@ -266,3 +266,94 @@ describe('recased restore hits', () => {
     }
   });
 });
+
+describe('lastCloak record', () => {
+  it('stores offsets, returns null pre-cloak and per-tab', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const empty = (await bg.handleRequest(71, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(empty.record).toBeNull();
+    await bg.handleRequest(71, { kind: 'cloak', text: 'mail ramesh@gmail.com end' }, s);
+    const got = (await bg.handleRequest(71, { kind: 'lastCloak.get' }, s)) as {
+      record: { original: string; cloaked: string; subs: { original: string; synthetic: string; start: number; end: number }[] };
+    };
+    expect(got.record.original).toBe('mail ramesh@gmail.com end');
+    expect(got.record.subs).toHaveLength(1);
+    const [sub] = got.record.subs;
+    expect(got.record.original.slice(sub.start, sub.end)).toBe(sub.original);
+    expect(got.record.cloaked).not.toContain(sub.original);
+    const other = (await bg.handleRequest(72, { kind: 'lastCloak.get' }, s)) as { record: null };
+    expect(other.record).toBeNull();
+  });
+
+  it('name-only rows infer kind centrally', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const set = (await bg.handleRequest(73, { kind: 'patterns.set', patterns: [{ name: 'Ramesh' }] }, s)) as {
+      patterns: CustomPattern[]; error?: string;
+    };
+    expect(set.error).toBeUndefined();
+    expect(set.patterns[0]).toMatchObject({ name: 'Ramesh', category: 'PERSON_NAME', kind: 'name' });
+  });
+});
+
+describe('origin-scoped restore fallback', () => {
+  it('tops up from origin entries that postdate engine creation', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    // Tab engine exists (created by this cloak) before the origin learns OLDFAKE.
+    await bg.handleRequest(81, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s, undefined, vctx);
+    const stored = await backend.load();
+    await backend.save({
+      origins: {
+        'chatgpt.com': {
+          updatedAt: Date.now(),
+          entries: [...(stored.origins['chatgpt.com']?.entries ?? []), { synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }],
+        },
+      },
+    });
+    // Another tab's fake: unknown to this engine → initial miss → fallback fills the gap.
+    const r = (await bg.handleRequest(81, { kind: 'restore', text: 'hi OLDFAKE bye' }, s, undefined, vctx)) as {
+      text: string; restored: number; hits: { synthetic: string; original: string }[];
+    };
+    expect(r.restored).toBe(1);
+    expect(r.text).toBe('hi ramesh bye');
+    expect(r.hits).toEqual([{ synthetic: 'OLDFAKE', original: 'ramesh' }]);
+  });
+
+  it('never overwrites tab-authoritative mappings', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const backend = memoryVaultBackend();
+    const vctx = { backend, origin: 'chatgpt.com' };
+    // Tab cloaks ramesh itself → tab engine maps it to a fresh fake.
+    await bg.handleRequest(82, { kind: 'patterns.set', patterns: [{ name: 'ramesh', kind: 'name' }] }, s);
+    const c = (await bg.handleRequest(82, { kind: 'cloak', text: 'hi ramesh bye' }, s, undefined, vctx)) as { text: string };
+    expect(c.text).not.toContain('ramesh');
+    // A stale same-original fake lands in the origin store afterwards (other tab).
+    const stored = await backend.load();
+    await backend.save({
+      origins: {
+        'chatgpt.com': {
+          updatedAt: Date.now(),
+          entries: [...(stored.origins['chatgpt.com']?.entries ?? []), { synthetic: 'OLDFAKE', original: 'ramesh', category: 'PERSON_NAME' }],
+        },
+      },
+    });
+    // Origin's stale OLDFAKE for the same original must not win: the tab's
+    // own mapping is authoritative, so OLDFAKE text stays untouched.
+    const stale = (await bg.handleRequest(82, { kind: 'restore', text: 'hi OLDFAKE bye' }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(stale.restored).toBe(0);
+    expect(stale.text).toBe('hi OLDFAKE bye');
+    // And the tab's own fake still round-trips.
+    const r = (await bg.handleRequest(82, { kind: 'restore', text: c.text }, s, undefined, vctx)) as { text: string; restored: number };
+    expect(r.restored).toBe(1);
+    expect(r.text).toContain('hi ramesh bye');
+  });
+});

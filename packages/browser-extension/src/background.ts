@@ -37,6 +37,8 @@ const DEFAULT_FLAGS: DetectorFlags = { secrets: true, envVars: true, pii: true, 
 const OPLOG_CAP = 100;
 
 const engines = new Map<number, DataCloakEngine>();
+// Last cloak per tab for the full-page diff view. Last-1 only, no history.
+const lastCloak = new Map<number, { original: string; cloaked: string; subs: { original: string; synthetic: string; category: string; start: number; end: number }[]; ts: number }>();
 const oplog: OpEntry[] = [];
 let memoryFlags: DetectorFlags | undefined;
 let memoryPatterns: CustomPattern[] | undefined;
@@ -233,6 +235,16 @@ export function validatePatterns(patterns: CustomPattern[]): string | null {
       p.pattern = expanded.pattern;
       p.category = expanded.category;
       p.type = expanded.type;
+    } else if (typeof p.pattern !== 'string' || !p.pattern) {
+      // Diff-capture sends name-only rows: infer the kind centrally so the
+      // popup keeps zero engine imports. Explicit bad kinds still rejected above.
+      if (typeof p.name !== 'string' || !p.name.trim()) return 'each pattern needs a name';
+      const inferred = inferEntityKind(p.name.trim());
+      const expanded = expandEntityPattern(p.name.trim(), inferred);
+      p.kind = inferred;
+      p.pattern = expanded.pattern;
+      p.category = expanded.category;
+      p.type = expanded.type;
     }
     if (typeof p.pattern !== 'string' || !p.pattern) return `pattern "${p.name}" needs a regex`;
     try { new RegExp(p.pattern); } catch { return `pattern "${p.name}" is not a valid regex`; }
@@ -282,12 +294,19 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     engines.clear();
     return { patterns: req.patterns };
   }
+  if (req.kind === 'lastCloak.get') return { record: lastCloak.get(tabId) ?? null };
   const engine = await engineFor(tabId, store, sync, vault);
   if (req.kind === 'cloak') {
     const start = Date.now();
     const r = engine.cloak(req.text);
     const categories = [...new Set(r.substitutions.map((s) => s.category))];
     record({ ts: Date.now(), tabId, kind: 'cloak', ms: Date.now() - start, count: r.substitutions.length, categories: r.substitutions.map((s) => s.category), origin: vault?.origin });
+    lastCloak.set(tabId, {
+      original: req.text,
+      cloaked: r.text,
+      subs: r.substitutions.map((s) => ({ original: s.original, synthetic: s.synthetic, category: s.category, start: s.start, end: s.end })),
+      ts: Date.now(),
+    });
     await persist(tabId, store);
     if (vault?.origin) {
       try {
@@ -297,7 +316,23 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     return { text: r.text, count: r.substitutions.length, categories };
   }
   const start = Date.now();
-  const r = engine.restore(req.text);
+  let r = engine.restore(req.text);
+  if (r.restored === 0 && vault?.origin) {
+    // Redirect/new-tab case: the tab engine never saw the cloak, but the
+    // origin store may have it. Additive only — entries whose original OR
+    // synthetic the tab already knows are never overwritten.
+    try {
+      const originEntries = (await vault.backend.load()).origins[vault.origin]?.entries ?? [];
+      let topped = false;
+      for (const oe of originEntries) {
+        if (!engine.vault.getByOriginal(oe.original) && !engine.vault.getBySynthetic(oe.synthetic)) {
+          engine.vault.set({ original: oe.original, synthetic: oe.synthetic, category: oe.category, type: 'pii', synthesizedAt: Date.now(), confidence: 'high' });
+          topped = true;
+        }
+      }
+      if (topped) r = engine.restore(req.text);
+    } catch { /* fallback is best-effort */ }
+  }
   record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [], origin: vault?.origin });
   // Recased hits: expose one hit per distinct found form so the content
   // script locates each span exactly (LLMs recase fakes mid-reply).
@@ -367,6 +402,7 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
   });
   chrome.tabs.onRemoved.addListener((tabId) => {
     engines.delete(tabId);
+    lastCloak.delete(tabId);
     void store.removeTab(tabId);
   });
   // Uninstall feedback goes to a new GitHub issue.

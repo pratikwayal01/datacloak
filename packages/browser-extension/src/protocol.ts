@@ -12,7 +12,10 @@ export interface SettingsGetResponse { flags: { secrets: boolean; envVars: boole
 export interface SettingsSetResponse { flags: { secrets: boolean; envVars: boolean; pii: boolean; entropy: boolean }; }
 export interface PatternsGetRequest { kind: 'patterns.get'; }
 export interface PatternsSetRequest { kind: 'patterns.set'; patterns: CustomPattern[]; }
+export interface LastCloakRequest { kind: 'lastCloak.get'; }
+export interface CloakSpan { original: string; synthetic: string; category: string; start: number; end: number; }
+export interface LastCloakResponse { record: { original: string; cloaked: string; subs: CloakSpan[]; ts: number } | null; }
 export interface PatternsGetResponse { patterns: CustomPattern[]; }
 export interface PatternsSetResponse { patterns: CustomPattern[]; error?: string; }
-export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest;
-export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse;
+export type BgRequest = CloakRequest | RestoreRequest | StatsRequest | SettingsGetRequest | SettingsSetRequest | PatternsGetRequest | PatternsSetRequest | LastCloakRequest;
+export type BgResponse = CloakResponse | RestoreResponse | StatsResponse | SettingsGetResponse | SettingsSetResponse | PatternsGetResponse | PatternsSetResponse | LastCloakResponse;

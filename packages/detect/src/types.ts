@@ -1,7 +1,7 @@
 export type Confidence = 'high' | 'medium';
 export type EntryType = 'pii' | 'secret' | 'credential';
 export interface Detection { value: string; category: string; type: EntryType; start: number; end: number; confidence: Confidence; }
-export interface Substitution { original: string; synthetic: string; category: string; }
+export interface Substitution { original: string; synthetic: string; category: string; start: number; end: number; }
 export interface CloakResult { text: string; substitutions: Substitution[]; }
 export interface RestoreResult { text: string; restored: number; }
 export interface VaultEntry { original: string; synthetic: string; category: string; type: EntryType; synthesizedAt: number; confidence: Confidence; }

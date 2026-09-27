@@ -159,3 +159,13 @@ describe('recased restore', () => {
     expect(e.restore('nothing to do here').text).toBe('nothing to do here');
   });
 });
+
+describe('substitution offsets', () => {
+  it('carries original-coordinates for diff highlighting', () => {
+    const e = new DataCloakEngine({});
+    const r = e.cloak('mail kloe36@gmail.com end');
+    expect(r.substitutions).toHaveLength(1);
+    const [s] = r.substitutions;
+    expect('mail kloe36@gmail.com end'.slice(s.start, s.end)).toBe(s.original);
+  });
+});
