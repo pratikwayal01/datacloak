@@ -372,3 +372,78 @@ describe('review repeat sends', () => {
     disarm();
   });
 });
+
+describe('review resolve-to-send', () => {
+  const oneRowSend = async (req: BgRequest): Promise<BgResponse> => {
+    if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+    return {
+      text: 'hi XXX bye', count: 1, categories: ['PERSON_NAME'],
+      uncertain: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+      subs: [{ original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' }],
+    };
+  };
+  const pressEnter = (): void => {
+    document.getElementById('p')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  };
+  const arm = (send: (req: BgRequest) => Promise<BgResponse>): { disarm: () => void; submitted: () => number } => {
+    document.body.innerHTML = `<form id="f"><textarea id="p">hi ramesh bye</textarea><button type="submit" id="s">send</button></form>`;
+    let submitted = 0;
+    document.getElementById('f')?.addEventListener('submit', (e) => { e.preventDefault(); submitted++; });
+    const { disarm } = armComposer(document, send, { mode: 'review' });
+    return { disarm, submitted: () => submitted };
+  };
+  const shadow = (): ShadowRoot | null | undefined => document.querySelector('.dc-review-panel')?.shadowRoot;
+  const btn = (label: string): HTMLButtonElement =>
+    [...(shadow()?.querySelectorAll('button') ?? [])].find((b) => (b as HTMLButtonElement).textContent === label) as HTMLButtonElement;
+
+  it('Keep on the last pending row auto-sends', async () => {
+    const t = arm(oneRowSend);
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    btn('Keep').click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect((document.getElementById('p') as HTMLTextAreaElement).value).toBe('hi XXX bye');
+    expect(t.submitted()).toBe(1);
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    t.disarm();
+  });
+
+  it('Enter while the panel is open does not stack prompts', async () => {
+    const t = arm(oneRowSend);
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(document.querySelectorAll('.dc-review-panel')).toHaveLength(1);
+    expect(t.submitted()).toBe(0);
+    t.disarm();
+  });
+
+  it('multi-row waits for every row, then sends once', async () => {
+    const twoRowSend = async (req: BgRequest): Promise<BgResponse> => {
+      if (req.kind !== 'cloak') return { text: req.text, restored: 0 };
+      return {
+        text: 'hi XXX, mail YYY', count: 2, categories: ['PERSON_NAME', 'EMAIL'],
+        uncertain: [],
+        subs: [
+          { original: 'ramesh', synthetic: 'XXX', category: 'PERSON_NAME' },
+          { original: 'ramesh@gmail.com', synthetic: 'YYY', category: 'EMAIL' },
+        ],
+      };
+    };
+    const t = arm(twoRowSend);
+    pressEnter();
+    await new Promise((r) => setTimeout(r, 20));
+    const keeps = [...(shadow()?.querySelectorAll('button') ?? [])].filter((b) => (b as HTMLButtonElement).textContent === 'Keep') as HTMLButtonElement[];
+    expect(keeps).toHaveLength(2);
+    keeps[0].click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(t.submitted()).toBe(0);
+    expect(document.querySelector('.dc-review-panel')).not.toBeNull();
+    keeps[1].click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(t.submitted()).toBe(1);
+    expect(document.querySelector('.dc-review-panel')).toBeNull();
+    t.disarm();
+  });
+});

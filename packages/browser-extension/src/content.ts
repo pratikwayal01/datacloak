@@ -105,6 +105,17 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
   // synthetic, Reveal swaps it back to the original in the outgoing text.
   const items = (res.subs?.length ? res.subs : (res.uncertain ?? [])).map((s, i) => ({ id: i, ...s }));
   const states = new Map<number, 'kept' | 'revealed'>(items.map((s) => [s.id, 'kept']));
+  // Acting on every row resolves the review — auto-send instead of waiting
+  // for the footer. Selecting Keep on the last pending row submits.
+  const resolved = new Set<number>();
+  const doSend = (): void => {
+    host.remove();
+    onConfirm(revertRevealed(res.text));
+  };
+  const resolve = (id: number): void => {
+    resolved.add(id);
+    if (items.length > 0 && resolved.size >= items.length) doSend();
+  };
   const revertRevealed = (text: string, ids?: Set<number>): string => {
     let out = text;
     const targets = [...items]
@@ -145,8 +156,8 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
       keep.classList.toggle('kept', st === 'kept');
       reveal.classList.toggle('revealed', st === 'revealed');
     };
-    keep.addEventListener('click', () => { states.set(sub.id, 'kept'); paint(); });
-    reveal.addEventListener('click', () => { states.set(sub.id, 'revealed'); paint(); });
+    keep.addEventListener('click', () => { states.set(sub.id, 'kept'); paint(); resolve(sub.id); });
+    reveal.addEventListener('click', () => { states.set(sub.id, 'revealed'); paint(); resolve(sub.id); });
     toggle.append(keep, reveal);
     div.append(pill, orig, synth, toggle);
     panel.appendChild(div);
@@ -156,10 +167,7 @@ const renderReviewPanel = (doc: Document, res: CloakResponse, onConfirm: (finalT
   const send = doc.createElement('button');
   send.className = 'dc-send';
   send.textContent = 'Send cloaked →';
-  send.addEventListener('click', () => {
-    host.remove();
-    onConfirm(revertRevealed(res.text));
-  });
+  send.addEventListener('click', doSend);
   const cancel = doc.createElement('button');
   cancel.className = 'dc-cancel';
   cancel.textContent = '✗ Send original';
@@ -216,6 +224,8 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   };
 
   const intercept = async (field: HTMLElement): Promise<void> => {
+    // Review panel already open — Enter re-presses must not stack prompts.
+    if (doc.querySelector('.dc-review-panel')) return;
     const text = getFieldText(field);
     let res: BgResponse;
     try {
