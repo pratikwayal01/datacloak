@@ -4,6 +4,16 @@ import type { BgRequest, BgResponse, CloakResponse } from './protocol.js';
 export type SendFn = (req: BgRequest) => Promise<BgResponse>;
 export interface ArmOpts { mode: 'auto' | 'review'; }
 
+/** Synchronously swap known synthetics for originals (split/join: no regex-escaping hazards). */
+export function restoreCached(text: string, cache: Map<string, string>): string {
+  if (!text || cache.size === 0) return text;
+  let out = text;
+  for (const k of [...cache.keys()].sort((a, b) => b.length - a.length)) {
+    if (k && out.includes(k)) out = out.split(k).join(cache.get(k) as string);
+  }
+  return out;
+}
+
 const isField = (el: Element | null): el is HTMLElement =>
   !!el && (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || (el as HTMLElement).isContentEditable);
 
@@ -136,7 +146,7 @@ export function armComposer(doc: Document, send: SendFn, opts: ArmOpts): { disar
   };
 }
 
-export function observeResponses(logRoot: Node, send: SendFn): MutationObserver {
+export function observeResponses(logRoot: Node, send: SendFn, cache: Map<string, string> = new Map()): MutationObserver {
   const doc = logRoot.ownerDocument ?? (logRoot as Document);
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Map a char offset in the concatenated group text to its (node, inner offset).
@@ -214,6 +224,14 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
       if (!('restored' in res) || res.restored === 0) continue;
       if (!g.some((t) => t.isConnected)) continue;
       if (res.hits?.length) {
+        // Feed the copy-handler cache: what the user sees restored, copy must match.
+        for (const h of res.hits) {
+          cache.set(h.synthetic, h.original);
+          if (cache.size > 500) {
+            const oldest = cache.keys().next();
+            if (!oldest.done) cache.delete(oldest.value);
+          }
+        }
         // Descending offsets so earlier replacements don't shift later ones.
         const occs: { s: number; e: number; original: string }[] = [];
         for (const h of [...res.hits].sort((x, y) => y.synthetic.length - x.synthetic.length)) {
@@ -240,8 +258,30 @@ export function observeResponses(logRoot: Node, send: SendFn): MutationObserver 
     timer = setTimeout(() => { void scan(); }, 800);
   });
   obs.observe(logRoot, { childList: true, characterData: true, subtree: true });
+  // Copy must match display: swap cached synthetics synchronously, then let
+  // the background catch fakes the cache missed via an async rewrite.
+  // Untouched when the selection is already clean, so rich formatting survives.
+  const onCopy = (e: Event): void => {
+    const sel = typeof doc.getSelection === 'function' ? doc.getSelection()?.toString() ?? '' : '';
+    if (!sel) return;
+    const quick = restoreCached(sel, cache);
+    if (quick !== sel) {
+      try {
+        (e as ClipboardEvent).preventDefault();
+        (e as ClipboardEvent).clipboardData?.setData('text/plain', quick);
+      } catch { return; }
+    }
+    void (async () => {
+      try {
+        const res = await send({ kind: 'restore', text: sel });
+        if (!('restored' in res) || res.restored === 0 || res.text === quick) return;
+        await navigator.clipboard?.writeText(res.text);
+      } catch { /* clipboard write is best-effort */ }
+    })();
+  };
+  doc.addEventListener('copy', onCopy, true);
   const origDisconnect = obs.disconnect.bind(obs);
-  obs.disconnect = () => { if (timer) clearTimeout(timer); origDisconnect(); };
+  obs.disconnect = () => { if (timer) clearTimeout(timer); doc.removeEventListener('copy', onCopy, true); origDisconnect(); };
   return obs;
 }
 

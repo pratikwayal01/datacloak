@@ -148,3 +148,14 @@ describe('case-insensitive literal', () => {
     }
   });
 });
+
+describe('recased restore', () => {
+  it('restores LLM-recased synthetics to the verbatim original', () => {
+    const e = new DataCloakEngine({});
+    e.vault.set({ original: 'suresh', synthetic: 'ivqtry', category: 'PERSON_NAME', type: 'pii', synthesizedAt: 1, confidence: 'high' });
+    expect(e.restore('Hi, Ivqtry!').text).toBe('Hi, suresh!');
+    expect(e.restore('shout IVQTRY now').text).toBe('shout suresh now');
+    expect(e.restore('hi ivqtry bye').text).toBe('hi suresh bye');
+    expect(e.restore('nothing to do here').text).toBe('nothing to do here');
+  });
+});

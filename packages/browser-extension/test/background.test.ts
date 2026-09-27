@@ -244,3 +244,25 @@ describe('selection capture', () => {
     expect(((await sync.getPatterns()) ?? [])).toHaveLength(1);
   });
 });
+
+describe('recased restore hits', () => {
+  it('exposes found-form hits with verbatim originals', async () => {
+    const s = fakeStore();
+    const bg = await import('../src/background.js');
+    bg.__dropEnginesForTest();
+    const c = (await bg.handleRequest(61, { kind: 'cloak', text: 'mail ramesh@gmail.com' }, s)) as { text: string };
+    // LLM shouts the fake back in all caps — restore must still recover it.
+    const shouted = c.text.toUpperCase();
+    expect(shouted).not.toContain('ramesh@gmail.com');
+    const r = (await bg.handleRequest(61, { kind: 'restore', text: `FYI: ${shouted}` }, s)) as {
+      text: string; restored: number; hits: { synthetic: string; original: string }[];
+    };
+    expect(r.restored).toBeGreaterThan(0);
+    expect(r.text).toContain('ramesh@gmail.com');
+    expect(r.hits.length).toBeGreaterThan(0);
+    for (const h of r.hits) {
+      expect(`FYI: ${shouted}`.includes(h.synthetic)).toBe(true);
+      expect(r.text.includes(h.original)).toBe(true);
+    }
+  });
+});

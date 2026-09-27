@@ -299,9 +299,27 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
   const start = Date.now();
   const r = engine.restore(req.text);
   record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [], origin: vault?.origin });
-  const hits = engine.vault.list()
-    .filter((e) => req.text.includes(e.synthetic))
-    .map((e) => ({ synthetic: e.synthetic, original: e.original }));
+  // Recased hits: expose one hit per distinct found form so the content
+  // script locates each span exactly (LLMs recase fakes mid-reply).
+  // Originals stay verbatim — never reshaped to the found case.
+  const loweredReq = req.text.toLowerCase();
+  const seen = new Set<string>();
+  const hits: { synthetic: string; original: string }[] = [];
+  for (const e of engine.vault.list()) {
+    if (!e.synthetic) continue;
+    const needle = e.synthetic.toLowerCase();
+    let from = 0;
+    for (;;) {
+      const at = loweredReq.indexOf(needle, from);
+      if (at < 0) break;
+      const found = req.text.slice(at, at + e.synthetic.length);
+      if (!seen.has(found)) {
+        seen.add(found);
+        hits.push({ synthetic: found, original: e.original });
+      }
+      from = at + e.synthetic.length;
+    }
+  }
   return { text: r.text, restored: r.restored, hits };
 }
 

@@ -266,42 +266,6 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
   };
   renderVault();
 
-  // ── Recent activity — local cloak/restore log, counts + categories only ──
-  const renderActivity = async (): Promise<void> => {
-    const box = doc.getElementById('dc-activity');
-    if (!box) return;
-    box.replaceChildren();
-    let rows: { ts: number; tabId: number; kind: string; count: number; categories: string[]; origin?: string }[] = [];
-    try {
-      const res = await deps.send({ kind: 'stats' });
-      if ('oplog' in res) rows = res.oplog;
-    } catch { /* stays empty */ }
-    if (rows.length === 0) {
-      const p = doc.createElement('div');
-      p.className = 'setting-desc';
-      p.textContent = 'No activity yet.';
-      box.appendChild(p);
-      return;
-    }
-    for (const r of rows.slice(-20).reverse()) {
-      const row = doc.createElement('div');
-      row.className = 'net-row';
-      const when = doc.createElement('span');
-      when.className = 'net-url';
-      when.textContent = new Date(r.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const method = doc.createElement('span');
-      method.className = `net-method ${r.kind === 'cloak' ? 'POST' : 'GET'}`;
-      method.textContent = r.kind.toUpperCase();
-      const what = doc.createElement('span');
-      what.className = 'net-url';
-      const site = r.origin ?? `tab #${r.tabId}`;
-      what.textContent = `${site} · ${r.count} item${r.count === 1 ? '' : 's'}${r.categories.length ? ` · ${r.categories.join(', ')}` : ''}`;
-      row.append(when, method, what);
-      box.appendChild(row);
-    }
-  };
-  void renderActivity();
-
   (doc.getElementById('dc-search') as HTMLInputElement).addEventListener('input', (ev) => {
     query = (ev.target as HTMLInputElement).value.toLowerCase();
     renderVault();
@@ -319,7 +283,6 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       entries = [];
       revealed.clear();
       renderVault();
-      void renderActivity();
       toast(doc, 'Vault cleared');
     }).catch(() => {});
   });
@@ -744,7 +707,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
     label.className = 'section-label';
     label.textContent = 'Background operation log';
     list.appendChild(label);
-    let rows: { kind: string; ms: number; count: number; categories: string[]; ts: number }[] = [];
+    let rows: { kind: string; ms: number; count: number; categories: string[]; ts: number; origin?: string }[] = [];
     try {
       const res = await deps.send({ kind: 'stats' });
       if ('oplog' in res) rows = res.oplog;
@@ -764,7 +727,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps): Promise<void>
       method.textContent = r.kind.toUpperCase();
       const url = doc.createElement('span');
       url.className = 'net-url';
-      url.textContent = `${r.count} item(s)${r.categories.length ? ` · ${r.categories.join(', ')}` : ''}`;
+      url.textContent = `${r.origin ?? ''}${r.origin ? ' · ' : ''}${r.count} item(s)${r.categories.length ? ` · ${r.categories.join(', ')}` : ''}`;
       const status = doc.createElement('span');
       status.className = 'net-status ok';
       status.textContent = String(r.count);

@@ -37,7 +37,6 @@ const skeleton = (): void => {
       <button class="cat-btn active" data-cat="all">All</button>
       <button class="cat-btn" data-cat="email">Email</button>
       <div id="dc-vault"><div id="dc-empty" style="display:none"></div></div>
-      <div id="dc-activity"></div>
       <button id="dc-clear">Clear</button>
       <button id="dc-copy-all">Copy map</button>
       <button id="dc-export">Export</button>
@@ -291,6 +290,7 @@ describe('settings + dev panels', () => {
     expect(list).toContain('Background operation log');
     expect(list).toContain('CLOAK');
     expect(list).toContain('3ms');
+    expect(list).toContain('chatgpt.com');
 
     skeleton();
     const empty = fakeDeps({ oplog: [] });
@@ -342,29 +342,4 @@ describe('settings + dev panels', () => {
   });
 });
 
-describe('vault recent activity', () => {
-  it('renders site, count and categories — never values', async () => {
-    skeleton();
-    const { deps } = fakeDeps();
-    await renderPopup(document, deps);
-    await new Promise((r) => setTimeout(r, 0));
-    const box = document.getElementById('dc-activity')?.textContent ?? '';
-    expect(box).toContain('chatgpt.com');
-    expect(box).toContain('2 items');
-    expect(box).toContain('EMAIL');
-    expect(box).not.toContain('tab #7');
-  });
-  it('falls back to tab id without origin; empty state otherwise', async () => {
-    skeleton();
-    const { deps } = fakeDeps({ oplog: [{ ts: 1, tabId: 9, kind: 'restore', ms: 1, count: 1, categories: [] }] });
-    await renderPopup(document, deps);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(document.getElementById('dc-activity')?.textContent).toContain('tab #9');
 
-    skeleton();
-    const empty = fakeDeps({ oplog: [] });
-    await renderPopup(document, empty.deps);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(document.getElementById('dc-activity')?.textContent).toContain('No activity yet.');
-  });
-});

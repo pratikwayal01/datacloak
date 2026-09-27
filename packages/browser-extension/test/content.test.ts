@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { armComposer, shouldArmForSite } from '../src/content.js';
+import { armComposer, observeResponses, restoreCached, shouldArmForSite } from '../src/content.js';
 import type { BgRequest, BgResponse } from '../src/protocol.js';
 
 const fakeSend = (map: (t: string) => string) => async (req: BgRequest): Promise<BgResponse> => {
@@ -75,5 +75,68 @@ describe('content dead-context', () => {
     expect(submitted).toBe(0);
     expect(document.querySelector('.dc-badge')?.textContent).toMatch(/refresh the page/);
     disarm();
+  });
+});
+
+describe('copy matches display', () => {
+  it('restoreCached swaps longest-first, regex chars safe', () => {
+    const cache = new Map([['[RAMESH_X1]', 'ramesh'], ['X1]', 'oops']]);
+    expect(restoreCached('hi [RAMESH_X1] bye', cache)).toBe('hi ramesh bye');
+    expect(restoreCached('clean text', cache)).toBe('clean text');
+    expect(restoreCached('', cache)).toBe('');
+    expect(restoreCached('hi [RAMESH_X1]', new Map())).toBe('hi [RAMESH_X1]');
+  });
+
+  it('scan populates the copy cache from hits', async () => {
+    document.body.innerHTML = `<div id="log"><p>hello FAKE@x.net</p></div>`;
+    const cache = new Map<string, string>();
+    const send = async (req: BgRequest): Promise<BgResponse> => {
+      if (req.kind !== 'restore') return { text: req.text, restored: 0 };
+      return { text: req.text.replace('FAKE@x.net', 'real@x.net'), restored: 1, hits: [{ synthetic: 'FAKE@x.net', original: 'real@x.net' }] };
+    };
+    const obs = observeResponses(document.getElementById('log')!, send, cache);
+    try {
+      document.querySelector('#log p')?.appendChild(document.createTextNode('!'));
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(cache.get('FAKE@x.net')).toBe('real@x.net');
+    } finally {
+      obs.disconnect();
+    }
+  });
+
+  it('copy handler swaps cached fakes synchronously', async () => {
+    document.body.innerHTML = `<div id="log"><p>hello</p></div>`;
+    const cache = new Map([['FAKE@x.net', 'real@x.net']]);
+    const send = async (req: BgRequest): Promise<BgResponse> => ({ text: req.text, restored: 0 });
+    const obs = observeResponses(document.getElementById('log')!, send, cache);
+    try {
+      Object.defineProperty(document, 'getSelection', { value: () => ({ toString: () => 'mail FAKE@x.net' }), configurable: true });
+      const writes: string[] = [];
+      const ev = new Event('copy', { bubbles: true, cancelable: true });
+      Object.defineProperty(ev, 'clipboardData', { value: { setData: (_t: string, d: string) => { writes.push(d); } } });
+      const cancelled = !document.getElementById('log')!.dispatchEvent(ev);
+      expect(cancelled).toBe(true);
+      expect(writes).toEqual(['mail real@x.net']);
+      await new Promise((r) => setTimeout(r, 20));
+    } finally {
+      obs.disconnect();
+    }
+  });
+
+  it('copy leaves clean selections to default handling', async () => {
+    document.body.innerHTML = `<div id="log"><p>hello</p></div>`;
+    const send = vi.fn(async (req: BgRequest): Promise<BgResponse> => ({ text: req.text, restored: 0 }));
+    const obs = observeResponses(document.getElementById('log')!, send);
+    try {
+      Object.defineProperty(document, 'getSelection', { value: () => ({ toString: () => 'just hello' }), configurable: true });
+      const ev = new Event('copy', { bubbles: true, cancelable: true });
+      Object.defineProperty(ev, 'clipboardData', { value: { setData: vi.fn() } });
+      const cancelled = !document.getElementById('log')!.dispatchEvent(ev);
+      expect(cancelled).toBe(false);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(send).toHaveBeenCalled();
+    } finally {
+      obs.disconnect();
+    }
   });
 });

@@ -172,3 +172,4 @@ describe('inferEntityKind', () => {
     expect(inferEntityKind('Mary Jane Watson Smith Junior')).toBe('other');
   });
 });
+

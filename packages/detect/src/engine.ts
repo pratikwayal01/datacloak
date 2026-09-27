@@ -175,13 +175,17 @@ export class DataCloakEngine {
     // Single pass over the INPUT snapshot: matches are located before any
     // replacement, so a restored original is never re-scanned and chained
     // entries (synthetic of one = original of another) can't cascade.
+    // Matching is case-insensitive (LLMs recase fakes: "ivqtry" → "Ivqtry");
+    // hits always restore the original verbatim — never a reshaped variant.
     const entries = this.vault.list().sort((a, b) => b.synthetic.length - a.synthetic.length);
+    const lowered = text.toLowerCase();
     const occs: { s: number; e: number; original: string; synthetic: string }[] = [];
     for (const e of entries) {
       if (!e.synthetic) continue;
+      const needle = e.synthetic.toLowerCase();
       let from = 0;
       for (;;) {
-        const at = text.indexOf(e.synthetic, from);
+        const at = lowered.indexOf(needle, from);
         if (at < 0) break;
         occs.push({ s: at, e: at + e.synthetic.length, original: e.original, synthetic: e.synthetic });
         from = at + e.synthetic.length;
