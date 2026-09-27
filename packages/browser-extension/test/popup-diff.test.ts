@@ -26,7 +26,8 @@ const skeleton = (withDiff: boolean): void => {
     <button class="tab" data-tab="settings" type="button">S</button>
     <div class="panel active" id="panel-vault"></div>
     <div class="panel" id="panel-settings"></div>
-    <button id="fp-fold" type="button">fold</button>
+    <button id="fp-fold" type="button" style="display:none">fold</button>
+    <div class="fp-brand" id="fp-logo" title="Fold sidebar" role="button" tabindex="0"><svg></svg><div><div class="fp-name">DataCloak</div></div></div>
     ${withDiff ? '<div id="diff-wrap"></div>' : ''}
     <div id="toast"></div>`;
 };
@@ -186,7 +187,7 @@ describe('fullpage shell memory', () => {
     await renderPopup(document, fakeDeps(store), { fullPage: true });
     await flush();
     expect(document.body.classList.contains('fp-folded')).toBe(false);
-    (document.getElementById('fp-fold') as HTMLButtonElement).click();
+    (document.getElementById('fp-logo') as HTMLElement).click();
     expect(document.body.classList.contains('fp-folded')).toBe(true);
     expect(localStorage.getItem('fp-folded')).toBe('1');
 
@@ -228,7 +229,7 @@ describe('fullpage shell static contract', () => {
     expect(h.match(/<button class="tab(?: active)?"/g)?.length).toBe(4);
     expect(h).toContain('fp-nav-label');
     expect(h).toContain('about-hero');
-    expect(h).toContain('id="fp-fold"');
+    expect(h).toContain('id="fp-logo"');
     expect(h).toContain('dist/popup.js');
     expect(h).not.toContain('popup.css');
   });

@@ -187,16 +187,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   if (fullPage) {
     let kept: Storage | null = null;
     try { kept = localStorage; } catch { /* unavailable */ }
-    const foldBtn = doc.getElementById('fp-fold') as HTMLElement | null;
-    const paintFold = (): void => {
-      if (foldBtn) foldBtn.textContent = doc.body.classList.contains('fp-folded') ? '⇥' : '⇤';
-    };
+    // The sidebar logo is the fold toggle — no separate button.
+    const logo = doc.getElementById('fp-logo') as HTMLElement | null;
     if (kept?.getItem('fp-folded') === '1') doc.body.classList.add('fp-folded');
-    paintFold();
-    foldBtn?.addEventListener('click', () => {
+    logo?.addEventListener('click', () => {
       const folded = doc.body.classList.toggle('fp-folded');
       try { kept?.setItem('fp-folded', folded ? '1' : '0'); } catch { /* private mode */ }
-      paintFold();
+    });
+    logo?.addEventListener('keydown', (ev) => {
+      if ((ev as KeyboardEvent).key === 'Enter' || (ev as KeyboardEvent).key === ' ') (logo as HTMLElement).click();
     });
     const savedPanel = kept?.getItem('fp-panel');
     if (savedPanel && doc.getElementById(`panel-${savedPanel}`)) {

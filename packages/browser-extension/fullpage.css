@@ -24,7 +24,7 @@ body {
   gap: 18px;
   overflow-y: auto;
 }
-.fp-brand { display: flex; align-items: center; gap: 10px; }
+.fp-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .fp-name { font-weight: 700; font-size: 16px; }
 .fp-version { font-size: 11px; color: var(--muted); }
 .fp-side .status-pill { align-self: flex-start; }
@@ -230,6 +230,16 @@ body.fp-folded .fp-nav .tab svg { width: 18px; height: 18px; }
 .storage-meta, .storage-table { font-size: 12px; color: var(--muted); }
 .storage-table th, .storage-table td { padding: 6px 10px; text-align: left; }
 .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 0 6px; }
+.pattern-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pattern-row:last-child { border-bottom: none; }
+.pattern-label { font-size: 13px; font-weight: 500; }
 .about-links { display: flex; flex-direction: column; gap: 6px; max-width: 560px; }
 .about-link {
   display: flex; align-items: center; justify-content: space-between;
