@@ -1,17 +1,48 @@
 name: publish
 
-# Single release train: tag vX.Y.Z publishes all four packages at that version.
+# Manual release train: dispatch with tag vX.Y.Z -> workflow creates the tag,
+# publishes all four packages at that version, uploads the extension zip,
+# creates the release shell. Author writes release notes manually afterwards.
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (vX.Y.Z) — must match package + manifest versions'
+        required: true
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
+env:
+  TAG: ${{ inputs.tag }}
+
 jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - name: validate tag and versions
+        run: |
+          echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "tag must be vX.Y.Z, got $TAG"; exit 1; }
+          git fetch origin "refs/tags/$TAG" && { echo "tag $TAG already exists"; exit 1; } || true
+          for p in packages/detect packages/cli packages/opencode-plugin packages/ner; do
+            PKG="v$(node -p "require('./$p/package.json').version")"
+            test "$TAG" = "$PKG" || { echo "tag $TAG != $p@$PKG"; exit 1; }
+          done
+          MANIFEST="v$(node -p "require('./packages/browser-extension/manifest.json').version")"
+          test "$TAG" = "$MANIFEST" || { echo "tag $TAG != manifest@$MANIFEST"; exit 1; }
+      - name: create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+
   publish:
+    needs: tag
     strategy:
       matrix:
         workspace:
@@ -22,6 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -31,37 +64,29 @@ jobs:
       - run: npm run build --workspace packages/detect
       - run: npm run build --workspace ${{ matrix.workspace }}
       - run: npm test --workspace ${{ matrix.workspace }}
-      - name: package version must match tag
-        run: |
-          PKG="v$(node -p "require('./${{ matrix.workspace }}/package.json').version")"
-          test "${{ github.ref_name }}" = "$PKG" || { echo "tag ${{ github.ref_name }} != ${{ matrix.workspace }}@$PKG"; exit 1; }
       - name: publish to npm
         run: npm publish --workspace ${{ matrix.workspace }} --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   extension-asset:
+    needs: publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test --workspace packages/browser-extension
-      - name: manifest version must match tag
-        run: |
-          MANIFEST="v$(node -p "require('./packages/browser-extension/manifest.json').version")"
-          test "${{ github.ref_name }}" = "$MANIFEST" || { echo "tag ${{ github.ref_name }} != manifest@$MANIFEST"; exit 1; }
       - run: npm run package --workspace packages/browser-extension
       - name: upload extension zip to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.ref_name }}"
           ZIP="packages/browser-extension/datacloak-extension-${TAG#v}.zip"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
           gh release upload "$TAG" "$ZIP" --clobber
