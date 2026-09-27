@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CustomPattern } from '@pratikw/detect';
-import { handleRequest, type MemoryStore } from '../src/background.js';
+import { handleRequest, memoryVaultBackend, type MemoryStore } from '../src/background.js';
 
 const fakeStore = (): MemoryStore => {
   const m = new Map<number, { vault: [string, string, string][] }>();
@@ -190,5 +190,26 @@ describe('typed entity kinds', () => {
     expect(res.error).toMatch(/bad kind/);
     const get = await handleRequest(43, { kind: 'patterns.get' }, s) as { patterns: unknown[] };
     expect(get.patterns).toHaveLength(0);
+  });
+});
+
+describe('oplog origin attribution', () => {
+  it('records origin on cloak/restore when VaultCtx present', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    const vctx = { backend: memoryVaultBackend(), origin: 'chatgpt.com' };
+    await handleRequest(51, { kind: 'cloak', text: 'reach alice.real@acme.com' }, s, undefined, vctx);
+    const stats = (await handleRequest(51, { kind: 'stats' }, s)) as { oplog: { kind: string; origin?: string }[] };
+    const cloak = stats.oplog.find((o) => o.kind === 'cloak');
+    expect(cloak?.origin).toBe('chatgpt.com');
+  });
+  it('leaves origin undefined without VaultCtx', async () => {
+    const s = fakeStore();
+    const { __dropEnginesForTest } = await import('../src/background.js');
+    __dropEnginesForTest();
+    await handleRequest(52, { kind: 'cloak', text: 'reach alice.real@acme.com' }, s);
+    const stats = (await handleRequest(52, { kind: 'stats' }, s)) as { oplog: { kind: string; origin?: string }[] };
+    expect(stats.oplog.find((o) => o.kind === 'cloak')?.origin).toBeUndefined();
   });
 });

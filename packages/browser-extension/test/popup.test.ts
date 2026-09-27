@@ -37,6 +37,7 @@ const skeleton = (): void => {
       <button class="cat-btn active" data-cat="all">All</button>
       <button class="cat-btn" data-cat="email">Email</button>
       <div id="dc-vault"><div id="dc-empty" style="display:none"></div></div>
+      <div id="dc-activity"></div>
       <button id="dc-clear">Clear</button>
       <button id="dc-copy-all">Copy map</button>
       <button id="dc-export">Export</button>
@@ -84,7 +85,7 @@ const skeleton = (): void => {
 interface FakeState {
   mode: Mode; theme: ThemePref; ui: UiSettings; vault: VaultEntry[];
   flags: typeof DEFAULT_FLAGS;
-  oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[] }[];
+  oplog: { ts: number; tabId: number; kind: string; ms: number; count: number; categories: string[]; origin?: string }[];
   estimate: { usage: number; quota: number } | null;
   sent: BgRequest[]; copied: string[];
   downloaded: { content: string; filename: string; mime: string }[];
@@ -95,7 +96,7 @@ const fakeDeps = (over: Partial<FakeState & { systemLight: boolean }> = {}): { d
   const state: FakeState = {
     mode: 'auto', theme: 'system', ui: { ...DEFAULT_UI_SETTINGS }, vault: [...ENTRIES],
     flags: { ...DEFAULT_FLAGS },
-    oplog: [{ ts: 1, tabId: 7, kind: 'cloak', ms: 3, count: 2, categories: ['EMAIL'] }],
+    oplog: [{ ts: 1, tabId: 7, kind: 'cloak', ms: 3, count: 2, categories: ['EMAIL'], origin: 'chatgpt.com' }],
     estimate: { usage: 1024, quota: 102400 },
     sent: [], copied: [], downloaded: [], sysCb: null,
     ...over,
@@ -338,5 +339,32 @@ describe('settings + dev panels', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(state.vault).toEqual([]);
     expect(document.getElementById('vault-badge')?.textContent).toBe('0');
+  });
+});
+
+describe('vault recent activity', () => {
+  it('renders site, count and categories — never values', async () => {
+    skeleton();
+    const { deps } = fakeDeps();
+    await renderPopup(document, deps);
+    await new Promise((r) => setTimeout(r, 0));
+    const box = document.getElementById('dc-activity')?.textContent ?? '';
+    expect(box).toContain('chatgpt.com');
+    expect(box).toContain('2 items');
+    expect(box).toContain('EMAIL');
+    expect(box).not.toContain('tab #7');
+  });
+  it('falls back to tab id without origin; empty state otherwise', async () => {
+    skeleton();
+    const { deps } = fakeDeps({ oplog: [{ ts: 1, tabId: 9, kind: 'restore', ms: 1, count: 1, categories: [] }] });
+    await renderPopup(document, deps);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.getElementById('dc-activity')?.textContent).toContain('tab #9');
+
+    skeleton();
+    const empty = fakeDeps({ oplog: [] });
+    await renderPopup(document, empty.deps);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.getElementById('dc-activity')?.textContent).toContain('No activity yet.');
   });
 });

@@ -30,6 +30,7 @@ export interface OpEntry {
   ms: number;
   count: number;
   categories: string[];
+  origin?: string;
 }
 
 const DEFAULT_FLAGS: DetectorFlags = { secrets: true, envVars: true, pii: true, entropy: true };
@@ -267,7 +268,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
     const start = Date.now();
     const r = engine.cloak(req.text);
     const categories = [...new Set(r.substitutions.map((s) => s.category))];
-    record({ ts: Date.now(), tabId, kind: 'cloak', ms: Date.now() - start, count: r.substitutions.length, categories: r.substitutions.map((s) => s.category) });
+    record({ ts: Date.now(), tabId, kind: 'cloak', ms: Date.now() - start, count: r.substitutions.length, categories: r.substitutions.map((s) => s.category), origin: vault?.origin });
     await persist(tabId, store);
     if (vault?.origin) {
       try {
@@ -278,7 +279,7 @@ export async function handleRequest(tabId: number, req: BgRequest, store: Memory
   }
   const start = Date.now();
   const r = engine.restore(req.text);
-  record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [] });
+  record({ ts: Date.now(), tabId, kind: 'restore', ms: Date.now() - start, count: r.restored, categories: [], origin: vault?.origin });
   const hits = engine.vault.list()
     .filter((e) => req.text.includes(e.synthetic))
     .map((e) => ({ synthetic: e.synthetic, original: e.original }));
