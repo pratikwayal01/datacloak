@@ -1,8 +1,7 @@
 # Chrome Web Store listing (paste-ready)
 
-Upload file: `datacloak-0.1.0.zip` (manifest at zip root — rebuild with
-`npm run build --workspace packages/browser-extension`, then zip the
-package dir CONTENTS, not the dir itself).
+Upload file: `datacloak-extension-<version>.zip` (manifest at zip root —
+built with `npm run package --workspace packages/browser-extension`).
 
 ## Title
 
@@ -40,7 +39,7 @@ synthetic substitution.
 ## Permission justifications
 
 - `storage`: session vault (cleared on tab close) + mode preference sync.
-- Host permissions (7 AI chat sites only): read the chat input to cloak
+- Host permissions (8 AI chat URL patterns): read the chat input to cloak
   before submit; scan responses to restore echoes. No other sites touched.
 - No `tabs`, `webRequest`, `cookies`, history, or clipboard access.
 

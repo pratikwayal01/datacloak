@@ -21,6 +21,12 @@ npm test --workspace packages/detect
 
 ## Browser extension (unpacked, Chrome/Edge)
 
+Prebuilt (recommended): download `datacloak-extension-<version>.zip` from
+[releases](https://github.com/pratikwayal01/datacloak/releases), unzip,
+then load the folder below.
+
+From source:
+
 ```bash
 npm install
 npm run build --workspace packages/browser-extension
@@ -28,8 +34,9 @@ npm run build --workspace packages/browser-extension
 
 Open `chrome://extensions` → **Developer mode** → **Load unpacked** →
 select `packages/browser-extension`. Covers claude.ai, ChatGPT, Gemini,
-Grok, Perplexity, Cowork, DeepSeek. Firefox: `about:debugging` → Load
-Temporary Add-on (expected-compatible, untested).
+Grok, Perplexity, Cowork, DeepSeek. Firefox 109+: `about:debugging` →
+Load Temporary Add-on (MV3-compatible: gecko ID, background-scripts
+fallback).
 
 ## Coding agents
 

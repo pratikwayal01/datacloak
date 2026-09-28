@@ -34,6 +34,7 @@ Full guides: **https://pratikwayal01.github.io/datacloak/**
 | API keys | OpenAI (incl. `sk-proj-`, `sk-svcacct-`), Anthropic, AWS, GitHub PAT, Stripe |
 | Tokens | JWT, PEM private keys, high-entropy strings (Shannon ≥ 4.5) |
 | Credentials | Env `KEY=value` (50+ key names), DSNs (postgres, mongo, redis, mysql, amqp), inline JSON/YAML secrets |
+| Cloud IDs | AWS instance ID / ARN / S3 URI + host, GCP API key / service account, Azure connection string |
 | PII | Email, US + E.164 phones, IPv4 |
 | NER (opt-in `@pratikw/detect-ner`) | Person names, street addresses (US/DE), DOB (gated on co-located PII) |
 
@@ -63,7 +64,7 @@ From source:
 git clone https://github.com/pratikwayal01/datacloak.git && cd datacloak
 npm install
 npm run build --workspace packages/detect   # tsc → packages/detect/dist/
-npm test --workspace packages/detect        # 29 tests, corpus recall gate
+npm test --workspace packages/detect        # 82 tests, corpus recall gate
 ```
 
 Browser extension (unpacked, Chrome/Edge):
@@ -77,8 +78,11 @@ Then open `chrome://extensions`, enable **Developer mode**, click
 **Load unpacked**, and select `packages/browser-extension`.
 Covers claude.ai, ChatGPT, Gemini, Grok (x.ai), Perplexity, Cowork and
 DeepSeek — auto-cloak on send, restore in responses, popup viewer on the
-toolbar. Firefox: `about:debugging → This Firefox → Load Temporary Add-on`
-with `manifest.json` (untested, expected-compatible).
+toolbar. Or skip the build: download `datacloak-extension-0.3.0.zip` from
+[releases](https://github.com/pratikwayal01/datacloak/releases) and unzip.
+Firefox 109+: `about:debugging → This Firefox → Load Temporary Add-on`
+with `manifest.json` (MV3-compatible: gecko ID, background-scripts
+fallback, `data_collection_permissions: none`).
 
 ### Extension highlights (v0.3.0)
 
@@ -151,7 +155,7 @@ Rules that hold on every call:
 
 ```bash
 npm test --workspace packages/detect
-# vault, patterns, entropy, synthesizers, engine — 5 suites, 29/29 green
+# vault, patterns, entropy, synthesizers, engine — 8 suites, 82/82 green
 ```
 
 - Corpus recall: 40/40 labeled samples (100%, gate ≥ 95%) — `test/corpus.jsonl`
@@ -202,16 +206,14 @@ missed. Synthesis is per-category Faker calls; the vault maps
 
 ## Publishing
 
-Maintainer-only. Single release train: tag `vX.Y.Z` publishes all four
-packages (`detect`, `datacloak`, `opencode-plugin`, `detect-ner`) at that
-version via [`publish`](.github/workflows/publish.yml)
-(repo secret `NPM_TOKEN` needs publish rights on `@pratikw`):
-
-```bash
-# bump version in all four packages/*/package.json to X.Y.Z, then:
-git tag v0.2.0 && git push origin v0.2.0
-# CI builds, tests, checks versions == tag, publishes with provenance
-```
+Maintainer-only. Manual release train: Actions → `publish` → Run workflow
+→ tag `vX.Y.Z` (must match all four `package.json` versions + manifest).
+The workflow creates the tag, publishes `detect`, `datacloak`,
+`opencode-plugin`, `detect-ner` with provenance, uploads the extension zip,
+and creates the release shell — author writes the notes manually
+(repo secret `NPM_TOKEN` needs publish rights on `@pratikw`).
+Firefox AMO submission is a separate manual dispatch (`amo-submit`
+workflow; needs `AMO_JWT_ISSUER` + `AMO_JWT_SECRET`).
 
 Installer flags: `install.sh --repair` (reinstall + re-verify),
 `install.sh --uninstall` (removes packages; vault files left for you to purge).
@@ -236,5 +238,4 @@ MIT — see [LICENSE](LICENSE).
 ## Further reading
 
 - [Documentation](https://pratikwayal01.github.io/datacloak/) — install, quick start, agents, architecture, privacy
-- [Threat model](docs/prd.md) — full PRD (vision, surfaces, roadmap, §11 limitations)
 - `assets/` — launch video (`brag.mp4`), poster

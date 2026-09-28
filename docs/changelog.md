@@ -49,6 +49,18 @@ First-run tour overlay for new installs.
 
 ## Unreleased
 
+- **Cloud resource IDs (detect).** AWS instance ID / ARN, S3 URI + virtual
+  hosts, GCP API key / service account, Azure connection string. Bare AWS
+  secret keys deliberately omitted (env/inline + entropy already cover
+  keyed occurrences; a bare 40-char pattern false-positives).
+- **Firefox MV3 compat (extension).** `browser_specific_settings.gecko`
+  (ID + `strict_min_version 109.0`), background-scripts fallback,
+  `data_collection_permissions: none` disclosure. AMO submission is a
+  manual `amo-submit` workflow dispatch (`web-ext sign --channel listed`).
+- **Manual release train.** `publish` is now `workflow_dispatch` with a
+  tag input: validates `vX.Y.Z`, creates the tag, publishes npm,
+  uploads the extension zip, creates the release shell; notes written
+  manually afterwards.
 - MkDocs site (this page) + GitHub Pages deploy
 - Per-agent install matrix + `docs/harnesses.md`
 
