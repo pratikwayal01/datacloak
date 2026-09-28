@@ -28,3 +28,20 @@ export function synthPem(): string {
   const b64body = faker.string.alphanumeric(64);
   return `-----BEGIN RSA PRIVATE KEY-----\nSYNTH${b64body}\n-----END RSA PRIVATE KEY-----`;
 }
+// Cloud fakes: shape-preserving, SYNTH-infixed like the rest.
+export function synthAwsInstanceId(): string {
+  return `i-${faker.string.hexadecimal({ length: 17, casing: 'lower' }).slice(2)}`;
+}
+export function synthAwsArn(original = ''): string {
+  const m = /^arn:aws:([^:]*):([^:]*):([^:]*):(.*)$/.exec(original);
+  if (!m) return 'arn:aws:iam::000000000000:role/SYNTHrole';
+  return `arn:aws:${m[1]}:${m[2]}:${m[3]}:SYNTH${alnum(8)}/${alnum(8)}`;
+}
+export function synthS3Bucket(): string {
+  return `synth-bucket-${faker.string.alphanumeric({ length: 12, casing: 'lower' })}`;
+}
+export function synthGcpApiKey(): string { return `AIzaSYNTH${alnum(30)}`; }
+export function synthGcpSa(): string { return 'synth-cloak@synth-project.iam.gserviceaccount.com'; }
+export function synthAzureConn(): string {
+  return `DefaultEndpointsProtocol=https;AccountName=synth${faker.string.alphanumeric({ length: 6, casing: 'lower' })};AccountKey=SYNTH${alnum(40)};EndpointSuffix=core.windows.net`;
+}

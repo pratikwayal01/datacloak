@@ -19,6 +19,14 @@ describe('synthesize', () => {
   it('aws key keeps AKIA shape', () => {
     expect(synthesize('AWS_ACCESS_KEY', 'AKIAIOSFODNN7EXAMPLE')).toMatch(/^AKIA[0-9A-Z]{16}$/);
   });
+  it('cloud fakes keep their shapes', () => {
+    expect(synthesize('AWS_INSTANCE_ID', 'i-0a1b2c3d4e5f67890')).toMatch(/^i-[0-9a-f]{17}$/);
+    expect(synthesize('AWS_ARN', 'arn:aws:iam::123456789012:role/deploy')).toMatch(/^arn:aws:iam::123456789012:SYNTH/);
+    expect(synthesize('S3_BUCKET', 'my-app-bucket')).toMatch(/^synth-bucket-[a-z0-9]{12}$/);
+    expect(synthesize('GCP_API_KEY', 'AIzaABC')).toMatch(/^AIzaSYNTH[A-Za-z0-9]{30}$/);
+    expect(synthesize('GCP_SERVICE_ACCOUNT', 'a@b.iam.gserviceaccount.com')).toBe('synth-cloak@synth-project.iam.gserviceaccount.com');
+    expect(synthesize('AZURE_CONN_STRING', 'DefaultEndpointsProtocol=https;AccountName=x;AccountKey=y')).toMatch(/^DefaultEndpointsProtocol=https;AccountName=synth[a-z0-9]{6};AccountKey=SYNTH/);
+  });
   it('dsn preserves protocol and port', () => {
     const s = synthesizeDsn('postgres://alice:s3cr3t@db.prod.acme.com:5432/users');
     expect(s.startsWith('postgres://')).toBe(true);

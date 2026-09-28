@@ -38,4 +38,29 @@ describe('detectPass1', () => {
   it('throws loudly on invalid custom pattern', () => {
     expect(() => detectPass1('x', { secrets: true, envVars: true, pii: true }, [{ name: 'bad', pattern: '([', category: 'X', type: 'pii' }])).toThrow(/bad/);
   });
+  it('finds aws instance ids (short and long)', () => {
+    expect(cats('host i-0a1b2c3d4e5f67890 up')).toContain('AWS_INSTANCE_ID');
+    expect(cats('host i-12345678 up')).toContain('AWS_INSTANCE_ID');
+  });
+  it('finds aws arns', () => {
+    expect(cats('role arn:aws:iam::123456789012:role/deploy end')).toContain('AWS_ARN');
+    expect(cats('bucket arn:aws:s3:::my-bucket end')).toContain('AWS_ARN');
+  });
+  it('finds s3 buckets by uri and hostname, value is bare name', () => {
+    const ds = detectPass1('from s3://my-app-bucket/backups/x and my-app-bucket.s3.ap-south-1.amazonaws.com', { secrets: true, envVars: true, pii: true });
+    const buckets = ds.filter((d) => d.category === 'S3_BUCKET');
+    expect(buckets).toHaveLength(2);
+    for (const b of buckets) expect(b.value).toBe('my-app-bucket');
+  });
+  it('finds gcp api key and service account (beats generic email)', () => {
+    const key = `AIza${'A1B2C3D4E5F6G7H8I9J0KLMNOPQRSTUVWXY'}`;
+    expect(key.length).toBe(39);
+    expect(cats(`key ${key} end`)).toContain('GCP_API_KEY');
+    const ds = detectPass1('run as deployer@my-proj.iam.gserviceaccount.com now', { secrets: true, envVars: true, pii: true });
+    expect(ds).toHaveLength(1);
+    expect(ds[0].category).toBe('GCP_SERVICE_ACCOUNT');
+  });
+  it('finds azure connection string', () => {
+    expect(cats('conn DefaultEndpointsProtocol=https;AccountName=mystore;AccountKey=YWJjZA==;EndpointSuffix=core.windows.net end')).toContain('AZURE_CONN_STRING');
+  });
 });

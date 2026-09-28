@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { synthEmail, synthIpv4, synthPhoneE164, synthPhoneUS } from './pii.js';
 import { fakerFor } from './locale.js';
-import { synthAnthropic, synthAws, synthGithub, synthJwt, synthOpenAI, synthPem, synthStripe } from './secrets.js';
+import { synthAnthropic, synthAws, synthAwsArn, synthAwsInstanceId, synthAzureConn, synthGcpApiKey, synthGcpSa, synthGithub, synthJwt, synthOpenAI, synthPem, synthS3Bucket, synthStripe } from './secrets.js';
 import { synthesizeDsn } from './credentials.js';
 
 export function synthesize(category: string, original: string, locale = 'en'): string | null {
@@ -18,6 +18,12 @@ export function synthesize(category: string, original: string, locale = 'en'): s
     case 'STRIPE_KEY': return synthStripe(original.startsWith('rk_live_') ? 'rk_live_' : 'sk_live_');
     case 'JWT': return synthJwt();
     case 'PEM_KEY': return synthPem();
+    case 'AWS_INSTANCE_ID': return synthAwsInstanceId();
+    case 'AWS_ARN': return synthAwsArn(original);
+    case 'S3_BUCKET': return synthS3Bucket();
+    case 'GCP_API_KEY': return synthGcpApiKey();
+    case 'GCP_SERVICE_ACCOUNT': return synthGcpSa();
+    case 'AZURE_CONN_STRING': return synthAzureConn();
     case 'PERSON_NAME': return fk.person.fullName();
     case 'STREET_ADDRESS': return faker.location.streetAddress(true);
     case 'DATE_OF_BIRTH': return faker.date.birthdate().toISOString().slice(0, 10);
