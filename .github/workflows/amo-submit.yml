@@ -1,0 +1,42 @@
+name: amo-submit
+
+# Manual Firefox (AMO) submission: dispatch with a release tag ->
+# checks out the tag, rebuilds the extension, submits to AMO for review.
+# Requires AMO_JWT_ISSUER + AMO_JWT_SECRET (repo Settings → Secrets → Actions).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (vX.Y.Z) to submit to AMO'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/browser-extension
+      - name: submit to Firefox (AMO) for review
+        working-directory: packages/browser-extension
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx -y web-ext sign \
+            --source-dir . \
+            --channel listed \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --approval-timeout 0 \
+            --timeout 600000 \
+            --ignore-files 'datacloak-extension-*.zip' 'test' 'package.json' 'tsconfig.json' 'vitest.config.ts'
