@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "esbuild src/background.ts --bundle --format=esm --alias:@pratikw/detect=../detect/src/engine.ts --outfile=dist/background.js && esbuild src/content.ts --bundle --format=iife --outfile=dist/content.js && esbuild src/popup.ts --bundle --format=iife --alias:@pratikw/detect=../detect/src/engine.ts --outfile=dist/popup.js",
-    "package": "npm run build && rm -f datacloak-extension-*.zip && zip -r datacloak-extension-$npm_package_version.zip manifest.json popup.html popup.css fullpage.html fullpage.css shared.css dist icons",
+    "package": "npm run build && node scripts/package-chrome.js",
     "test": "vitest run"
   },
   "dependencies": {

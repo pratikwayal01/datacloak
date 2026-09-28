@@ -61,6 +61,9 @@ First-run tour overlay for new installs.
   tag input: validates `vX.Y.Z`, creates the tag, publishes npm,
   uploads the extension zip, creates the release shell; notes written
   manually afterwards.
+- **Chrome zip warning fix.** `npm run package` strips MV2-only
+  `background.scripts` for the Chrome artifact; source manifest keeps it
+  for Firefox/AMO.
 - MkDocs site (this page) + GitHub Pages deploy
 - Per-agent install matrix + `docs/harnesses.md`
 
