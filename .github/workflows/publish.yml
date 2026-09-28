@@ -90,3 +90,33 @@ jobs:
           ZIP="packages/browser-extension/datacloak-extension-${TAG#v}.zip"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
           gh release upload "$TAG" "$ZIP" --clobber
+
+  amo-submit:
+    needs: extension-asset
+    # Skipped until AMO API creds exist (repo Settings → Secrets → Actions).
+    if: ${{ secrets.AMO_JWT_ISSUER != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace packages/browser-extension
+      - name: submit to Firefox (AMO) for review
+        working-directory: packages/browser-extension
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx -y web-ext sign \
+            --source-dir . \
+            --channel listed \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --approval-timeout 0 \
+            --timeout 600000 \
+            --ignore-files 'datacloak-extension-*.zip' 'test' 'package.json' 'tsconfig.json' 'vitest.config.ts'
