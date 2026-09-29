@@ -72,6 +72,13 @@ describe('requestSite/removeSite', () => {
     expect(await requestSite('duck.ai', c)).toBe(false);
     expect(c.scripting.registerContentScripts).not.toHaveBeenCalled();
   });
+  it('remove tolerates required (manifest) permissions', async () => {
+    const { removeSite } = await import('../src/site-store.js');
+    const c = chromeish();
+    c.permissions.remove.mockRejectedValueOnce(new Error('You cannot remove required permissions.'));
+    await expect(removeSite('chatgpt.com', c)).resolves.toBeUndefined();
+    expect(c.permissions.remove).toHaveBeenCalledWith({ origins: ['https://chatgpt.com/*'] });
+  });
   it('removeSite removes permission and unregisters script', async () => {
     const c = chromeish();
     await removeSite('duck.ai', c);

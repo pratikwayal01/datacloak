@@ -105,7 +105,13 @@ export async function removeSite(host: string, chromeish: Chromeish, scheme?: Sc
   } catch {
     // Script was never registered (or already gone) — removal is still complete.
   }
-  await chromeish.permissions.remove({ origins: [pattern] });
+  try {
+    await chromeish.permissions.remove({ origins: [pattern] });
+  } catch {
+    // Required manifest permissions (built-in sites) cannot be removed —
+    // disable stays data-only via the `disabled` list, which the content
+    // script honors in shouldArmForSite.
+  }
 }
 
 export function upsertCustomSite(user: UserSites, host: string, enabled: boolean, scheme?: Scheme): UserSites {
