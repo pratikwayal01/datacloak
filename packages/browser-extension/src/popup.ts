@@ -468,13 +468,15 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
     el.dataset.bound = '1';
     el.addEventListener('change', () => onChange(el.checked));
   };
-  bindCheck('s-autodetect', (v) => { ui.autodetect = v; });
-  bindCheck('s-clipboard', (v) => { ui.clipboard = v; });
-  bindCheck('s-network', (v) => { ui.network = v; });
-  bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); });
-  bindCheck('s-notif', (v) => { ui.notif = v; });
-  bindCheck('s-review', (v) => { ui.review = v; });
-  bindCheck('s-pagebadge', (v) => { ui.pageBadge = v; });
+  // ponytail: settings autosave on every change (Save now only snapshots to profile).
+  const persistUi = (): void => { deps.setUiSettings({ ...ui }).catch(() => {}); };
+  bindCheck('s-autodetect', (v) => { ui.autodetect = v; persistUi(); });
+  bindCheck('s-clipboard', (v) => { ui.clipboard = v; persistUi(); });
+  bindCheck('s-network', (v) => { ui.network = v; persistUi(); });
+  bindCheck('s-blur', (v) => { ui.blur = v; renderVault(); persistUi(); });
+  bindCheck('s-notif', (v) => { ui.notif = v; persistUi(); });
+  bindCheck('s-review', (v) => { ui.review = v; persistUi(); });
+  bindCheck('s-pagebadge', (v) => { ui.pageBadge = v; persistUi(); });
   doc.querySelectorAll('.risk-btn').forEach((btn) => {
     if ((btn as HTMLElement).dataset.bound) return;
     (btn as HTMLElement).dataset.bound = '1';
@@ -489,7 +491,7 @@ export async function renderPopup(doc: Document, deps: PopupDeps, opts?: { fullP
   const styleSel = doc.getElementById('s-style') as HTMLSelectElement | null;
   if (styleSel && !styleSel.dataset.bound) {
     styleSel.dataset.bound = '1';
-    styleSel.addEventListener('change', () => { ui.style = styleSel.value; });
+    styleSel.addEventListener('change', () => { ui.style = styleSel.value; persistUi(); });
   }
 
   // Theme control — after the replacement-style row (real HTML), or

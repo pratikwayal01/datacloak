@@ -362,6 +362,20 @@ describe('settings + dev panels', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(state.ui.review).toBe(true);
   });
+  it('settings toggles autosave without footer Save', async () => {
+    skeleton();
+    const { deps, state } = fakeDeps();
+    await renderPopup(document, deps);
+    const review = document.getElementById('s-review') as HTMLInputElement;
+    review.checked = true;
+    review.dispatchEvent(new Event('change', { bubbles: true }));
+    const style = document.getElementById('s-style') as HTMLSelectElement;
+    style.value = 'token';
+    style.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(state.ui.review).toBe(true);
+    expect(state.ui.style).toBe('token');
+  });
   it('first run shows tour overlay; Got it persists and removes', async () => {
     skeleton();
     const { deps, state } = fakeDeps();
