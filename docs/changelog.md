@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.1 (extension)
+
+**Firefox (AMO) release.** Ships the `browser_specific_settings.gecko`
+ID (`strict_min_version 109.0`), background-scripts fallback, and
+`data_collection_permissions: none` that landed after the `v0.3.0` tag,
+plus the site-toggle fix for required host permissions and settings
+autosave. Submitted to AMO via the manual `amo-submit` workflow.
+
 ## v0.3.0 (detect, extension)
 
 **Typed custom entities (no regex).** Extension rows are now value + type
